@@ -57,6 +57,62 @@ def logaddexp(logx):
 # cross-validation likelihood
 #-------------------------------------------------
 
+def logkde(samples, data, variances, verbose=False):
+    """
+    a wrapper around actually computing the KDE estimate at a collection of samples
+    """
+    shape = samples.shape
+    if len(shape) in [1, 2]:
+
+        if len(shape)==1:
+            Nsamp = shape[0]
+            Ndim = 1
+            samples = samples.reshape((Nsamp,1))
+            data = data.reshape((len(data),1))
+           
+        else:
+            Nsamp, Ndim = samples.shape
+
+        if verbose:
+            print "bang"
+            print samples.shape
+            print data.shape
+
+        logkdes = np.empty(Nsamp, dtype='float')
+
+        if verbose:
+            raw_input(variances)
+        
+        twov = -0.5/variances
+        for i in xrange(Nsamp):
+            sample = samples[i]
+
+            zi = (data-sample)**2 * twov ### shape: (Nsamples, Ndim)
+            z = np.sum(zi, axis=1)       ### shape: (Nsamples)
+
+            if verbose:
+                if not np.all(zi[:,0]==z):
+                    print zi
+                    print z
+                    print sample
+                    print (data-sample)**2
+                    print twov
+
+            ### do this backflip to preserve accuracy
+            m = np.max(z)
+            logkdes[i] = np.log(np.sum(np.exp(z-m))) + m 
+
+        ### subtract off common factors
+        logkdes += -0.5*Ndim*np.log(2*np.pi) - 0.5*np.sum(np.log(variances))
+
+        if verbose:
+            raw_input(variances)
+        
+    else:
+        raise ValueError, 'bad shape for samples'
+
+    return logkdes
+
 def logleave1outLikelihood(data, variances):
     """
     computes the logLikelihood for how well this bandwidth produces a KDE that reflects p(data|B) using samples drawn from p(B|data)=p(data|B)*p(B)
@@ -79,14 +135,15 @@ def logleave1outLikelihood(data, variances):
 
         truth[i-1] = True
         truth[i] = False
+
+        ### compute logLikelihood
+        logL[i] = logkde(np.array([data[i]]), data[truth], variances)[0]
+
+        ### compute gradient of logLikelihood
+        ### NOTE: this repeats some work that's done within delegation to logkde, but that's probably fine
         zi = (data[truth]-sample)**2 * twov ### shape: (Nsamples, Ndim)
         z = np.sum(zi, axis=1)       ### shape: (Nsamples)
 
-        ### compute logLikelihood
-        m = np.max(z)
-        logL[i] = np.log(np.sum(np.exp(z-m))) + m ### do this backflip to maintain precision
-
-        ### compute gradient of logLikelihood
         x = np.sum(np.exp(z)*(-zi/variances).transpose(), axis=1)
         y = np.exp(logL[i])
 
@@ -99,12 +156,10 @@ def logleave1outLikelihood(data, variances):
             grad_logL[i,:] = twov + x/y
 
     ### add in constant terms to logL
-    constant = -0.5*Ndim*np.log(2*np.pi) - 0.5*np.sum(np.log(variances)) - np.log(Nsamples-1)
-    logL += constant
+    logL -= np.log(Nsamples-1) ### take the average as needed
 
     #        scalar        scalar           vector: (Ndim, Ndim)       matrix: (Ndim, Ndim)
     return np.mean(logL), np.var(logL), np.mean(grad_logL, axis=0), np.cov(grad_logL, rowvar=0)
-
 
 #-------------------------------------------------
 # methods for computing marginal likelihoods
@@ -172,6 +227,8 @@ def compute_marginalLikelihood(post_data, prior_data):
 
     ### this should be a less precise but possibly easier to debug version
 #    return np.log(np.sum(np.exp(-0.5*np.sum(post_vec - prior_vec)**2/bandwidth, axis=-1) / (2*np.pi*bandwidth)**(Nparams/2.) / pgw_vec, axis=-1) / Npost) # shape = (Nprior,)
+
+#---
 
 def logpgw(lambda1, lambda2, m1, m2):
     """
