@@ -1,0 +1,174 @@
+#!/usr/bin/env python
+
+__doc__ = "finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space"
+__usage__ = "investigate_bandwidth [--options] samples.csv column1 [column2 column3...]"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_option('-b', '--bandwidth', default=[], type='float', action='append',
+    help='the bandwidth (standard deviation) used within the Gaussian KDE. \
+User can investigate multiple bandwidths by repeating this option. \
+DEFAULT=[]')
+
+parser.add_option('', '--downsample', default=None, type='int',
+    help='randomly downsample data so it only includes --downsample samples. \
+Note, downselection is done **after whitening** so that we always whiten with the same transformation. \
+DEFAULT is to use all available samples.')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
+inpath = args[0]
+columns = args[1:]
+Ncol = len(columns)
+
+assert len(opts.bandwidth), 'please supply at least 1 bandwidth\n%s'%__usage__
+opts.bandwidth = sorted(opts.bandwidth)
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+#-------------------------------------------------
+
+### read in data from csv
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+Nsamp = len(data)
+
+if opts.verbose:
+    print('Nsamples = %d'%Nsamp)
+    if Ncol > 1:
+        print(('Covar\n  '+' '.join(['%-10s']*Ncol))%tuple(columns))
+        for row in np.cov(data, rowvar=0):
+            print(('  '+' '.join(['%+02.3e']*Ncol)))%tuple(row)
+    else:
+        print('Covar\n  %-10s'%columns[0])
+        print('  %+02.3e'%np.std(data))
+
+# whiten data so a single bandwidth makes more sense
+data, means, stds = utils.whiten(data, verbose=opts.verbose)
+
+if opts.downsample!=None:
+    if opts.verbose:
+        print('downsampling to %d samples'%opts.downsample)
+    data = utils.downsample(data, opts.downsample)
+
+#------------------------
+
+### iterate over bandwidths and compute things like log(likelihood) and grad(log(likelihood))
+if opts.verbose:
+    print('analyzing bandwidths')
+
+metrics = dict()
+v = np.empty(Ncol, dtype='float')
+for b in opts.bandwidth:
+    if opts.verbose:
+        print('  b=%.3e'%b)
+
+    v[:] = b**2 ### convert standard deviation into variances. 
+                ### Assume diagonal covariance matrix with the same value throughout
+    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v)
+    metrics[b] = {
+        'mean_logL' : mlogL,
+        'stdv_logL' : vlogL**0.5,
+        'mean_dlogLdlogb' : 2*v[0]*np.sum(mdlogLdvp), ### this makes sense because of our assumption that all variances are the same...
+        'stdv_dlogLdlogb' : 2*v[0]*(np.sum(vdlogLdvp))**0.5,  ### this is also correct assuming all variances are the same
+    }
+
+    if opts.verbose:
+        print('''\
+    mean_logL = %(mean_logL)+.6e
+    stdv_logL = %(stdv_logL)+.6e
+    mean_dlogLdlogb = %(mean_dlogLdlogb)+.6e
+    stdv_dlogLdlogb = %(stdv_dlogLdlogb)+.6e'''%metrics[b])
+
+#------------------------
+### generate plots/visualizations representing results
+
+if opts.verbose:
+    print('plotting')
+
+#--- likelihood vs bandwidth
+
+fig = plt.figure()
+ax_logL = plt.subplot(2,1,1)
+ax_glogL = plt.subplot(2,1,2)
+
+#norm = Nsamp**-0.5 ### normalization for how I expect the std to scale
+                   ### we compute it based on single-event validation sets, and we have Nsamp of those
+# plot results for each bandwidth
+for b in opts.bandwidth:
+   d = metrics[b]
+   mlogL = d['mean_logL']
+   slogL = d['stdv_logL']#*norm
+   mglogL = d['mean_dlogLdlogb']
+   sglogL = d['stdv_dlogLdlogb']#*norm
+
+   color = ax_logL.semilogx([b]*2, [mlogL-slogL, mlogL+slogL], alpha=0.75)[0].get_color()
+   ax_logL.semilogx(b, mlogL, marker='o', color=color)
+
+   ax_glogL.semilogx([b]*2, [mglogL-sglogL, mglogL+sglogL], alpha=0.75, color=color)
+   ax_glogL.semilogx([b], mglogL, marker='o', color=color)
+
+# decorate
+xlim = opts.bandwidth[0]/1.1, opts.bandwidth[-1]*1.1
+for ax in [ax_logL, ax_glogL]:
+    ax.set_xlim(xlim)
+    ax.grid(True, which='both')
+
+ymin, ymax = ax_logL.get_ylim()
+ax_logL.set_ylim(ymin=ymin-0.5, ymax=ymax+0.5)
+
+ymin, ymax = ax_glogL.get_ylim()
+ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
+
+plt.setp(ax_logL.get_xticklabels(), visible=False)
+ax_glogL.set_xlabel('$\log b$')
+
+ax_logL.set_ylabel('$\log L$')
+ax_glogL.set_ylabel(r'$\left.d \log L\right/d \log b$')
+
+# save
+figname = os.path.join(opts.output_dir, 'investigate_bandwidth%s.png'%opts.tag)
+if opts.verbose:
+    print('saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)
+
+#--- visualization of resulting KDEs...
+
+#raise NotImplementedError, '''\
+#plot representations of the samples in something like a home-grown corner plot for each bandwidth
+#    -> plot a surface generated by evaluating the KDE on a grid (may scale poorly...)
+#    -> scatter plot the samples as points
+#'''

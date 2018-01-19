@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+
+__doc__ = 'converts a LALInference.dat file into a more standard CSV format similar to what Phil produces'
+__usage__ = 'lalinf2csv input.dat [output.csv]'
+__author__ = 'reed.essick@ligo.org'
+
+#-------------------------------------------------
+
+import numpy as np
+
+from optparse import OptionParser
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+opts, args = parser.parse_args()
+
+n = len(args)
+assert n in [1,2], 'please supply at least 1 input argument\n%s'%__usage__
+inpath = args[0]
+if n==2:
+    outpath = args[1]
+else:
+    outpath = '.'.join(args[0].split('.')[:-1]+['csv'])
+
+assert outpath!=inpath, 'output filename is identical to input filename!'
+
+#-------------------------------------------------
+
+### read input file
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data = np.genfromtxt(inpath, names=True)
+
+### write output file
+if opts.verbose:
+    print('writing samples to: '+outpath)
+with open(outpath, 'w') as file_obj:
+    fields = data.dtype.fields.keys()
+    print >> file_obj, ','.join(fields)
+    for sample in data:
+        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
