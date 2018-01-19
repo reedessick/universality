@@ -64,7 +64,7 @@ if opts.verbose:
     print('plotting')
 fig = corner.corner(
     data,
-    labels=columns,
+    labels=['$%s$'%c for c in columns],
 )
 figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)
 if opts.verbose:

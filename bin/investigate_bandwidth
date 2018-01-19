@@ -237,12 +237,12 @@ for b in opts.bandwidth:
             if row!=(Ncol-1):
                 plt.setp(ax.get_xticklabels(), visible=False)
             else:
-                ax.set_xlabel(columns[col])
+                ax.set_xlabel('$%s$'%columns[col])
 
             if col!=0 or row==0: #!=0
                 plt.setp(ax.get_yticklabels(), visible=False)
             else:
-                ax.set_ylabel(columns[row])
+                ax.set_ylabel('$%s$'%columns[row])
 
             ax.grid(True, which='both')
             plt.setp(ax.get_xticklabels(), rotation=45)
@@ -251,7 +251,14 @@ for b in opts.bandwidth:
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)
-    plt.subplots_adjust(hspace=0.1, wspace=0.1)
+    plt.subplots_adjust(
+        hspace=0.1,
+        wspace=0.1,
+        left=0.11,
+        right=0.98,
+        bottom=0.13,
+        top=0.95,
+    )
 
     # save
     figname = os.path.join(opts.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, opts.tag))
