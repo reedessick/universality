@@ -57,7 +57,7 @@ def logaddexp(logx):
 # cross-validation likelihood
 #-------------------------------------------------
 
-def logkde(samples, data, variances, verbose=False):
+def logkde(samples, data, variances, verbose=False, weights=None):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples
     """
@@ -73,56 +73,45 @@ def logkde(samples, data, variances, verbose=False):
         else:
             Nsamp, Ndim = samples.shape
 
-        if verbose:
-            print "bang"
-            print samples.shape
-            print data.shape
+        if weights==None:
+            Ndata = len(data)
+            weights = np.ones(Ndata, dtype='float')/Ndata
 
         logkdes = np.empty(Nsamp, dtype='float')
-
-        if verbose:
-            raw_input(variances)
-        
         twov = -0.5/variances
         for i in xrange(Nsamp):
             sample = samples[i]
 
-            zi = (data-sample)**2 * twov ### shape: (Nsamples, Ndim)
-            z = np.sum(zi, axis=1)       ### shape: (Nsamples)
-
-            if verbose:
-                if not np.all(zi[:,0]==z):
-                    print zi
-                    print z
-                    print sample
-                    print (data-sample)**2
-                    print twov
+            zi = (data-sample)**2 * twov ### shape: (Ndata, Ndim)
+            z = np.sum(zi, axis=1)       ### shape: (Ndata)
 
             ### do this backflip to preserve accuracy
             m = np.max(z)
-            logkdes[i] = np.log(np.sum(np.exp(z-m))) + m 
+            logkdes[i] = np.log(np.sum(weights*np.exp(z-m))) + m 
 
         ### subtract off common factors
         logkdes += -0.5*Ndim*np.log(2*np.pi) - 0.5*np.sum(np.log(variances))
 
-        if verbose:
-            raw_input(variances)
-        
     else:
         raise ValueError, 'bad shape for samples'
 
     return logkdes
 
-def logleave1outLikelihood(data, variances):
+def logleave1outLikelihood(data, variances, weights=None):
     """
     computes the logLikelihood for how well this bandwidth produces a KDE that reflects p(data|B) using samples drawn from p(B|data)=p(data|B)*p(B)
 
     assumes data's shape is (Nsamples, Ndim)
     assumes variances's shape is (Ndim,) -> a diagonal covariance matrix
 
+    assumes weights' shape is (Nsamples,) and must be normalized so sum(weights)=1
+
     returns mean(logL), var(logL), mean(grad_logL), covar(dlogL/dvp)
     """
     Nsamples, Ndim = data.shape
+
+    if weights==None:
+        weights = np.ones(Nsamples, dtype='float')/Nsamples
 
     logL = np.empty(Nsamples, dtype='float')
     grad_logL = np.empty((Nsamples, Ndim), dtype='float')
@@ -137,14 +126,14 @@ def logleave1outLikelihood(data, variances):
         truth[i] = False
 
         ### compute logLikelihood
-        logL[i] = logkde(np.array([data[i]]), data[truth], variances)[0]
+        logL[i] = logkde(np.array([data[i]]), data[truth], variances, weights=weights[truth])[0]
 
         ### compute gradient of logLikelihood
         ### NOTE: this repeats some work that's done within delegation to logkde, but that's probably fine
         zi = (data[truth]-sample)**2 * twov ### shape: (Nsamples, Ndim)
         z = np.sum(zi, axis=1)       ### shape: (Nsamples)
 
-        x = np.sum(np.exp(z)*(-zi/variances).transpose(), axis=1)
+        x = np.sum((weights[truth]*np.exp(z))*(-zi/variances).transpose(), axis=1)
         y = np.exp(logL[i])
 
         if y==0:
@@ -158,8 +147,14 @@ def logleave1outLikelihood(data, variances):
     ### add in constant terms to logL
     logL -= np.log(Nsamples-1) ### take the average as needed
 
-    #        scalar        scalar           vector: (Ndim, Ndim)       matrix: (Ndim, Ndim)
-    return np.mean(logL), np.var(logL), np.mean(grad_logL, axis=0), np.cov(grad_logL, rowvar=0)
+    ### compute statistics
+    mlogL = np.mean(weights*logL) # scalar
+    vlogL = np.var(weights*logL)  # scalar
+
+    mglogL = np.mean(weights*grad_logL.transpose(), axis=1)  # vector: (Ndim,)
+    vglogL = np.cov(weights*grad_logL.transpose(), rowvar=1) # matrix: (Ndim, Ndim)
+
+    return mlogL, vlogL, mglogL, vglogL
 
 #-------------------------------------------------
 # methods for computing marginal likelihoods

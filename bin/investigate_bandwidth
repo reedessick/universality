@@ -177,7 +177,8 @@ if opts.verbose:
     print('visualization of KDE for each bandwidth')
 
 vects = [np.linspace(np.min(data[:,i]), np.max(data[:,i]), opts.num_points) for i in xrange(Ncol)]
-bounds = [(np.min(vect), np.max(vect)) for vect in vects]
+bounds = [np.array([np.min(vect), np.max(vect)]) for vect in vects]
+
 N = len(data)
 Nbins = int(N**0.5)
 v = np.empty(Ncol, dtype='float')
@@ -215,21 +216,22 @@ for b in opts.bandwidth:
             if row==col:
                 # marginalized KDD
                 oned = np.sum(kde, axis=tuple(i for i in xrange(Ncol) if i!=col))
-                oned /= np.sum(oned)*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
-                ax.plot(vects[col], oned)
+                oned /= np.sum(oned)*stds[col]*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
+                ax.plot(means[col]+stds[col]*vects[col], oned)
 
                 # direct histogram
-                ax.hist(data[:,col], bins=Nbins, histtype='step', color='k', normed=True)
+                ax.hist(means[col]+stds[col]*data[:,col], bins=Nbins, histtype='step', color='k', normed=True)
 
             else:
                 twod = np.sum(kde, axis=tuple(i for i in xrange(Ncol) if (i!=col) and (i!=row)))
-                twod /= np.sum(twod)*(vects[col][1]-vects[col][0])*(vects[row][1]-vects[row][0]) # normalize kde
+                twod /= np.sum(twod)*stds[col]*(vects[col][1]-vects[col][0])*stds[row]*(vects[row][1]-vects[row][0]) # normalize kde
 
-                ax.contour(vects[col], vects[row], twod.transpose())
+                ax.contour(means[col]+stds[col]*vects[col], means[row]+stds[row]*vects[row], twod.transpose())
 
                 # direct scatter plot
-                ax.scatter(data[:,col], data[:,row], marker='o', s=1, alpha=0.25, color='k')
-                ax.set_ylim(bounds[row]) ### only set this if it is a 2D scatter plot!
+                ax.scatter(means[col]+stds[col]*data[:,col], means[row]+stds[row]*data[:,row], marker='o', s=1, alpha=min(1, 500./N), color='k')
+
+                ax.set_ylim(means[row]+stds[row]*bounds[row]) ### only set this if it is a 2D scatter plot!
 
             # decorate                
             if row!=(Ncol-1):
@@ -243,8 +245,9 @@ for b in opts.bandwidth:
                 ax.set_ylabel(columns[row])
 
             ax.grid(True, which='both')
+            plt.setp(ax.get_xticklabels(), rotation=45)
 
-            ax.set_xlim(bounds[col])
+            ax.set_xlim(means[col]+stds[col]*bounds[col])
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)
