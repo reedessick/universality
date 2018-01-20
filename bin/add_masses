@@ -44,9 +44,10 @@ Mc = (m1*m2)**0.6/Mtot**0.2
 if opts.verbose:
     print('writing: '+outpath)
 
-fields = data.dtype.fields.keys() + ['m1', 'm2', 'Mc']
+fields = data.dtype.fields.keys()
+newfields = ['m1', 'm2', 'Mc']
 with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(fields)
-    for sample in zip(data, m1, m2, Mc):
-        sample = list(sample[0])+list(sample[1:])
+    print >> file_obj, ','.join(fields+newfields)
+    for sample, M1, M2, M3 in zip(data, m1, m2, Mc):
+        sample = list(sample[f] for f in fields)+[M1, M2, M3]
         print >> file_obj, ','.join('%.9e'%_ for _ in sample)
