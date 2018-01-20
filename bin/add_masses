@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+__usage__ = "add_masses input.csv [output.csv]"
+__doc__ = "read in Phil's csv files and add in columns for component masses and chirp mass. If outpath is not provided, will overwrite inpath in place"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from optparse import OptionParser
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+opts, args = parser.parse_args()
+N = len(args)
+assert N in [1, 2], 'please supply either 1 or 2 input arguments\n%s'%__usage__
+inpath = args[0]
+if N==2:
+    outpath = args[1]
+else:
+    outpath = inpath
+
+#-------------------------------------------------
+
+if opts.verbose:
+    print('loading: '+inpath)
+data = np.genfromtxt(inpath, names=True, delimiter=',')
+
+if opts.verbose:
+    print('computing additional mass parameters')
+Mtot = data['Mtot']
+q = data['q']
+
+m1 = Mtot/(1.+q)
+m2 = q*m1
+
+Mc = (m1*m2)**0.6/Mtot**0.2
+
+if opts.verbose:
+    print('writing: '+outpath)
+
+fields = data.dtype.fields.keys() + ['m1', 'm2', 'Mc']
+with open(outpath, 'w') as file_obj:
+    print >> file_obj, ','.join(fields)
+    for sample in zip(data, m1, m2, Mc):
+        sample = list(sample[0])+list(sample[1:])
+        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
