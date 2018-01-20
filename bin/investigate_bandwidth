@@ -176,31 +176,18 @@ plt.close(fig)
 if opts.verbose:
     print('visualization of KDE for each bandwidth')
 
-vects = [np.linspace(np.min(data[:,i]), np.max(data[:,i]), opts.num_points) for i in xrange(Ncol)]
-bounds = [np.array([np.min(vect), np.max(vect)]) for vect in vects]
+vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), opts.num_points) for i in xrange(Ncol)])
+bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
 
 N = len(data)
-Nbins = int(N**0.5)
+Nbins = max(10, int(N**0.5)/2)
 v = np.empty(Ncol, dtype='float')
 
-# iterate through and compute the kde at each grid point for each bandwidth
-shape = tuple([opts.num_points for _ in xrange(Ncol)])
-
-# generate grid points for hyper-cube
-if Ncol==1:
-    samples = vects[0].reshape((opts.num_points,1))
-
-else:
-    samples = np.transpose([_.flatten() for _ in np.meshgrid(*vects, indexing='ij')])
-    
-assert np.all(samples==samples)
+truth =  np.empty(Ncol, dtype=bool) # used to index data within loop
+shape = (opts.num_points, opts.num_points) # used to reshape 2D sampling kdes
 
 for b in opts.bandwidth:
     v[:] = b**2
-    if opts.verbose:
-        print('  computing kde for b=%.3e'%b)
-    kde = utils.logkde(samples, data, v).reshape(shape)
-    kde = np.exp(kde-np.max(kde))
 
     # actually generate figure
     if opts.verbose:
@@ -212,26 +199,40 @@ for b in opts.bandwidth:
         for col in xrange(row+1): ### only plot the lower-left triangle
             ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
 
+            truth[:] = False
+
             # actually plot
             if row==col:
-                # marginalized KDD
-                oned = np.sum(kde, axis=tuple(i for i in xrange(Ncol) if i!=col))
-                oned /= np.sum(oned)*stds[col]*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
-                ax.plot(means[col]+stds[col]*vects[col], oned)
+                # marginalized KDE
+                truth[col] = True
+
+                kde = utils.logkde(vects[col], data[:,truth], v[col])
+                kde = np.exp(kde-np.max(kde))
+
+                kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
+                ax.plot(means[col]+stds[col]*vects[col], kde)
 
                 # direct histogram
                 ax.hist(means[col]+stds[col]*data[:,col], bins=Nbins, histtype='step', color='k', normed=True)
 
             else:
-                twod = np.sum(kde, axis=tuple(i for i in xrange(Ncol) if (i!=col) and (i!=row)))
-                twod /= np.sum(twod)*stds[col]*(vects[col][1]-vects[col][0])*stds[row]*(vects[row][1]-vects[row][0]) # normalize kde
+                # marginalized KDE
+                truth[row] = True
+                truth[col] = True
 
-                ax.contour(means[col]+stds[col]*vects[col], means[row]+stds[row]*vects[row], twod.transpose())
+                kde = utils.logkde(np.transpose([_.flatten() for _ in np.meshgrid(vects[col], vects[row], indexing='ij')]), data[:,truth], v[truth])
+                kde = np.exp(kde-np.max(kde)).reshape(shape)
+
+                kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0])*stds[row]*(vects[row][1]-vects[row][0]) # normalize kde
+
+                ax.contour(means[col]+stds[col]*vects[col], means[row]+stds[row]*vects[row], kde.transpose())
 
                 # direct scatter plot
                 ax.scatter(means[col]+stds[col]*data[:,col], means[row]+stds[row]*data[:,row], marker='o', s=1, alpha=min(1, 500./N), color='k')
 
-                ax.set_ylim(means[row]+stds[row]*bounds[row]) ### only set this if it is a 2D scatter plot!
+                # decorate a bit here
+                # only set this if it is a 2D scatter plot!
+                ax.set_ylim(means[row]+stds[row]*bounds[row])
 
             # decorate                
             if row!=(Ncol-1):
