@@ -153,11 +153,11 @@ for ax in [ax_logL, ax_glogL]:
     ax.set_xlim(xlim)
     ax.grid(True, which='both')
 
-ymin, ymax = ax_logL.get_ylim()
-ax_logL.set_ylim(ymin=ymin-0.5, ymax=ymax+0.5)
+#ymin, ymax = ax_logL.get_ylim()
+#ax_logL.set_ylim(ymin=ymin-0.5, ymax=ymax+0.5)
 
-ymin, ymax = ax_glogL.get_ylim()
-ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
+#ymin, ymax = ax_glogL.get_ylim()
+#ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
 
 plt.setp(ax_logL.get_xticklabels(), visible=False)
 ax_glogL.set_xlabel('$\log b$')

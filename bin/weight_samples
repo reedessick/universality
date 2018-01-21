@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv."
+__author__ = "reed.essick@ligo.org"
+__usage__ = "weight_samples [--options] source_samples.csv target_samples.csv output_samples.csv"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+
+parser.add_option('', '--weight-column-is-log', default=False, type='string',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_option('-b', '--bandwidth', default=0.03, type='float',
+    help='the bandwidth (standard deviation) used within the Gaussian KDE over whitened data. \
+DEFAULT=0.03')
+
+opts, args = parser.parse_args()
+assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
+srcpath, tgtpath, outpath = args[:3]
+columns = args[3:]
+Ncols = len(columns)
+
+#-------------------------------------------------
+
+### read in source samples
+if opts.verbose:
+    print('reading source samples from: '+srcpath)
+srcdata, columns = utils.load(srcpath, columns, logcolumns=opts.logcolumn)
+srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=opts.verbose) ### whiten data
+
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+srcpath)
+    weights, _ = utils.load(srcpath, verbose=opts.verbose)
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    N = len(srcdata)
+    weights = np.ones(N, dtype='float')/N
+
+#------------------------
+
+### read in target samples
+if opts.verbose:
+    print("reading in target samples from: "+tgtpath)
+tgtdata, columns = utils.load(targetpath, columns, logcolumns=opts.logcolumns)
+for i in xrange(Ncols): ### whiten the target data with the same transformation used for source data
+    tgtdata[:,i] = (tgtdata[:,i]-srcmeans[i])/srcstds[i]
+
+#-------------------------------------------------
+
+if opts.verbose:
+    print('computing weighted KDE at samples from %s based on samples from %s'%(tgtpath, srcpath))
+logkde = utils.logkde(tgtdata, srcdata, variances, weights=weights)
+
+if opts.verbose:
+    print('writing results into: '+outpath)
+with open(outpath, 'w') as file_obj:
+    print >> file_obj, ','.join(columns+['logweights'])
+    for sample, logweight in zip(tgtdata, logkde):
+        print >> file_obj, ','.join('%9e'%_ for _ in list(sample)+[logweight])

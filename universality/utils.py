@@ -57,7 +57,7 @@ def logaddexp(logx):
 # cross-validation likelihood
 #-------------------------------------------------
 
-def logkde(samples, data, variances, verbose=False, weights=None):
+def logkde(samples, data, variances, weights=None):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples
     """
@@ -131,10 +131,12 @@ def logleave1outLikelihood(data, variances, weights=None):
         ### compute gradient of logLikelihood
         ### NOTE: this repeats some work that's done within delegation to logkde, but that's probably fine
         zi = (data[truth]-sample)**2 * twov ### shape: (Nsamples, Ndim)
-        z = np.sum(zi, axis=1)       ### shape: (Nsamples)
+        z = np.sum(zi, axis=1)              ### shape: (Nsamples)
 
-        x = np.sum((weights[truth]*np.exp(z))*(-zi/variances).transpose(), axis=1)
-        y = np.exp(logL[i])
+        m = np.max(z)
+        z = weights[truth]*np.exp(z-m)
+        y = np.sum(z)
+        x = np.sum(z*(-zi/variances).transpose(), axis=1)
 
         if y==0:
             if np.all(x==0):
@@ -155,79 +157,3 @@ def logleave1outLikelihood(data, variances, weights=None):
     vglogL = np.cov(weights*grad_logL.transpose(), rowvar=1) # matrix: (Ndim, Ndim)
 
     return mlogL, vlogL, mglogL, vglogL
-
-#-------------------------------------------------
-# methods for computing marginal likelihoods
-#-------------------------------------------------
-
-def compute_marginalLikelihood(post_data, prior_data):
-    """
-    expects post_data to be a structured array with (at least) the following fields
-        lambda1
-        labmda1
-        m1
-        m2
-
-    expects prior_data to be a structured array with (at least) the following fields
-        lambda1
-        lambda2
-        m1
-        m2
-        p1
-        gamma1
-        gamma2
-        gamma3
-
-    should return a 1D array with lenght=len(prior_data)
-
-    assumes a ***flat prior*** in the GW analysis over
-        m1, m2, lambda1, lambda2
-    separately. Really, prior on m2 is conditional on m1, but it is flat regardless
-
-    Defining
-        A = p1, gamma1, gamma2, gamma3
-        B = m1, m2, lambda1, lambda2
-
-    computes
-        p(data|A_i) = \int dB [ p(data|B) * p(B|A) ]
-                    = sum_j [ KDE(B_j, B(A_i); bandwidth) / pgw(B_j) ]
-
-    where
-        KDE(B_j, B(A_i); bandwidth) is the KDE approximation of the conditional probability associated with the mapping A->B
-        pgw(B_j) is the value of the prior used in the GW analysis
-        B_j are drawn from the GW posterior, which is proportional to p(data|B)*p(B)
-
-    performs some cross validation to determine an optimal value of the bandwidth used within the Gaussian KDE
-    """
-    bandwidth = np.array([0.1, 0.1, 0.1, 0.1]) ### FIXME pick something better, or do shit adaptively
-    params = ['lambda1', 'lambda2', 'm1', 'm2']
-
-    # record sizes
-    Nparams = len(params)
-    Npost = len(post_data)
-    Nprior = len(prior_data)
-
-    # extract interesting parameters
-    post_vec = np.transpose([post_data[param] for param in params]) # shape = (Npost, Nparams)
-    prior_vec = np.transpose([prior_data[param] for param in params]) # shape = (Nprior, Nparams)
-    logpgw_vec = logpgw(post_data['lambda1'], post_data['labmda2'], post_data['m1'], post_data['m2']) # shape = (Npost,)
-
-    # compute big ol' arrays with shape = (Nprior, Npost, Nparams)
-    post_vec = np.outer(np.ones(Nprior), post_vec.flatten()).reshape((Nprior, Npost, Nparams)) # shape = (Nprior, Npost, Nparams)
-    prior_vec = np.outer(prior_vec.flatten(), np.ones(Npost)).reshape((Nprior, Nparams, Npost)).transpose(0,2,1) # shape = (Nprior, Npost, Nparams)
-    pgw_vec = np.outer(np.ones(Nprior), pgw_vec).reshape((Nprior, Npost)) # shape = (Nprior, Npost)
-
-    ### compute the difference, take the 
-    return logaddexp(-0.5*np.sum((post_vec - prior_vec)**2/bandwidth, axis=-1) - (Nparams/2.)*np.log(2*np.pi) - 0.5*np.sum(np.log(bandwidth)) - logpgw_vec) - np.log(Npost) # shape = (Nprior,)
-
-    ### this should be a less precise but possibly easier to debug version
-#    return np.log(np.sum(np.exp(-0.5*np.sum(post_vec - prior_vec)**2/bandwidth, axis=-1) / (2*np.pi*bandwidth)**(Nparams/2.) / pgw_vec, axis=-1) / Npost) # shape = (Nprior,)
-
-#---
-
-def logpgw(lambda1, lambda2, m1, m2):
-    """
-    proportional to the prior assigned in the GW analysis to the parameters
-        lambda1, lambda2, m1, m2
-    """
-    return 0
