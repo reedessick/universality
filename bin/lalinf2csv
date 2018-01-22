@@ -33,13 +33,8 @@ assert outpath!=inpath, 'output filename is identical to input filename!'
 ### read input file
 if opts.verbose:
     print('reading samples from: '+inpath)
-data = np.genfromtxt(inpath, names=True)
-
-### write output file
-if opts.verbose:
     print('writing samples to: '+outpath)
-with open(outpath, 'w') as file_obj:
-    fields = data.dtype.fields.keys()
-    print >> file_obj, ','.join(fields)
-    for sample in data:
-        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
+with open(inpath, 'r') as infile:
+    with open(outpath, 'w') as outfile:
+        for line in infile:
+            outfile.write(','.join(line.strip().split())+'\n')
