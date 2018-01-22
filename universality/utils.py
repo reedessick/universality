@@ -9,17 +9,23 @@ import numpy as np
 # basic utilities
 #-------------------------------------------------
 
-def load(inpath, columns, logcolumns=[]):
+def load(inpath, columns=[], logcolumns=[]):
     data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
 
     # check that all requested columns are actually in the data
-    for column in columns:
-        assert column in data.dtype.fields, 'column=%s not in %s'%(column, inpath)
+    if columns:
+        check_columns(data.dtype.fields.keys(), columns)
+    else:
+        columns = data.dtype.fields.keys()
 
     # downselect data to what we actually want
     return \
         np.transpose([np.log(data[column]) if column in logcolumns else data[column] for column in columns]), \
         ['log(%s)'%column if column in logcolumns else column for column in columns]
+
+def check_columns(present, required):
+    for column in required:
+        assert column in present, 'required column=%s is missing!'%column
 
 def whiten(data, verbose=False):
     means = np.mean(data, axis=0)
@@ -42,7 +48,7 @@ def downsample(data, n):
     while np.sum(truth) < n:
         truth[np.random.randint(0, N-1)] = True ### FIXME: this could be pretty wasteful...
 
-    return data[truth]
+    return data[truth], truth
 
 def logaddexp(logx):
     '''

@@ -44,6 +44,11 @@ parser.add_option('', '--num-points', default=101, type='int',
 NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
 DEFAULT=101')
 
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -86,7 +91,28 @@ data, means, stds = utils.whiten(data, verbose=opts.verbose)
 if opts.downsample!=None:
     if opts.verbose:
         print('downsampling to %d samples'%opts.downsample)
-    data = utils.downsample(data, opts.downsample)
+    data, truth = utils.downsample(data, opts.downsample)
+
+#------------------------
+
+### load in weights
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+
+    if opts.downsample:
+        weights = weights[truth]
+
+    weights /= np.sum(weights)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype='float')/N
 
 #------------------------
 
@@ -102,7 +128,7 @@ for b in opts.bandwidth:
 
     v[:] = b**2 ### convert standard deviation into variances. 
                 ### Assume diagonal covariance matrix with the same value throughout
-    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v)
+    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v, weights=weights)
     metrics[b] = {
         'mean_logL' : mlogL,
         'stdv_logL' : vlogL**0.5,
@@ -206,7 +232,7 @@ for b in opts.bandwidth:
                 # marginalized KDE
                 truth[col] = True
 
-                kde = utils.logkde(vects[col], data[:,truth], v[col])
+                kde = utils.logkde(vects[col], data[:,truth], v[col], weights=weights)
                 kde = np.exp(kde-np.max(kde))
 
                 kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
@@ -220,7 +246,7 @@ for b in opts.bandwidth:
                 truth[row] = True
                 truth[col] = True
 
-                kde = utils.logkde(np.transpose([_.flatten() for _ in np.meshgrid(vects[col], vects[row], indexing='ij')]), data[:,truth], v[truth])
+                kde = utils.logkde(np.transpose([_.flatten() for _ in np.meshgrid(vects[col], vects[row], indexing='ij')]), data[:,truth], v[truth], weights=weights)
                 kde = np.exp(kde-np.max(kde)).reshape(shape)
 
                 kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0])*stds[row]*(vects[row][1]-vects[row][0]) # normalize kde

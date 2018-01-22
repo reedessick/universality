@@ -31,6 +31,11 @@ parser.add_option('', '--logcolumn', default=[], type='string', action='append',
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
 parser.add_option('', '--whiten', default=False, action='store_true')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
@@ -58,6 +63,20 @@ data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
 if opts.whiten:
     data, means, stds = utils.whiten(data, verbose=opts.verbose)
 
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype='float')/N
+
 #------------------------
 
 if opts.verbose:
@@ -65,6 +84,7 @@ if opts.verbose:
 fig = corner.corner(
     data,
     labels=['$%s$'%c for c in columns],
+    weights=weights,
 )
 figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)
 if opts.verbose:

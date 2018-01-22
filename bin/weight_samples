@@ -2,7 +2,7 @@
 
 __doc__ = "a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv."
 __author__ = "reed.essick@ligo.org"
-__usage__ = "weight_samples [--options] source_samples.csv target_samples.csv output_samples.csv"
+__usage__ = "weight_samples [--options] source_samples.csv target_samples.csv output_samples.csv column1 [column2 column3...]"
 
 #-------------------------------------------------
 
@@ -28,7 +28,7 @@ DEFAULT=[]')
 
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_option('', '--weight-column-is-log', default=False, type='string',
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 parser.add_option('', '--invert-weight-column', default=False, type='string',
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
@@ -41,7 +41,7 @@ opts, args = parser.parse_args()
 assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
 srcpath, tgtpath, outpath = args[:3]
 columns = args[3:]
-Ncols = len(columns)
+Ncol = len(columns)
 
 #-------------------------------------------------
 
@@ -55,6 +55,7 @@ if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+srcpath)
     weights, _ = utils.load(srcpath, verbose=opts.verbose)
+    weights = weights.reshape((len(weights)))
 
     if opts.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))
@@ -72,19 +73,23 @@ else:
 ### read in target samples
 if opts.verbose:
     print("reading in target samples from: "+tgtpath)
-tgtdata, columns = utils.load(targetpath, columns, logcolumns=opts.logcolumns)
-for i in xrange(Ncols): ### whiten the target data with the same transformation used for source data
-    tgtdata[:,i] = (tgtdata[:,i]-srcmeans[i])/srcstds[i]
+tgtdata, tgtcolumns = utils.load(tgtpath, logcolumns=opts.logcolumn) ### load in all the columns!
+utils.check_columns(tgtcolumns, columns) ### make sure we have the columns we need to
+
+tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
+for i, column in enumerate(columns): ### whiten the target data with the same transformation used for source data
+    tgtsamples[:,i] = (tgtdata[:,tgtcolumns.index(column)] - srcmeans[i])/srcstds[i]
 
 #-------------------------------------------------
 
 if opts.verbose:
     print('computing weighted KDE at samples from %s based on samples from %s'%(tgtpath, srcpath))
-logkde = utils.logkde(tgtdata, srcdata, variances, weights=weights)
+logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*opts.bandwidth**2, weights=weights)
 
 if opts.verbose:
     print('writing results into: '+outpath)
+
 with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(columns+['logweights'])
+    print >> file_obj, ','.join(tgtcolumns+['logweights'])
     for sample, logweight in zip(tgtdata, logkde):
         print >> file_obj, ','.join('%9e'%_ for _ in list(sample)+[logweight])
