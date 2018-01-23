@@ -6,7 +6,27 @@ __author__ = "reed.essick@ligo.org"
 import numpy as np
 
 #-------------------------------------------------
-# basic utilities
+# basic utilities for simulating samples
+#-------------------------------------------------
+
+def draw(mean, std, size=1, bounds=None):
+    '''
+    draw samples from a normal distribution. between bounds=[min, max], if supplied
+    '''
+    if bounds!=None:
+        m, M = bounds
+        ans = []
+        while len(ans) < size:
+            sample = np.random.normal(mean, std)
+            if m <= sample <= M:
+                ans.append(sample)
+        return np.array(ans)
+
+    else:
+        return np.random.normal(mean, std, size)
+
+#-------------------------------------------------
+# basic utilities for manipulating existing sapmles
 #-------------------------------------------------
 
 def load(inpath, columns=[], logcolumns=[]):

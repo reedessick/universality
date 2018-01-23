@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that simulates LALInference samples for GW170817 using the product of marginal distributions, each modeled as a (truncated) Gaussian distribution; all parameters are required to be non-negative. NOTE: this means all parameters are assumed to be independent, which is not strictly correct."
+__author__ = "reed.essick@ligo.org"
+__usage__ = "simulate_samples [--options] outpath.csv column,mean,std,min,max [column,mean,std,min,max column,mean,std,min,max ...]"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('-n', '--num-samples', default=10000, type='int',
+    help='number of samples to draw. \
+DEFAULT=10000')
+
+opts, args = parser.parse_args()
+assert len(args)>1, 'please supply at least 2 input arguments\n%s'%__usage__
+outpath = args[0]
+columns = [col.split(',') for col in args[1:]]
+columns = [(col, float(mean), float(std), float(m), float(M)) for col, mean, std, m, M in columns]
+Ncol = len(columns)
+
+#-------------------------------------------------
+
+### iterate through columns and fill in data
+data = np.empty((opts.num_samples, Ncol), dtype='float')
+for i, (col, mean, std, m, M) in enumerate(columns):
+    if opts.verbose:
+        print('drawing %d samples for %s with mean=%.6e and stdv=%.6e within [%.6e, %.6e]'%(opts.num_samples, col, mean, std, m, M))
+    data[:,i] = utils.draw(mean, std, size=opts.num_samples, bounds=[m, M])
+
+### write to outpath.csv
+if opts.verbose:
+    print('writing samples to: '+outpath)
+with open(outpath,'w') as file_obj:
+    print >> file_obj, ','.join(col[0] for col in columns)
+    for sample in data:
+        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
