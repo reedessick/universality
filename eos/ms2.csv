@@ -1,4 +1,4 @@
-baryon_density,pressure,energy_density
+baryon_density,pressure/c2,energy_density/c2
 1.992e14,4.51147771e12,2.03504821e14
 2.656e14,9.45797159e12,2.73481359e14
 3.32e14,1.643812131e13,3.44949722e14
