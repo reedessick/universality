@@ -1,0 +1,109 @@
+\documentclass{article}
+
+%-------------------------------------------------
+
+\usepackage{fullpage}
+
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%-------------------------------------------------
+\begin{document}
+
+\section*{Basics of Gaussian Process Priors}
+
+We assume the values of a function are drawn from a single process, and assume a Gaussian distribution with a particular form for the covariance between values. 
+We then condition the values at sample points based on the values at observed points to obtain a ``posterior distribution'' for the sample points given the observed values.
+This can be illustrated below with a simple example.
+
+\subsection*{Simple example of conditioning}
+
+Consider 2 values of a function: $f_a$ and $f_b$ corresponding to the ordinates $x_a$ and $x_b$.
+We assume these values are correlated in some way, so that
+\begin{equation}
+\begin{matrix}
+f_a \\ 
+f_b
+\end{matrix}
+\sim
+\mathcal{N} \left(
+\mathrm{mean}=
+\begin{bmatrix}
+0 \\
+0
+\end{bmatrix}
+,
+\mathrm{covariance}=
+\begin{bmatrix}
+\sigma_{aa}^2 & \sigma^2_{ab} \\
+\sigma_{ba}^2 & \sigma^2_{bb}
+\end{bmatrix}
+\right)
+\end{equation}
+
+The requirement for zero-mean is not stringent in practice. 
+Now, a feature of the Gaussian distribution is that we can immediately write down the marginal distributions as
+\begin{equation}
+f_a \sim \mathcal{N}\left(0, \sigma_{aa}^2\right)
+\end{equation}
+and so forth. 
+Now, to compute the conditional probability $p(f_b|f_a)$, we recognize
+\begin{equation}
+p(f_b|f_a) = \frac{p(f_b, f_a)}{p(f_a)}
+\end{equation}
+and the rest is just algebra.
+We provide this in all it's gory detail here for pedagogy.
+
+\begin{align}
+p(f_a) & = \frac{1}{\sqrt{2\pi\sigma^2_{aa}}} \mathrm{exp}\left(-\frac{f_a^2}{2\sigma^2_{aa}} \right)
+\end{align}
+\begin{align}
+p(f_a, f_b) & = \frac{1}{2\pi\sqrt{\sigma^2_{aa}\sigma^2_{bb} - \sigma^4_{ab}}} \mathrm{exp}\left( -\frac{1}{2} \begin{bmatrix} f_a & f_b \end{bmatrix} \frac{1}{\sigma^2_{aa}\sigma^2_{bb} - \sigma^4_{ab}}\begin{bmatrix} \sigma_bb^2 & -\sigma_{ab}^2 \\ -\sigma_{ab}^2 & \sigma_{aa}^2 \end{bmatrix} \begin{bmatrix} f_a \\ f_b \end{bmatrix} \right) \nonumber \\
+            & = \frac{1}{2\pi\sqrt{\sigma^2_{aa}\sigma^2_{bb} - \sigma^4_{ab}}} \mathrm{exp}\left( -\frac{1}{2} \frac{f_a^2\sigma_{bb}^2 + f_b^2\sigma_{aa}^2 - 2f_a f_b \sigma_{ab}^2}{\sigma^2_{aa}\sigma^2_{bb} - \sigma^4_{ab}} \right)
+\end{align}
+\begin{align}
+p(f_b|f_a) & = \frac{p(f_a, f_b)}{p(f_a)} \nonumber \\
+           & = \sqrt{\frac{\sigma_{aa}^2}{2\pi\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}}\mathrm{exp}\left( \frac{f_a^2}{2\sigma_{aa}^2} - \frac{1}{2} \frac{f_a^2\sigma_{bb}^2 + f_b^2\sigma_{aa}^2 - 2f_a f_b \sigma_{ab}^2}{\sigma^2_{aa}\sigma^2_{bb} - \sigma^4_{ab}}\right) \nonumber \\
+           & = \sqrt{\frac{\sigma_{aa}^2}{2\pi\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}}\mathrm{exp}\left( \frac{f_a^2}{2}\left(\frac{1}{\sigma_{aa}^2} - \frac{\sigma_{bb}^2}{\sigma_{aa}^2\sigma_{bb}^2-\sigma_{ab}^4}\right) - \frac{f_b^2 \sigma_{aa}^2 - 2 f_a f_b \sigma_{ab}^2}{2\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}\right) \nonumber \\
+           & = \sqrt{\frac{\sigma_{aa}^2}{2\pi\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}}\mathrm{exp}\left( -\frac{f_a^2\sigma_{ab}^4}{2\sigma_{aa}^2\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)} - \frac{\sigma_{aa}^2}{2\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}\left(f_b^2 - 2f_af_b\frac{\sigma_{ab}^2}{\sigma_{aa}^2}\right)\right) \nonumber \\
+           & = \sqrt{\frac{\sigma_{aa}^2}{2\pi\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)}}\mathrm{exp}\left( - \frac{\sigma_{aa}^2}{2\left(\sigma_{aa}^2\sigma_{bb}^2 - \sigma_{ab}^4\right)} \left(f_b - f_a\frac{\sigma_{ab}^2}{\sigma_{aa}^2}\right)^2 \right)
+\end{align}
+and we see that
+\begin{equation}
+ f_b|f_a \sim \mathcal{N}\left(f_a\frac{\sigma_{ab}^2}{\sigma_{aa}^2}, \sigma_{bb}^2 - \frac{\sigma_{ab}^4}{\sigma_{aa}^2}\right)
+\end{equation}
+Thus, we can write conditional distributions for \textit{text points} ($f_b$) based on \textit{observed points} ($f_a$).
+
+The last assumption needed is the form of the covariance assumed. 
+This is typically done by some measure of the distance in the ordinate via a kernel.
+A common kernel is the \textit{squared exponential}
+\begin{equation}
+    \sigma_{ij}^2 = \sigma^2 \mathrm{exp}\left(\frac{(x_i - x_j)^2}{2l^2}\right)
+\end{equation}
+and we can incorporate the presence of noise in our observed samples by adding an additional term so that
+\begin{equation}
+    \sigma_{ij}^2 = \sigma^2 \mathrm{exp}\left(\frac{(x_i - x_j)^2}{2l^2}\right) + \sigma_{n}^2\delta_{ij}
+\end{equation}
+We note that this kernel introduces several \textit{hyper-parameters} which must be chosen in some way; there are common techniques for selecing optimal hyper-parameters based on the observed data.
+They represent
+\begin{itemize}
+  \item{$\sigma^2$ 
+    \begin{itemize}
+      \item{The typical size of the covariance between different values of the function. This is is also the variance of each individual value of the function.}
+    \end{itemize}
+  }
+  \item{$l^2$
+    \begin{itemize}
+      \item{The length scale over which correlations persist within the function. For $|x_i-x_j|\gg l$, the function values are essentially uncorrelated.}
+    \end{itemize}
+  }
+  \item{$\sigma_n^2$
+    \begin{itemize}
+      \item{They typical size of the noise in each observation. We assume the noise is uncorrelated between different observations but drawn from the same distribution for each observation, thus the kronecker-$\delta$.}
+    \end{itemize}
+  }
+\end{itemize}
+
+
+\end{document}
