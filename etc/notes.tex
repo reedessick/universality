@@ -50,7 +50,7 @@ f_a \sim \mathcal{N}\left(0, \sigma_{aa}^2\right)
 and so forth. 
 Now, to compute the conditional probability $p(f_b|f_a)$, we recognize
 \begin{equation}
-p(f_b|f_a) = \frac{p(f_b, f_a)}{p(f_a)}
+p(f_b|f_a) = \frac{p(f_a, f_b)}{p(f_a)}
 \end{equation}
 and the rest is just algebra.
 We provide this in all it's gory detail here for pedagogy.
@@ -73,7 +73,7 @@ and we see that
 \begin{equation}
  f_b|f_a \sim \mathcal{N}\left(f_a\frac{\sigma_{ab}^2}{\sigma_{aa}^2}, \sigma_{bb}^2 - \frac{\sigma_{ab}^4}{\sigma_{aa}^2}\right)
 \end{equation}
-Thus, we can write conditional distributions for \textit{text points} ($f_b$) based on \textit{observed points} ($f_a$).
+Thus, we can write conditional distributions for \textit{test points} ($f_b$) based on \textit{observed points} ($f_a$).
 
 The last assumption needed is the form of the covariance assumed. 
 This is typically done by some measure of the distance in the ordinate via a kernel.
