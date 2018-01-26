@@ -1,0 +1,6 @@
+Glendenning. Neutron stars are giante hypernuclei? ApJ 293 470-493 (1985).
+
+Table 5
+
+density: (r) [erg/cm^3]   ### the paper claims g/cm^3, but that can't be right
+pressure: (P) [erg/cm^3]

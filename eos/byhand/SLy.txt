@@ -1,0 +1,7 @@
+Douchin and Haensel. A Unified equation of state of dense matter and neutron star structure. A&A 380, 151-167 (2001).
+
+Tables 3 and 5
+
+density:     (r) [erg/cm^3]  ### the paper claims g/cm^3, but that can't be right
+pressure:    (P) [erg/cm^3]
+adiab index: (G) []

@@ -1,0 +1,6 @@
+Lackey, Nayyar, and Owen. Obervational constraints on hyperons in neutron stars. PRD 73, 024021 (2006).
+
+Table III
+
+density (r) [erg/cm^3]
+pressure (P) [erg/cm^3]
