@@ -62,9 +62,19 @@ for path in args:
     e = d['energy_densityc2']*c2
     dedp = d['denergy_densitydpressure']
 
-    ax_pe.plot(p, e, label=label)
-    ax_pdedp.plot(p, p/e * dedp, label=label)
-    ax_pv.plot(p, 1./dedp, label=label)
+    truth = np.ones_like(p, dtype=bool)
+    if opts.min_pressure!=None:
+        truth *= p>=opts.min_pressure
+    if opts.max_pressure!=None:
+        truth *= p<=opts.max_pressure
+
+    p = p[truth]
+    e = e[truth]
+    dedp = dedp[truth]
+
+    ax_pe.plot(p, e, '.-', label=label)
+    ax_pdedp.plot(p, p/e * dedp, '.-', label=label)
+    ax_pv.plot(p, 1./dedp, '.-', label=label)
 
 ### decorate figure
 e_label = r'$\epsilon$ [erg/cm$^3$]'
