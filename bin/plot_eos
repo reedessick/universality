@@ -68,13 +68,34 @@ for path in args:
     p = d['pressurec2']*c2
     e = d['energy_densityc2']*c2
 
+    truth = np.ones_like(r, dtype=bool)
+
+    if opts.min_baryon_density!=None:
+        truth *= r>=opts.min_baryon_density
+    if opts.max_baryon_density!=None:
+        truth *= r<=opts.max_baryon_density
+
+    if opts.min_pressure!=None:
+        truth *= p>=opts.min_pressure
+    if opts.max_pressure!=None:
+        truth *= p<=opts.max_pressure
+
+    if opts.min_energy_density!=None:
+        truth *= e>=opts.min_energy_density
+    if opts.min_energy_density!=None:
+        truth *= e<=opts.min_energy_density
+
+    r = r[truth]
+    p = p[truth]
+    e = e[truth]
+
     ax_re.plot(r, e, label=label)
     ax_rp.plot(r, p, label=label)
     ax_ep.plot(e, p, label=label)
 
 ### decorate figure
 e_label = r'$\epsilon$ [erg/cm$^3$]'
-r_label = r'$\rho$ [erg/cm$^3$]'
+r_label = r'$\rho$ [g/cm$^3$]'
 p_label = r'$p$ [erg/cm$^3$]'
 
 plt.setp(ax_re.get_xticklabels(), visible=False)
