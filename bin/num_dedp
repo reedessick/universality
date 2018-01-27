@@ -29,6 +29,7 @@ else:
 
 #-------------------------------------------------
 
+### read in existing data
 if opts.verbose:
     print('reading: '+inpath)
 data, columns = utils.load(inpath)

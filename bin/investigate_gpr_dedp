@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+__usage__ = "investigate_gpr_dedp [--options] eos.csv"
+__doc__ = "a simple script that investigates logLike as a function of the GPR hyper-parameters when attempting to regress de/dp from observations of e and p"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+from universality import gaussianprocess as gp
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+assert len(args)==1, 'please supply exactly 1 input argument\n%s'%__usage__
+inpath = args[0]
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+#-------------------------------------------------
+
+### read in data
+if opts.verbose:
+    print('reading: '+inpath)
+columns = ['energy_densityc2', 'pressurec2']
+data, columns = utils.load(inpath, columns)
+
+#------------------------
+
+### evaluate logL on a grid
+raise NotImplementedError, '''\
+do this for a grid of hyperparameters
+  compute logLike, grad_logLike via delegation to gp.logLike()
+plot the result
+'''
+
+#------------------------
+
+### feed logLike into a numeric minimization routine and extract the best hyper paarameters
+raise NotImplementedError, '''\
+feed this into a numeri optimization routine and let the computer figure out the best parameters
+annotate the plot from the grid with the selected "optimal"  hyperparameters
+'''

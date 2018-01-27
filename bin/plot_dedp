@@ -72,9 +72,15 @@ for path in args:
     e = e[truth]
     dedp = dedp[truth]
 
-    ax_pe.plot(p, e, '.-', label=label)
-    ax_pdedp.plot(p, p/e * dedp, '.-', label=label)
-    ax_pv.plot(p, 1./dedp, '.-', label=label)
+    color = ax_pe.plot(p, e, '.-', label=label)[0].get_color()
+    ax_pdedp.plot(p, p/e * dedp, '.-', label=label, color=color)
+    ax_pv.plot(p, 1./dedp, '.-', label=label, color=color)
+
+    ### check for error estimates on dedp
+    if d.dtype.fields.has_key('sigma_denergy_densitydpressure'):
+        s = d['sigma_denergy_densitydpressure']
+        ax_pdedp.fill_between(p, p/e*(dedp + s), p/e*(dedp-s), color=color, alpha=0.25, linestyle='none')
+        ax_pv.fill_between(p, 1./(dedp+s), 1./(dedp-s), color=color, alpha=0.25, linestyle='none')
 
 ### decorate figure
 e_label = r'$\epsilon$ [erg/cm$^3$]'

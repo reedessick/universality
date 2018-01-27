@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__usage__ = 'gpr_dedp [--options] eos.csv'
+__usage__ = 'gpr_dedp [--options] eos.csv [out.csv]'
 __doc__ = 'use Gaussian Process Regression to infer the values of the derivatives at the evaulation points instead of just numerically differentiating'
 __author__ = 'reed.essick@ligo.org'
 
@@ -10,16 +10,56 @@ import numpy as np
 
 from optparse import OptionParser
 
+from universality import gaussianprocess as gp
+
 #-------------------------------------------------
 
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('', '--sigma2', default=gp.__default_sigma2__, type='float',
+    help='hyperparameter for Gaussian Process. \
+DEFAULT=%.3e'%gp.__default_sigma2__)
+parser.add_option('', '--l2', default=gp.__default_l2__, type='float',
+    help='hyperparameter for Gaussian Process. \
+DEFAULT=%.3e'%gp.__default_l2__)
+parser.add_option('', '--sigma2_obs', default=gp.__default_sigma2__, type='float',
+    help='hyperparameter for Gaussian Process. \
+DEFAULT=%.3e'%gp.__default_sigma2__)
+
 opts, args = parser.parse_args()
-assert len(args)==1, 'please supply exactly 1 input argument\n%s'%__usage__
-path = args[0]
+N = len(args)
+assert N in [1, 2], 'please supply either 1 or 2 input arguments\n%s'%__usage__
+inpath = args[0]
+if N==2:
+    outpath = args[1]
+else:
+    outpath = inpath
 
 #-------------------------------------------------
 
-raise NotImplementedError
+### read in existing data
+if opts.verbose:
+    print('reading: '+inpath)
+data, columns = utils.load(inpath)
+
+e = data[:,columns.index('energy_densityc2')]
+p = data[:,columns.index('pressurec2')]
+
+#------------------------
+
+### gpr for dedp|e,p via delegation
+if opts.verbose:
+    print('computing conditioned distribution for de/dp')
+mean, cov = gp.gpr_dfdx(p, e, p, sigma2=opts.sigma2, l2=opts.l2, sigma2_obs=opts.sigma2_obs)
+
+#------------------------
+
+### write out the result
+if opts.verbose:
+    print('writing: '+outpath)
+with open(outpath, 'w') as file_obj:
+    print >> file_obj, ','.join(columns + ['denergy_densitydpressure', 'sigma_denergy_desnitydpressure'])
+    for i in xrange(len(p)):
+        print >> file_obj, ','.join('%.9e'%_ for _ in list(data[i,:])+[mean[i], cov[i,i]**0.5])
