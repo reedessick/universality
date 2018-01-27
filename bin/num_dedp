@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+__usage__ = 'num_dedp [--options] eos.csv [out.csv]'
+__doc__ = 'use basic numerical differentiation to infer the values of the derivatives at the evaulation points'
+__author__ = 'reed.essick@ligo.org'
+
+#-------------------------------------------------
+
+import numpy as np
+
+from optparse import OptionParser
+
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+opts, args = parser.parse_args()
+N = len(args)
+assert N in [1, 2], 'please supply either 1 or 2 input arguments\n%s'%__usage__
+inpath = args[0]
+if N==2:
+    outpath = args[1]
+else:
+    outpath = inpath
+
+#-------------------------------------------------
+
+if opts.verbose:
+    print('reading: '+inpath)
+data, columns = utils.load(inpath)
+
+e = data[:,columns.index('energy_densityc2')]
+p = data[:,columns.index('pressurec2')]
+
+#------------------------
+
+### numerically approx the derivative
+if opts.verbose:
+    print('computing the numerical derivative')
+
+N = len(e)
+dedp = np.empty(N, dtype='float')
+
+de = e[1:]-e[:-1]
+dp = p[1:]-p[:-1]
+
+### deal with boundary conditions
+dedp[0] = de[0]/dp[0]
+dedp[-1] = de[-1]/dp[-1]
+
+### deal with the bulk
+dedp[1:-1] = 0.5*(de[:-1]/dp[:-1] + de[1:]/dp[1:]) ### average over each neighboring point
+
+#------------------------
+
+### write out the result
+if opts.verbose:
+    print('writing: '+outpath)
+with open(outpath, 'w') as file_obj:
+    print >> file_obj, ','.join(columns+['denergy_densitydpressure'])
+    for i in xrange(N):
+        print >> file_obj, ','.join('%9e'%_ for _ in list(data[i,:])+[dedp[i]])
