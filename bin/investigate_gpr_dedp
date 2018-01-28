@@ -88,7 +88,7 @@ SIGMA2 = SIGMA2.flatten()
 SIGMA2_OBS = SIGMA2_OBS.flatten()
 
 logL = np.empty(N, dtype='float')
-template = '\r[%4d / '+'%4d]'%N
+template = '\r[ %6d / '+'%6d ]'%N
 for i in xrange(len(L2)):
     if opts.verbose:
         sys.stdout.write(template%(i+1))
@@ -122,8 +122,13 @@ columns = ['l', '\sigma', '\sigma_\mathrm{obs}']
 vects = [l, sigma, sigma_obs]
 bests = [best_l, best_sigma, best_sigma_obs]
 bounds = [(np.min(l), np.max(l)), (np.min(sigma), np.max(sigma)), (np.min(sigma_obs), np.max(sigma_obs))]
+scales = []
+scales.append('log' if opts.logspace_l else 'linear')
+scales.append('log' if opts.logspace_sigma else 'linear')
+scales.append('log' if opts.logspace_sigma_obs else 'linear')
 
 Ncol = 3
+alpha = 0.5 ### used for cross-hairs
 for row in xrange(Ncol):
     for col in xrange(row+1): ### only plot the lower-left triangle
         ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
@@ -133,18 +138,19 @@ for row in xrange(Ncol):
             axis = tuple([i for i in xrange(Ncol) if i!=row] + [row])
             ax.plot(vects[row], np.max(np.max(logL.transpose(axis), axis=0), axis=0))
             ylim = ax.get_ylim()
-            ax.plot([bests[row]]*2, ylim, color='k')
+            ax.plot([bests[row]]*2, ylim, color='k', alpha=alpha)
             ax.set_ylim(ylim)
 
         else:
             axis = [i for i in xrange(Ncol) if i not in [row, col]][0] ### may be a little wasteful...            
             ax.contour(vects[col], vects[row], np.transpose(np.max(logL, axis=axis)))
 
-            ax.plot([bests[col]]*2, bounds[row], color='k')
-            ax.plot(bounds[col], [bests[row]]*2, color='k')
+            ax.plot([bests[col]]*2, bounds[row], color='k', alpha=alpha)
+            ax.plot(bounds[col], [bests[row]]*2, color='k', alpha=alpha)
 
             # decorate a bit here
             # only set this if it is a 2D scatter plot!
+            ax.set_yscale(scales[row])
             ax.set_ylim(bounds[row])
 
         # decorate                
@@ -161,6 +167,7 @@ for row in xrange(Ncol):
         ax.grid(True, which='both')
         plt.setp(ax.get_xticklabels(), rotation=45)
 
+        ax.set_xscale(scales[col])
         ax.set_xlim(bounds[col])
 
 # further decorate
