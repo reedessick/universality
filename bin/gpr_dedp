@@ -10,6 +10,9 @@ import numpy as np
 
 from optparse import OptionParser
 
+### non-standard packages
+
+from universality import utils
 from universality import gaussianprocess as gp
 
 #-------------------------------------------------
@@ -18,13 +21,13 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--sigma2', default=gp.__default_sigma2__, type='float',
+parser.add_option('', '--sigma', default=gp.__default_sigma__, type='float',
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_sigma2__)
-parser.add_option('', '--l2', default=gp.__default_l2__, type='float',
+DEFAULT=%.3e'%gp.__default_sigma__)
+parser.add_option('', '--l', default=gp.__default_l__, type='float',
     help='hyperparameter for Gaussian Process. \
 DEFAULT=%.3e'%gp.__default_l2__)
-parser.add_option('', '--sigma2_obs', default=gp.__default_sigma2__, type='float',
+parser.add_option('', '--sigma_obs', default=gp.__default_sigma__, type='float',
     help='hyperparameter for Gaussian Process. \
 DEFAULT=%.3e'%gp.__default_sigma2__)
 
@@ -45,14 +48,20 @@ if opts.verbose:
 data, columns = utils.load(inpath)
 
 e = data[:,columns.index('energy_densityc2')]
+loge = np.log(e)
 p = data[:,columns.index('pressurec2')]
+logp = np.log(p)
 
 #------------------------
 
 ### gpr for dedp|e,p via delegation
 if opts.verbose:
     print('computing conditioned distribution for de/dp')
-mean, cov = gp.gpr_dfdx(p, e, p, sigma2=opts.sigma2, l2=opts.l2, sigma2_obs=opts.sigma2_obs)
+mean, cov = gp.gpr_dfdx(logp, loge, logp, sigma2=opts.sigma2, l2=opts.l2, sigma2_obs=opts.sigma2_obs)
+
+### convert back to dedp from dlogedlogp
+mean *= e/p
+std = (np.diag(cov))**0.5 * e/p ### retain only the diagonal components
 
 #------------------------
 
@@ -60,6 +69,6 @@ mean, cov = gp.gpr_dfdx(p, e, p, sigma2=opts.sigma2, l2=opts.l2, sigma2_obs=opts
 if opts.verbose:
     print('writing: '+outpath)
 with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(columns + ['denergy_densitydpressure', 'sigma_denergy_desnitydpressure'])
+    print >> file_obj, ','.join(columns + ['denergy_densitydpressure', 'sigma_denergy_densitydpressure'])
     for i in xrange(len(p)):
-        print >> file_obj, ','.join('%.9e'%_ for _ in list(data[i,:])+[mean[i], cov[i,i]**0.5])
+        print >> file_obj, ','.join('%.9e'%_ for _ in list(data[i,:])+[mean[i], std[i]])
