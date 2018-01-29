@@ -395,24 +395,9 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         fig.savefig(figname)
         plt.close(fig)
 
-
-
-
-
-raise NotImplementedError, '''\
-follow general procedure laid out in gpr_energy_density
-at this point, we should only be dealing with processes on phi, so things should be quite similar to what's in gpr_energy_density from this point onward
-'''
-
-
-
-
-
-
-
-
-
-
+#-------------------------------------------------
+# below this point, I only care about phi and therefore neglect f, dfdx, etc
+#-------------------------------------------------
 
 if opts.verbose:
     print('computing modeling uncertainty at each pressure')
