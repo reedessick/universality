@@ -208,7 +208,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     if opts.verbose:
         print('writing process to: '+pklpath)
     with open(pklpath, 'w') as file_obj:
-        pickle.dump(logp_resample, file_obj)
+        pickle.dump(logp_resample[truth], file_obj)
         pickle.dump(mean, file_obj)
         pickle.dump(cov, file_obj)
 
