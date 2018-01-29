@@ -256,6 +256,9 @@ parser.add_option('', '--resample-sigma_obs', default=gp.__default_sigma__, type
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.__default_sigma__)
 
+parser.add_option('', '--check-for-nan', default=False, action='store_true',
+    help='look for nans during resampling step. If they are found, raise a ValueError')
+
 #--- options for evaluation
 parser.add_option('', '--evaluate-pressure-bounds', default=(__default_min_pressure__, __default_max_pressure__), nargs=2, type='float',
     help='min max values for evaluation pressures. Specified in g/cm^3. \
@@ -394,6 +397,13 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         fig.suptitle(os.path.basename(path)[:-4])
         fig.savefig(figname)
         plt.close(fig)
+
+    ### run basic sanity checks to make sure we don't break anything downstream...
+    if opts.check_for_nan:
+        if np.any(mean_phi!=mean_phi):
+            raise ValueError, 'EOS produces nans for mean_phi when resampled!'
+        if np.any(cov_phi_phi!=cov_phi_phi):
+            raise ValueError, 'EOS producds nans for cov_phi_phi when resampled!'
 
 #-------------------------------------------------
 # below this point, I only care about phi and therefore neglect f, dfdx, etc
