@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+
+__usage__ = "integrate_phi [--options] phi.csv reference_pressurec2 reference_energy_densityc2 [out.csv]"
+__doc__ = """\
+numerically integrate phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 
+NOTE: 
+  reference_pressurec2 and reference_energy_densityc2 should be specified in g/cm^3. The integral is performed over all samples in phi.csv (we assign one value for energy_density for each pressure) and adjust the curve so that it passes through reference_energy_densityc2 at reference_pressurec2
+Furthermore, we require phi.csv to have logpressurec2 and phi as columns"""
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+opts, args = parser.parse_args()
+N = len(args)
+assert N in [3, 4], 'please supply either 3 or 4 input arguments\n%s'%__usage__
+inpath = args[0]
+ref_pc2, ref_ec2 = [float(_) for _ in args[1:3]]
+if N==4:
+    outpath = args[3]
+else:
+    outpath = inpath
+
+#-------------------------------------------------
+
+# read in data
+if opts.verbose:
+    print('reading: '+inpath)
+data, columns = utils.load(inpath)
+
+pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
+denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is the definition of phi=log(de/dp -1)
+
+# perform numeric integration with trapazoidal approximation
+# NOTE: this could probably be improved....
+if opts.verbose:
+    print('performing numeric integration via trapazoidal approximation')
+energy_densityc2 = np.empty_like(pressurec2, dtype='float')
+energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
+
+# integrate in the bulk via trapazoidal approximation
+energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
+
+# scale the result to match reference energy at reference pressure
+energy_densityc2 += ref_ec2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
+
+# write output
+if opts.verbose:
+    print('writing: '+outpath)
+with open(outpath, 'w') as file_obj:
+    print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2'])
+    for sample, e in zip(data, pressurec2, energy_densityc2):
+        print >> file_obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e])
