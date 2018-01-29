@@ -16,6 +16,9 @@ from matplotlib import pyplot as plt
 
 from optparse import OptionParser
 
+### non-standard libraries
+from universality import utils
+
 #-------------------------------------------------
 
 parser = OptionParser(usage=__usage__, description=__doc__)
@@ -26,6 +29,7 @@ parser.add_option('','--min-pressure', default=None, type='float')
 parser.add_option('','--max-pressure', default=None, type='float')
 
 parser.add_option('', '--linestyle', default='-', type='string')
+parser.add_option('', '--show-errors', default=False, action='store_true')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -43,9 +47,6 @@ alpha = 0.5
 
 #-------------------------------------------------
 
-c = (299792458*100) # speed of light in (cm/s)
-c2 = c**2
-
 ### instantiate figure
 fig = plt.figure()
 ax_pe = plt.subplot(3,1,1)
@@ -62,8 +63,8 @@ for path in args:
         print('plotting')
 
     label = os.path.basename(path)[:-4]
-    p = d['pressurec2']*c2
-    e = d['energy_densityc2']*c2
+    p = d['pressurec2']*utils.c2
+    e = d['energy_densityc2']*utils.c2
     dedp = d['denergy_densitydpressure']
 
     truth = np.ones_like(p, dtype=bool)
@@ -81,8 +82,9 @@ for path in args:
     ax_pv.plot(p, 1./dedp, opts.linestyle, label=label, color=color)
 
     ### check for error estimates on dedp
-    if d.dtype.fields.has_key('sigma_denergy_densitydpressure'):
+    if d.dtype.fields.has_key('sigma_denergy_densitydpressure') and opts.show_errors:
         s = 3*d['sigma_denergy_densitydpressure'] ### plot 3-sigma confidence regions
+        s = s[truth]
         high = (dedp + s)
         low = (dedp - s)
 

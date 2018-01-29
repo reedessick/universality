@@ -6,6 +6,11 @@ __author__ = "reed.essick@ligo.org"
 import numpy as np
 
 #-------------------------------------------------
+
+c = (299792458*100) # speed of light in (cm/s)
+c2 = c**2
+
+#-------------------------------------------------
 # basic utilities for simulating samples
 #-------------------------------------------------
 

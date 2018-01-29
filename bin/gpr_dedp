@@ -26,10 +26,10 @@ parser.add_option('', '--sigma', default=gp.__default_sigma__, type='float',
 DEFAULT=%.3e'%gp.__default_sigma__)
 parser.add_option('', '--l', default=gp.__default_l__, type='float',
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_l2__)
+DEFAULT=%.3e'%gp.__default_l__)
 parser.add_option('', '--sigma_obs', default=gp.__default_sigma__, type='float',
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_sigma2__)
+DEFAULT=%.3e'%gp.__default_sigma__)
 
 opts, args = parser.parse_args()
 N = len(args)
@@ -57,7 +57,9 @@ logp = np.log(p)
 ### gpr for dedp|e,p via delegation
 if opts.verbose:
     print('computing conditioned distribution for de/dp')
-mean, cov = gp.gpr_dfdx(logp, loge, logp, sigma2=opts.sigma2, l2=opts.l2, sigma2_obs=opts.sigma2_obs)
+slope, intercept = np.polyfit(logp, loge, 1) ### linear fit
+mean, cov = gp.gpr_dfdx(logp, loge-(intercept+slope*logp), logp, sigma2=opts.sigma**2, l2=opts.l**2, sigma2_obs=opts.sigma_obs**2)
+mean += slope ### add back in the slope
 
 ### convert back to dedp from dlogedlogp
 mean *= e/p

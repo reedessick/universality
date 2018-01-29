@@ -1,0 +1,283 @@
+#!/usr/bin/env python
+
+__usage__ = "gpr_energy_density [--options] eos.csv [eos.csv eos.csv ...]"
+__doc__ = "a one-stop shop for the full GPR regression for energy_density/c2 as a function of pressurec2. The regression is done directly for loge(logp)."
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import pickle ### FIXME: figure out a better way to represent the process on disk than this...
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from optparse import OptionParser
+
+### non-standard
+from universality import utils
+from universality import gaussianprocess as gp
+
+#-------------------------------------------------
+
+__default_min_pressure__ = 1e30 ### g/cm^3
+__default_max_pressure__ = 1e38
+
+__default_num__ = 51
+
+__default_poly_degree__ = 1
+
+__default_model_multiplier__ = 1
+
+#-------------------------------------------------
+
+def sanity_check_plot(x_tst, f_tst, cov_tst, x_obs, f_obs):
+    '''
+    a helper function for plotting regressions as a way to sanity check results
+    '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
+    fig = plt.figure()
+    foo = fig.add_axes([0.13, 0.30, 0.85, 0.65]) ### the actual data
+    res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
+
+    ### plot the regression
+    stds = np.diag(cov_tst)**0.5
+
+    foo.fill_between(x_tst, f_tst-stds, f_tst+stds, color='k', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
+
+    ylim = foo.get_ylim()
+
+    res.fill_between(x_tst, -stds, +stds, color='k', alpha=0.5)
+    res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
+
+    ### iterate through observed data and overlay
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-')[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        res.plot(x[truth], np.interp(x[truth], x_tst, f_tst)-f[truth], '.-', color=color) ### plot the residual at the observed points
+#        truth = (np.min(x)<=x_tst)*(x_tst<=np.max(x))
+#        res.plot(x_tst[truth], f_tst[truth]-np.interp(x_tst[truth], x, f), '.-', color=color) ### plot the residual at the test points
+
+    ### decorate
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+#    foo_xlim = foo.get_xlim()
+#    res_xlim = res.get_xlim()
+#    xlim = min(foo_xlim[0], res_xlim[0]), max(foo_xlim[1], res_xlim[1])
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    foo.set_ylim(ylim)
+
+    res.set_xlabel('$x$')
+    res.set_ylabel('$\hat{f}-f$')
+    foo.set_ylabel('$f$')
+
+    return fig, foo, res
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+#--- options for resampling
+parser.add_option('', '--resample-pressure-bounds', default=[__default_min_pressure__, __default_max_pressure__], nargs=2, type='float',
+    help='min max values for resample-pressure. Specified in g/cm^3. \
+DEFAULT=%.3e %.3e'%(__default_min_pressure__, __default_max_pressure__))
+parser.add_option('', '--resample-pressure-num', default=51, type='int',
+    help='resample to this number of points. \
+DEFAULT=%d'%__default_num__)
+
+parser.add_option('', '--resample-poly-degree', default=__default_poly_degree__, type='int',
+    help='the degree of the polynomial used to model eos before GPR as part of resampling. \
+DEFAULT=%d'%__default_poly_degree__)
+
+parser.add_option('', '--resample-sigma', default=gp.__default_sigma__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_sigma__)
+parser.add_option('', '--resample-l', default=gp.__default_l__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_l__)
+parser.add_option('', '--resample-sigma_obs', default=gp.__default_sigma__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_sigma__)
+
+#--- options for evaluation
+parser.add_option('', '--evaluate-pressure-bounds', default=[__default_min_pressure__, __default_max_pressure__], nargs=2, type='float',
+    help='min max values for evaluation pressures. Specified in g/cm^3. \
+DEFAULT=%.3e %.3e'%(__default_min_pressure__, __default_max_pressure__))
+parser.add_option('', '--evaluate-pressure-num', default=__default_num__, type='int',
+    help='evaluate at this number of points. \
+DEFAULT=%d'%__default_num__)
+
+parser.add_option('', '--evaluate-poly-degree', default=__default_poly_degree__, type='int',
+    help='the degree of the polynomial used to model eos before GPR as part of evaluation. \
+DEFAULT=%d'%__default_poly_degree__)
+
+parser.add_option('', '--evaluate-sigma', default=gp.__default_sigma__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_sigma__)
+parser.add_option('', '--evaluate-l', default=gp.__default_l__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_l__)
+parser.add_option('', '--evaluate-sigma_obs', default=gp.__default_sigma__, type='float',
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.__default_sigma__)
+
+parser.add_option('', '--evaluate-model_multiplier', default=__default_model_multiplier__, type='float',
+    help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
+Default=%d'%__default_model_multiplier__)
+
+#--- output options
+parser.add_option('', '--resample-plot', default=False, action='store_true',
+    help='generate plots for each resampled eos for sanity checking purposes')
+parser.add_option('', '--evaluate-plot', default=False, action='store_true',
+    help='generate plots for altogether regression for sanity checking purposes')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+Neos = len(args)
+assert Neos, 'please supply at least 1 input argument\n%s'%__usage__
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+#-------------------------------------------------
+
+### resample eos into a big matrix
+### generate all data structures we'll need here
+if opts.verbose:
+    print('resampling to %d points within [%.3e, %.3e] g/cm^3'%tuple([opts.resample_pressure_num]+opts.resample_pressure_bounds))
+logp_resample = np.linspace(
+    np.log(opts.resample_pressure_bounds[0]),
+    np.log(opts.resample_pressure_bounds[1]),
+    opts.resample_pressure_num,
+)
+logp_resample -= 2*np.log(utils.c)
+
+### set up data structures for "altogether" regression
+Nobs = Neos*opts.resample_pressure_num ### the total number of observation points we'll end up with after resampling
+means = np.empty(Nobs, dtype='float') ### don't zero this because we overwrite every element
+covs = np.zeros((Nobs, Nobs), dtype='float') ### do zero this because we add to this instead of assigning values
+
+for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and fill in data structures
+    if opts.verbose:
+        print('reading: '+path)
+    data, _ = utils.load(path, ['pressurec2', 'energy_densityc2'])
+    logp_obs = np.log(data[:,0])
+    loge_obs = np.log(data[:,1])
+
+    ### run gpr to resample this eos
+    if opts.verbose:
+        print('resampling %d observations to %d points'%(len(loge_obs), opts.resample_pressure_num))
+    mean, cov = gp.gpr_resample(
+        logp_resample,
+        loge_obs,
+        logp_obs,
+        degree=opts.resample_poly_degree,
+        guess_sigma2=opts.resample_sigma**2,
+        guess_l2=opts.resample_l**2,
+        guess_sigma2_obs=opts.resample_sigma_obs**2,
+    )
+
+    ### store these for when we build the big covariance matrix for the "altogether" regression
+    i = ind*opts.resample_pressure_num
+    j = i + opts.resample_pressure_num
+    means[i:j] = mean
+    covs[i:j,i:j] = cov ### add this in as block-diagonal components
+
+    ### save the process for this resample to file
+    pklpath = os.path.join(opts.output_dir, 'gpr_energy_density-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
+    if opts.verbose:
+        print('writing process to: '+pklpath)
+    with open(pklpath, 'w') as file_obj:
+        pickle.dump(logp_resample, file_obj)
+        pickle.dump(mean, file_obj)
+        pickle.dump(cov, file_obj)
+
+    ### plot the result
+    if opts.resample_plot:
+        figname = pklpath[:-3]+'png'
+        if opts.verbose:
+            print('saving: '+figname)
+        fig, _, _ = sanity_check_plot(logp_resample, mean, cov, [logp_obs], [loge_obs])
+        fig.suptitle(os.path.basename(path)[:-4])
+        fig.savefig(figname)
+        plt.close(fig)
+
+### explicitly clean up a bit to try to be memory friendly
+#del data, logp_obs, loge_obs, mean, cov, i, j, ind, path
+
+### add in "theory model noise" as diagonal components to covs based on variance of means at each pressure
+if opts.verbose:
+    print('computing modeling uncertainty at each pressure')
+cov = np.diag(np.var(means.reshape((Neos, opts.resample_pressure_num)), axis=0)) ### assume this "noise" is diagonal, although it may not be in practice...
+cov *= opts.evaluate_model_multiplier ### artificially inflate this...
+
+for ind in xrange(Neos):
+    i = ind*opts.resample_pressure_num
+    j = i + opts.resample_pressure_num
+    covs[i:j,i:j] += cov
+
+logp_resample = np.concatenate([logp_resample]*Neos) ### stack this for input into the "altogether" regression
+
+### explicitly clean up a bit to try to be memory friendly
+#del cov, i, j
+
+#------------------------
+
+### perform the "altogether" regression
+if opts.verbose:
+    print('evaluating log(e) at %d points within [%.3e, %.3e] g/cm^3'%tuple([opts.evaluate_pressure_num]+opts.evaluate_pressure_bounds))
+logp_evaluate = np.linspace(
+    np.log(opts.evaluate_pressure_bounds[0]),
+    np.log(opts.evaluate_pressure_bounds[1]),
+    opts.evaluate_pressure_num,
+)
+logp_evaluate -= 2*np.log(utils.c)
+
+if opts.verbose:
+    print('regressing %d values from %d noisy observations'%(opts.evaluate_pressure_num, Nobs))
+mean, cov = gp.gpr_altogether(
+    logp_evaluate,
+    means,
+    logp_resample,
+    covs,
+    degree=opts.evaluate_poly_degree,
+    guess_sigma2=opts.evaluate_sigma**2,
+    guess_l2=opts.evaluate_l**2,
+    guess_sigma2_obs=opts.evaluate_sigma_obs**2,
+)
+
+### save the result
+pklpath = os.path.join(opts.output_dir, 'gpr_energy_density%s.pkl'%opts.tag)
+if opts.verbose:
+    print('writing process to: '+pklpath)
+with open(pklpath, 'w') as file_obj:
+    pickle.dump(logp_evaluate, file_obj)
+    pickle.dump(mean, file_obj)
+    pickle.dump(cov, file_obj)
+
+### plot the result
+if opts.evaluate_plot:
+    figname = pklpath[:-3]+'png'
+    if opts.verbose:
+        print('saving: '+figname)
+    shape = (Neos, opts.resample_pressure_num)
+    fig, _, _ = sanity_check_plot(logp_evaluate, mean, cov, logp_resample.reshape(shape), means.reshape(shape))
+    fig.savefig(figname)
+    plt.close(fig)

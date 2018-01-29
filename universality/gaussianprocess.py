@@ -47,20 +47,20 @@ def cov_df1dx1_df2dx2(x1, x2, sigma2=__default_sigma2__, l2=__default_l2__):
 # GPR via conditioning given a set of observation and a covariance matrix
 #-------------------------------------------------
 
-def gpr(f_obs, cov_test_test, cov_test_obs, cov_obs_test, cov_obs_obs):
+def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
     '''
-    constructs the parameters for the conditional distribution: f_test|f_obs,x_obs,x_text based on cov_test_test, cov_test_obs, cov_obs_obs
-        cov_test_test : (N_test, N_test) the covariance matrix between test samples in the joint distribution
-        cov_test_obs  : (N_test, N_obs)  the covariance matrix between test samples and observed samples in the joint distribution
-        cov_obs_obs   : (N_obs, N_obs)   the covariance matrix between observed samples in the joint distribution
-    returns the mean_test, cov_test
+    constructs the parameters for the conditional distribution: f_tst|f_obs,x_obs,x_text based on cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs
+        cov_tst_tst : (N_tst, N_tst) the covariance matrix between test samples in the joint distribution
+        cov_tst_obs : (N_tst, N_obs) the covariance matrix between test samples and observed samples in the joint distribution
+        cov_obs_obs : (N_obs, N_obs) the covariance matrix between observed samples in the joint distribution
+    returns the mean_tst, cov_tst_tst
     '''
     ### invert matix only once. This is the expensive part
     invcov_obs_obs = np.linalg.inv(cov_obs_obs)
 
     ### do some matrix multiplcation here
-    mean = np.dot(cov_test_obs, np.dot(invcov_obs_obs, f_obs))
-    cov  = cov_test_test - np.dot(cov_test_obs, np.dot(invcov_obs_obs, cov_obs_test))
+    mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
+    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst))
 
     return mean, cov
 
@@ -133,29 +133,93 @@ def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sig
 
     return dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs
 
-def gpr_f(x_test, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def gpr_f(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
-    constructs covariance for f_test|f_obs,x_obs,x_test
-    returns mean_test, cov_test
+    constructs covariance for f_tst|f_obs,x_obs,x_tst
+    returns mean_tst, cov_tst_tst
     '''
     ### compute covariances
-    cov_test_test = cov_f1_f2(x_test, x_test, sigma2=sigma2, l2=l2)
-    cov_test_obs  = cov_f1_f2(x_test, x_obs, sigma2=sigma2, l2=l2)
+    cov_tst_tst = cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_obs = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
     cov_obs_obs = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     ### delegate
-    return gpr(f_obs, cov_test_test, cov_test_obs, np.transpose(cov_test_obs), cov_obs_obs)
+    return gpr(f_obs, cov_tst_tst, cov_tst_obs, np.transpose(cov_tst_obs), cov_obs_obs)
 
-def gpr_dfdx(x_test, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def gpr_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
-    constructs covariance needed for df_test/dx_test|f_obs,x_obs,x_test
-    return mean_test, cov_test
+    constructs covariance needed for df_tst/dx_tst|f_obs,x_obs,x_tst
+    return mean_tst, cov_tst_tst
     '''
     ### compute covariances
-    cov_test_test = cov_df1dx1_df2dx2(x_test, x_test, sigma2=sigma2, l2=l2)
-    cov_test_obs  = cov_df1dx1_f2(x_test, x_obs, sigma2=sigma2, l2=l2)
-    cov_obs_test  = cov_f1_df2dx2(x_obs, x_test, sigma2=sigma2, l2=l2)
+    cov_tst_tst = cov_df1dx1_df2dx2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_obs = cov_df1dx1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+    cov_obs_tst = cov_f1_df2dx2(x_obs, x_tst, sigma2=sigma2, l2=l2)
     cov_obs_obs = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     ### delegate
-    return gpr(f_obs, cov_test_test, cov_test_obs, cov_obs_test, cov_obs_obs) 
+    return gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+
+#-------------------------------------------------
+# specific utilities for "one-stop shop" scripts
+#-------------------------------------------------
+
+def poly_model(x_tst, f_obs, x_obs, degree=1):
+    '''
+    fit a polynomial model to the data
+    return f_fit, f_tst
+    '''
+    f_fit = np.zeros_like(x_obs, dtype='float')
+    f_tst = np.zeros_like(x_tst, dtype='float')
+    poly = np.polyfit(x_obs, f_obs, degree)
+    for i in xrange(degree+1):
+        f_fit += poly[-1-i]*x_obs**i
+        f_tst += poly[-1-i]*x_tst**i
+    return f_fit, f_tst
+
+def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+    '''
+    resample the data via GPR to samples along x_tst
+    performs automatic optimization to find the best hyperparameters along with subtracting out f_fit from a polynomial model
+    '''
+    ### pre-condition the data
+    f_fit, f_tst = poly_model(x_tst, f_obs, x_obs, degree=degree)
+
+    ### perform GPR in an optimization loop to find the best logLike
+    ### FIXME: use this to figure out best hyper-parameters, but for now just take some I know work reasonably well
+    sigma2 = guess_sigma2
+    l2 = guess_l2
+    sigma2_obs = guess_sigma2_obs
+
+    ### perform GPR with best hyperparameters to infer the function at x_tst
+    mean, cov = gpr_f(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+    mean += f_tst ### add the polyfit model back in 
+
+    return mean, cov
+
+def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+    '''
+    a delegation function useful when I've already got a bunch of "noise" covariances known for f_obs(x_obs)
+    performs automatic optimization ot find the best hyperparameters along with subtracting out f_fit from a polynomial model
+    '''
+    ### pre-condition the data
+    f_fit, f_tst = poly_model(x_tst, f_obs, x_obs, degree=degree)
+
+    ### perform GPR in an optimization loop to find the best logLike
+    ### FIXME: use this to figure out best hyper-parameters, but for now just take some I know work reasonably well
+    sigma2 = guess_sigma2
+    l2 = guess_l2
+    sigma2_obs = guess_sigma2_obs
+
+    ### perform GPR with best hyperparameters to infer function at x_tst
+    ### note, we don't delegate to gpr_f here because we want to build the covariance functions ourself
+    cov_tst_tst = cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_obs = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+    cov_obs_tst = cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+    cov_obs_obs = cov_noise + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs) ### NOTE, we just add the know "noise" along with the GPR kernel
+
+    ### and now we delgeate
+    mean, cov = gpr(f_obs-f_fit, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+    mean += f_tst ### add the polyfit model back in
+
+    return mean, cov
