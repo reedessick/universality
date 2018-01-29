@@ -34,12 +34,32 @@ __default_model_multiplier__ = 1
 
 #-------------------------------------------------
 
+def sainty_check_plot(x_tst, f_tst, dfdx_tst, cov_f_f, cov_dfdx_dfdx, x_obs, f_obs, dfdx_obs):
+    '''
+    a basic set of plots for sanity-checking the regression
+    Note: we don't take in the full covariance matrix because we don't use it and this signature will simplify my life at the moment
+    '''
+    fig = plt.figure()
+
+    foo = plt.subplot(3,2,1) # the function itself
+    res = plt.subplot(3,2,4) # the residual between GPR and the function
+
+    doo = plt.subplot(2,2,2) # derivative of the function
+    des = plt.subplot(2,2,5) # residual in derivative of the function
+
+    phi = plt.subplot(2,2,3) # phi = log(df/dx - 1)
+    pes = plt.subplot(2,2,6) # residuals of phi
+
+    raise NotImplementedError
+
+#-------------------------------------------------
+
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
 #--- options for resampling
-parser.add_option('', '--resample-pressure-bounds', default=[__default_min_pressure__, __default_max_pressure__], nargs=2, type='float',
+parser.add_option('', '--resample-pressure-bounds', default=(__default_min_pressure__, __default_max_pressure__), nargs=2, type='float',
     help='min max values for resample-pressure. Specified in g/cm^3. \
 DEFAULT=%.3e %.3e'%(__default_min_pressure__, __default_max_pressure__))
 parser.add_option('', '--resample-pressure-num', default=51, type='int',
@@ -61,7 +81,7 @@ parser.add_option('', '--resample-sigma_obs', default=gp.__default_sigma__, type
 DEFAULT=%.3e'%gp.__default_sigma__)
 
 #--- options for evaluation
-parser.add_option('', '--evaluate-pressure-bounds', default=[__default_min_pressure__, __default_max_pressure__], nargs=2, type='float',
+parser.add_option('', '--evaluate-pressure-bounds', default=(__default_min_pressure__, __default_max_pressure__), nargs=2, type='float',
     help='min max values for evaluation pressures. Specified in g/cm^3. \
 DEFAULT=%.3e %.3e'%(__default_min_pressure__, __default_max_pressure__))
 parser.add_option('', '--evaluate-pressure-num', default=__default_num__, type='int',
@@ -97,7 +117,7 @@ parser.add_option('-t', '--tag', default='', type='string')
 
 opts, args = parser.parse_args()
 Neos = len(args)
-assert Neos, 'please supply at least 1 input argument\n%s'__usage__
+assert Neos, 'please supply at least 1 input argument\n%s'%__usage__
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
@@ -107,10 +127,181 @@ if opts.tag:
 
 #-------------------------------------------------
 
+### resample eos into a big matrix
+### generate all data structures we'll need here
+if opts.verbose:
+    print('resampling to %d points within [%.3e, %.3e] g/cm^3'%((opts.resample_pressure_num,)+opts.resample_pressure_bounds))
+logp_resample = np.linspace(
+    np.log(opts.resample_pressure_bounds[0]),
+    np.log(opts.resample_pressure_bounds[1]),
+    opts.resample_pressure_num,
+)
+logp_resample -= 2*np.log(utils.c)
+
+### set up data structures for "altogether" regression
+#Nobs = Neos*opts.resample_pressure_num ### the total number of observation points we'll end up with after resampling
+#means = np.empty(Nobs, dtype='float') ### don't zero this because we overwrite every element
+#covs = np.zeros((Nobs, Nobs), dtype='float') ### do zero this because we add to this instead of assigning values
+means = []
+covs = []
+logps = []
+truths = []
+
+for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and fill in data structures
+    if opts.verbose:
+        print('reading: '+path)
+    data, _ = utils.load(path, ['pressurec2', 'energy_densityc2'])
+    logp_obs = np.log(data[:,0])
+    loge_obs = np.log(data[:,1])
+
+    ### run gpr to resample this eos
+    if opts.verbose:
+        print('resampling %d observations to %d points'%(len(loge_obs), opts.resample_pressure_num))
+    truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
+
+    raise NotImplementedError, '''\
+resample for both loge and dloge/dlogp at logp_resample[truth]. 
+then we can convert these back into de/dp at logp_resample[truth] in a fair way. 
+We're probably going to have to give up on the full covariance matrix when computing phi anyway, so we can just assume the variances at each point sum in quadrature (standard error propagation) with the formula
+    de/dp = (e/p)*dloge/dlogp
+implying
+    Var(de/dp) = ((1/p)*dloge/dlogp)**2 * Var(e) + (e/p)**2 * Var(dloge/dlogp)
+'''
+
+    mean, cov = gp.gpr_resample_dfdx(
+        logp_resample[truth],
+        loge_obs,
+        logp_obs,
+        degree=opts.resample_poly_degree,
+        guess_sigma2=opts.resample_sigma**2,
+        guess_l2=opts.resample_l**2,
+        guess_sigma2_obs=opts.resample_sigma_obs**2,
+    )
+
+    ### store these for when we build the big covariance matrix for the "altogether" regression
+    means.append(mean)
+    covs.append(cov)
+    logps.append(logp_resample[truth])
+    truths.append(truth)
+
+    ### save the process for this resample to file
+    pklpath = os.path.join(opts.output_dir, 'gpr_phi-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
+    if opts.verbose:
+        print('writing process to: '+pklpath)
+    with open(pklpath, 'w') as file_obj:
+        pickle.dump(logp_resample[truth], file_obj)
+        pickle.dump(mean, file_obj)
+        pickle.dump(cov, file_obj)
+
+    ### plot the result
+    if opts.resample_plot:
+        raise NotImplementedError, 'NEED TO SET UP sanity_check_plot!'
+
+
+
 raise NotImplementedError, '''\
 follow general procedure laid out in gpr_energy_density:
   - when we resample we should estimate de/dp instead of just loge
   - convert regression for de/dp to phi=log(de/dp -1)
   - only include the model variance as the white noise term in gp.gpr_altogether
 we also need to set up a way to integrate a curve drawn from the process on phi to get e(p)
+need to think carefully about how we are going to set up the covariance matrix for phi...maybe just the diagonal is good enough?
 '''
+
+
+
+
+
+
+
+
+
+
+
+if opts.verbose:
+    print('computing modeling uncertainty at each pressure')
+### reference arrays concerning the lengths of each sample
+lens = [len(_) for _ in means]
+clens = np.cumsum(lens)
+slens = [0]+[_ for _ in clens[:-1]]
+
+### reshape resampled vectors into 1D arrays
+means_1d = np.concatenate(means)
+logps_1d = np.concatenate(logps)
+Nobs = len(logps_1d)
+
+### add in "theory model noise" as diagonal components based on variance of means at each pressure
+covs_2d = np.zeros((Nobs,Nobs), dtype='float')
+
+### iterate through pressure samples and compute theory variance of each
+for i in xrange(opts.resample_pressure_num):
+    ### variance for this pressure sample
+    sample_means = []
+    sample_vars = []
+    for mean, cov, truth in zip(means, covs, truths):
+        if truth[i]:
+            ind = np.sum(truth[:i+1])-1
+            sample_means.append( mean[ind] )
+            sample_vars.append( cov[ind,ind] )
+    var = np.var(sample_means) + np.sum(sample_vars) if sample_means else 0. ### only take the variance if there's a non-trivial sample at this pressure
+
+    # multiply this sample by some factor (hyper-parameter)
+    var *= opts.evaluate_model_multiplier
+
+    # fill in big array as needed
+    for j in xrange(Neos):
+        if i<lens[j]: # if this EOS goes to high enough pressure, add in this variance
+            ind = slens[j]+i
+            covs_2d[ind,ind] += var ### variance goes on the diagonal
+
+### iterate over regression covariances and fill in the matrix
+### this includes off-diagonal correlations within each resampling
+i=0
+for ind in xrange(Neos):
+    j = clens[ind]
+    covs_2d[i:j,i:j] += covs[ind]
+    i = j
+
+#------------------------
+
+### perform the "altogether" regression
+if opts.verbose:
+    print('evaluating log(e) at %d points within [%.3e, %.3e] g/cm^3'%((opts.evaluate_pressure_num,)+opts.evaluate_pressure_bounds))
+logp_evaluate = np.linspace(
+    np.log(opts.evaluate_pressure_bounds[0]),
+    np.log(opts.evaluate_pressure_bounds[1]),
+    opts.evaluate_pressure_num,
+)
+logp_evaluate -= 2*np.log(utils.c)
+
+if opts.verbose:
+    print('regressing %d values from %d noisy observations'%(opts.evaluate_pressure_num, Nobs))
+mean, cov = gp.gpr_altogether(
+    logp_evaluate,
+    means_1d,
+    logps_1d,
+    covs_2d,
+    degree=opts.evaluate_poly_degree,
+    guess_sigma2=opts.evaluate_sigma**2,
+    guess_l2=opts.evaluate_l**2,
+    guess_sigma2_obs=opts.evaluate_sigma_obs**2,
+)
+
+### save the result
+pklpath = os.path.join(opts.output_dir, 'gpr_phi%s.pkl'%opts.tag)
+if opts.verbose:
+    print('writing process to: '+pklpath)
+with open(pklpath, 'w') as file_obj:
+    pickle.dump(logp_evaluate, file_obj)
+    pickle.dump(mean, file_obj)
+    pickle.dump(cov, file_obj)
+
+### plot the result
+if opts.evaluate_plot:
+    raise NotImplementedError, 'implement sanity_check_plot'
+    figname = pklpath[:-3]+'png'
+    if opts.verbose:
+        print('saving: '+figname)
+    fig, _, _ = sanity_check_plot(logp_evaluate, mean, cov, logps, means)
+    fig.savefig(figname)
+    plt.close(fig)

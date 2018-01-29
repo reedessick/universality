@@ -177,6 +177,19 @@ def poly_model(x_tst, f_obs, x_obs, degree=1):
         f_tst += poly[-1-i]*x_tst**i
     return f_fit, f_tst
 
+def poly_model_dfdx(x_tst, f_obs, x_obs, degree=1):
+    '''
+    like poly_model, except
+    return f_fit, dfdx_tst
+    '''
+    f_fit = np.zeros_like(x_obs, dtype='float')
+    f_tst = np.zeros_like(x_tst, dtype='float')
+    poly = np.polyfit(x_obs, f_obs, degree)
+    for i in xrange(degree+1):
+        f_fit += poly[-1-i]*x_obs**i
+        f_tst += i*poly[-1-i]*x_tst**(i-1)
+    return f_fit, f_tst
+
 def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''
     resample the data via GPR to samples along x_tst
@@ -196,6 +209,28 @@ def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__,
     mean += f_tst ### add the polyfit model back in 
 
     return mean, cov
+
+def gpr_resample_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+    '''
+    the same as gpr_resample, except we regress out the derivative of the function instead of the function
+    resample the data via GPR to samples along x_tst
+    performs automatic optimization to find the best hyperparameters along with subtracting out f_fit from a polynomial model
+    '''
+    ### pre-condition the data
+    f_fit, f_tst = poly_model_dfdx(x_tst, f_obs, x_obs, degree=degree)
+
+    ### perform GPR in an optimization loop to find the best logLike
+    ### FIXME: use this to figure out best hyper-parameters, but for now just take some I know work reasonably well
+    sigma2 = guess_sigma2
+    l2 = guess_l2
+    sigma2_obs = guess_sigma2_obs
+
+    ### perform GPR with best hyperparameters to infer the function at x_tst
+    mean, cov = gpr_dfdx(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+    mean += f_tst ### add the polyfit model back in 
+
+    return mean, cov
+
 
 def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''
