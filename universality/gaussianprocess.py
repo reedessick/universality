@@ -215,6 +215,7 @@ def gpr_f_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__
 
     ### slice the resulting arrays and return
     ### relies on the ordering we constructed within our covariance matricies!
+    #        mean_f      mean_dfdx       cov_f_f          cov_f_dfdx        cov_dfdx_f      cov_dfdx_dfdx
     return mean[:Ntst], mean[Ntst:], cov[:Ntst,:Ntst], cov[:Ntst,Ntst:], cov[Ntst:,:Ntst], cov[:Ntst,:Ntst]
 
 #-------------------------------------------------
@@ -317,6 +318,7 @@ def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_d
     # compute some useful values from the means
     expf = np.exp(mean_f)
     expx = np.exp(x_tst)
+
     ratio = expf/expx
     denom = (ratio*mean_dfdx - 1)
 
@@ -326,13 +328,16 @@ def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_d
 
     ### construct the covariance matrix
     # this is the product of outer-products between the partials and the covariance matricies
-    cov_phi_phi = \
-        + np.outer(dphidf, dphidf)*cov_f_f \
-        - np.outer(dphidf, dphiddfdx)*cov_f_dfdx \
-        - np.outer(dphiddfdx, dphidf)*cov_dfdx_f \
-        + np.outer(dphiddfdx, dphiddfdx)*cov_dfdx_dfdx \
+    # I break the computation up like this for clarity within the code, not speed
+    Ntst = len(x_tst)
+    cov = np.zeros((Ntst,Ntst), dtype='float')
 
-    return cov_phi_phi
+    cov += np.outer(dphidf, dphidf)*cov_f_f              ### contribution from Cov(f,f) 
+    cov += np.outer(dphidf, dphiddfdx)*cov_f_dfdx        ### contribution from Cov(f,df/dx)
+    cov += np.outer(dphiddfdx, dphidf)*cov_dfdx_f        ### contribution from Cov(df/dx,f)
+    cov += np.outer(dphiddfdx, dphiddfdx)*cov_dfdx_dfdx  ### contribution from Cov(df/dx,df/dx)
+
+    return cov
 
 def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''
