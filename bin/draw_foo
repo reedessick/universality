@@ -30,7 +30,7 @@ parser.add_option('-v', '--verbose', default=False, action='store_true')
 parser.add_option('-n', '--num-draws', default=1, type='int',
     help='DEFAULT=1')
 
-parser.add_option('', '--plot', default=False, action='store_true')
+parser.add_option('-p', '--plot', default=False, action='store_true')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
