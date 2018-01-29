@@ -15,6 +15,26 @@ __default_sigma2__ = __default_sigma__**2
 __default_l2__ = __default_l__**2
 
 #-------------------------------------------------
+# convenience functions for sanity checking
+#-------------------------------------------------
+
+def num_dfdx(x_obs, f_obs):
+    '''
+    estimate the derivative numerically
+    '''
+    df = f_obs[1:] - f_obs[:-1]
+    dx = x_obs[1:] - x_obs[:-1]
+
+    dfdx = np.empty_like(f_obs, dtype='float')
+
+    dfdx[0] = df[0]/dx[0]   # handle boundary conditions as special cases
+    dfdx[-1] = df[-1]/dx[-1]
+
+    dfdx[1:-1] = 0.5*(df[:-1]/dx[:-1] + df[1:]/dx[1:]) ### average in the bulk
+
+    return dfdx
+
+#-------------------------------------------------
 # covariance kernels
 #-------------------------------------------------
 
@@ -160,6 +180,43 @@ def gpr_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, 
     ### delegate
     return gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
 
+def gpr_f_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+    '''
+    constructs covariance needed for f_tst,dfdx_tst|f_obs,x_obs,x_tst
+    return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx
+    '''
+    ### compute covariances
+    Ntst = len(x_tst)
+    NTST = 2*Ntst
+    Nobs = len(x_obs)
+
+    # covariance between test points
+    cov_tst_tst = np.empty((NTST,NTST), dtype='float')
+    cov_tst_tst[:Ntst,:Ntst] = cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_tst[:Ntst,Ntst:] = cov_f1_df2dx2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_tst[Ntst:,:Ntst] = cov_df1dx1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+    cov_tst_tst[Ntst:,:Ntst] = cov_df1dx1_df2dx2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+
+    # covariance between test and observation points
+    cov_tst_obs = np.empty((NTST,Nobs), dtype='float')
+    cov_tst_obs[:Ntst,:] = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+    cov_tst_obs[Ntst:,:] = cov_df1dx1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+
+    # covariance between observation and test points
+    cov_obs_tst = np.empty((Nobs,NTST), dtype='float')
+    cov_obs_tst[:,:Ntst] = cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+    cov_obs_tst[:,Ntst:] = cov_f1_df2dx2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+
+    # covariance between observation points
+    cov_obs_obs = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+
+    ### delegate to compute conditioned process
+    mean, cov = gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+
+    ### slice the resulting arrays and return
+    ### relies on the ordering we constructed within our covariance matricies!
+    return mean[:Ntst], mean[Ntst:], cov[:Ntst,:Ntst], cov[:Ntst,Ntst:], cov[Ntst:,:Ntst], cov[:Ntst,:Ntst]
+
 #-------------------------------------------------
 # specific utilities for "one-stop shop" scripts
 #-------------------------------------------------
@@ -177,18 +234,20 @@ def poly_model(x_tst, f_obs, x_obs, degree=1):
         f_tst += poly[-1-i]*x_tst**i
     return f_fit, f_tst
 
-def poly_model_dfdx(x_tst, f_obs, x_obs, degree=1):
+def poly_model_f_dfdx(x_tst, f_obs, x_obs, degree=1):
     '''
     like poly_model, except
     return f_fit, dfdx_tst
     '''
     f_fit = np.zeros_like(x_obs, dtype='float')
     f_tst = np.zeros_like(x_tst, dtype='float')
+    dfdx_tst = np.zeros_like(x_tst, dtype='float')
     poly = np.polyfit(x_obs, f_obs, degree)
     for i in xrange(degree+1):
         f_fit += poly[-1-i]*x_obs**i
-        f_tst += i*poly[-1-i]*x_tst**(i-1)
-    return f_fit, f_tst
+        f_tst += poly[-1-i]*x_tst**i
+        dfdx_tst += i*poly[-1-i]*x_tst**(i-1)
+    return f_fit, f_tst, dfdx_tst
 
 def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''
@@ -210,14 +269,14 @@ def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__,
 
     return mean, cov
 
-def gpr_resample_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+def gpr_resample_f_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''
-    the same as gpr_resample, except we regress out the derivative of the function instead of the function
+    the same as gpr_resample, except we regress out both the function and the derivative of the function instead of the just the function
     resample the data via GPR to samples along x_tst
     performs automatic optimization to find the best hyperparameters along with subtracting out f_fit from a polynomial model
     '''
     ### pre-condition the data
-    f_fit, f_tst = poly_model_dfdx(x_tst, f_obs, x_obs, degree=degree)
+    f_fit, f_tst, dfdx_tst = poly_model_f_dfdx(x_tst, f_obs, x_obs, degree=degree)
 
     ### perform GPR in an optimization loop to find the best logLike
     ### FIXME: use this to figure out best hyper-parameters, but for now just take some I know work reasonably well
@@ -226,11 +285,54 @@ def gpr_resample_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigm
     sigma2_obs = guess_sigma2_obs
 
     ### perform GPR with best hyperparameters to infer the function at x_tst
-    mean, cov = gpr_dfdx(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
-    mean += f_tst ### add the polyfit model back in 
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gpr_f_dfdx(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
-    return mean, cov
+    # add the polyfit model back in
+    mean_f += f_tst
+    mean_dfdx += dfdx_tst
 
+    return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx
+
+def mean_phi(x_tst, mean_f, mean_dfdx):
+    '''
+    compute the mean of the process for phi =  log(de/dp-1) = log((exp(f)/x)*dfdx - 1) by assuming phi can be approximated by a 1st order Taylor expansion in the neighborhood of each x_tst. 
+    This assumption makes the resulting process on phi Gaussian with a straightforward covariance matrix
+
+    NOTE: this is pretty fine-tuned for what I'm doing in this project, so it may not be useful elsewhere, but that's probably fine...
+
+    return mean_phi
+    '''
+    return np.log(np.exp(mean_f)/np.exp(x_tst) * mean_dfdx - 1) ### NOTE: there might be issues with numerical stability here...
+
+def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx):
+    '''
+    compute the covariance matrix for the process for phi = log(de/dp-1) = log((exp(f)/x)*dfdx - 1) by assuming phi can be approximated by a 1st order Taylor expansion in the neighborhood of each x_tst. 
+    This assumption makes the resulting process on phi Gaussian with a straightforward covariance matrix
+
+    NOTE: this is pretty fine-tuned for what I'm doing in this project, so it may not be useful elsewhere, but that's probably fine...
+
+    return cov_phi_phi
+    '''
+    ### compute partial derivatives of phi evaluated at the means
+    # compute some useful values from the means
+    expf = np.exp(mean_f)
+    expx = np.exp(x_tst)
+    ratio = expf/expx
+    denom = (ratio*mean_dfdx - 1)
+
+    # construct the actual partial dervatives
+    dphidf = (denom+1) / denom
+    dphiddfdx = ratio / denom
+
+    ### construct the covariance matrix
+    # this is the product of outer-products between the partials and the covariance matricies
+    cov_phi_phi = \
+        + np.outer(dphidf, dphidf)*cov_f_f \
+        - np.outer(dphidf, dphiddfdx)*cov_f_dfdx \
+        - np.outer(dphiddfdx, dphidf)*cov_dfdx_f \
+        + np.outer(dphiddfdx, dphiddfdx)*cov_dfdx_dfdx \
+
+    return cov_phi_phi
 
 def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
     '''

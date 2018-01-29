@@ -34,23 +34,189 @@ __default_model_multiplier__ = 1
 
 #-------------------------------------------------
 
-def sainty_check_plot(x_tst, f_tst, dfdx_tst, cov_f_f, cov_dfdx_dfdx, x_obs, f_obs, dfdx_obs):
+def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, x_obs, f_obs):
     '''
     a basic set of plots for sanity-checking the regression
-    Note: we don't take in the full covariance matrix because we don't use it and this signature will simplify my life at the moment
     '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
+    zeros = np.zeros_like(x_tst, dtype='int')
+
+    ### compute dfdx_obs and phi_obs
+    dfdx_obs = []
+    phi_obs = []
+    for x, f in zip(x_obs, f_obs):
+
+        # numerically estimate df/dx
+        dfdx = gp.num_dfdx(x, f)
+        dfdx_obs.append(dfdx) # add to list
+
+        # compute phi = np.log(np.exp(f)/np.exp(x) * dfdx - 1)
+        phi_obs.append( np.log(np.exp(f)/np.exp(x)*dfdx - 1) )
+
+    ### set up figures and axes
+    fig = plt.figure(figsize=(18,6))
+
+    foo = plt.subplot(2,3,1) # the function itself
+    res = plt.subplot(2,3,4) # the residual between GPR and the function
+
+    doo = plt.subplot(2,3,2) # derivative of the function
+    des = plt.subplot(2,3,5) # residual in derivative of the function
+
+    phi = plt.subplot(2,3,3) # phi = log(df/dx - 1)
+    pes = plt.subplot(2,3,6) # residuals of phi
+
+    plt.subplots_adjust(
+        hspace=0.01,
+        wspace=0.2,
+        left=0.08,
+        right=0.99,
+        bottom=0.10,
+        top=0.90,
+    )
+
+    ### plot the regression
+    foo.fill_between(x_tst, f_tst-std_f, f_tst+std_f, color='grey', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
+
+    ylim = foo.get_ylim()
+
+    res.fill_between(x_tst, -std_f/f_tst, +std_f/f_tst, color='grey', alpha=0.5)
+    res.plot(x_tst, zeros, color='k')
+
+    # iterate and overlay data
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        f = f[truth]
+        f_int = np.interp(x, x_tst, f_tst)
+        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    foo.set_ylim(ylim)
+
+    # decorate regression
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    res.set_xlabel('$x$')
+    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    foo.set_ylabel('$f$')
+    
+    ### plot the regression of dfdx
+    doo.fill_between(x_tst, dfdx_tst+std_dfdx, dfdx_tst-std_dfdx, color='grey', alpha=0.5)
+    doo.plot(x_tst, dfdx_tst, color='k')
+
+    ylim = doo.get_ylim()
+
+    des.fill_between(x_tst, -std_dfdx/dfdx_tst, +std_dfdx/dfdx_tst, color='grey', alpha=0.5)
+    des.plot(x_tst, zeros, color='k')
+
+    # iterate and overlay data
+    for x, dfdx in zip(x_obs, dfdx_obs):
+        color = doo.plot(x, dfdx, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        dfdx = dfdx[truth]
+        f_int = np.interp(x, x_tst, dfdx_tst)
+        des.plot(x, (f_int-dfdx)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    doo.set_ylim(ylim)
+
+    # decorate regression of dfdx
+    plt.setp(doo.get_xticklabels(), visible=False)
+
+    for ax in [doo, des]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    des.set_xlabel('$x$')
+    des.set_ylabel(r'$([df/dx]_\ast - [df/dx])/[df/dx]_\ast$')
+    doo.set_ylabel('df/dx')
+
+    ### plot the regression for phi
+    phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
+    phi.plot(x_tst, mean_phi, color='k')
+
+    ylim = phi.get_ylim()
+
+    pes.fill_between(x_tst, +std_phi/mean_phi, -std_phi/mean_phi, color='grey', alpha=0.5)
+    pes.plot(x_tst, zeros, color='k')
+
+    # iterate over data
+    for x, p in zip(x_obs, phi_obs):
+        color = phi.plot(x, p, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        p = p[truth]
+        f_int = np.interp(x, x_tst, phi_tst)
+#        pes.plot(x, (f_int-p)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        pes.plot(x, (f_int-p), '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    phi.set_ylim(ylim)
+
+    # decorate regression of phi
+    plt.setp(phi.get_xticklabels(), visible=False)
+
+    for ax in [phi, pes]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    pes.set_xlabel('$x$')
+#    pes.set_ylabel(r'$(\phi_\ast - \phi)/\phi_\ast$')
+    pes.set_ylabel(r'$(\phi_\ast - \phi)$')
+    phi.set_ylabel('$\phi$')
+
+    ### return
+    return fig, (foo, res), (doo, des), (phi, pes)
+
+def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
+    '''
+    a helper function for plotting regressions as a way to sanity check results
+    '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
     fig = plt.figure()
+    foo = fig.add_axes([0.13, 0.30, 0.85, 0.65]) ### the actual data
+    res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
-    foo = plt.subplot(3,2,1) # the function itself
-    res = plt.subplot(3,2,4) # the residual between GPR and the function
+    ### plot the regression
+    foo.fill_between(x_tst, f_tst-std_tst, f_tst+std_tst, color='grey', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
 
-    doo = plt.subplot(2,2,2) # derivative of the function
-    des = plt.subplot(2,2,5) # residual in derivative of the function
+    ylim = foo.get_ylim()
 
-    phi = plt.subplot(2,2,3) # phi = log(df/dx - 1)
-    pes = plt.subplot(2,2,6) # residuals of phi
+    res.fill_between(x_tst, -std_tst/f_tst, +std_tst/f_tst, color='grey', alpha=0.5)
+    res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
 
-    raise NotImplementedError
+    ### iterate through observed data and overlay
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        f = f[truth]
+        f_int = np.interp(x, x_tst, f_tst)
+        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    foo.set_ylim(ylim)
+
+    ### decorate
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    res.set_xlabel('$x$')
+    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    foo.set_ylabel('$f$')
+
+    return fig, foo, res
 
 #-------------------------------------------------
 
@@ -144,6 +310,7 @@ logp_resample -= 2*np.log(utils.c)
 #covs = np.zeros((Nobs, Nobs), dtype='float') ### do zero this because we add to this instead of assigning values
 means = []
 covs = []
+
 logps = []
 truths = []
 
@@ -156,19 +323,13 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
 
     ### run gpr to resample this eos
     if opts.verbose:
-        print('resampling %d observations to %d points'%(len(loge_obs), opts.resample_pressure_num))
+        print('resampling %d observations to %d+%d points'%(len(loge_obs), opts.resample_pressure_num, opts.resample_pressure_num))
     truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
+    if not np.any(truth):
+        raise Warning, 'no samples found with requested range. Skipping this EOS'
+        continue
 
-    raise NotImplementedError, '''\
-resample for both loge and dloge/dlogp at logp_resample[truth]. 
-then we can convert these back into de/dp at logp_resample[truth] in a fair way. 
-We're probably going to have to give up on the full covariance matrix when computing phi anyway, so we can just assume the variances at each point sum in quadrature (standard error propagation) with the formula
-    de/dp = (e/p)*dloge/dlogp
-implying
-    Var(de/dp) = ((1/p)*dloge/dlogp)**2 * Var(e) + (e/p)**2 * Var(dloge/dlogp)
-'''
-
-    mean, cov = gp.gpr_resample_dfdx(
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
         logp_resample[truth],
         loge_obs,
         logp_obs,
@@ -178,9 +339,14 @@ implying
         guess_sigma2_obs=opts.resample_sigma_obs**2,
     )
 
+    if opts.verbose:
+        print('computing process for phi')
+    mean_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
+    cov_phi_phi = gp.cov_phi_phi(logp_resample[truth], mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx)
+
     ### store these for when we build the big covariance matrix for the "altogether" regression
-    means.append(mean)
-    covs.append(cov)
+    means.append(mean_phi)
+    covs.append(cov_phi_phi)
     logps.append(logp_resample[truth])
     truths.append(truth)
 
@@ -190,22 +356,42 @@ implying
         print('writing process to: '+pklpath)
     with open(pklpath, 'w') as file_obj:
         pickle.dump(logp_resample[truth], file_obj)
-        pickle.dump(mean, file_obj)
-        pickle.dump(cov, file_obj)
+        pickle.dump(mean_f, file_obj)
+        pickle.dump(mean_dfdx, file_obj)
+        pickle.dump(mean_phi, file_obj)
+        pickle.dump(cov_f_f, file_obj)
+        pickle.dump(cov_f_dfdx, file_obj)
+        pickle.dump(cov_dfdx_f, file_obj)
+        pickle.dump(cov_dfdx_dfdx, file_obj)
+        pickle.dump(cov_phi_phi, file_obj)
 
     ### plot the result
     if opts.resample_plot:
-        raise NotImplementedError, 'NEED TO SET UP sanity_check_plot!'
+        figname = pklpath[:-3]+'png'
+        if opts.verbose:
+            print('saving: '+figname)
+        fig = big_sanity_check_plot(
+            logp_resample[truth],
+            mean_f,
+            mean_dfdx,
+            mean_phi,
+            np.diag(cov_f_f)**0.5,
+            np.diag(cov_dfdx_dfdx)**0.5,
+            np.diag(cov_phi_phi)**0.5,
+            [logp_obs],
+            [loge_obs],
+        )[0]
+        fig.suptitle(os.path.basename(path)[:-4])
+        fig.savefig(figname)
+        plt.close(fig)
+
+
 
 
 
 raise NotImplementedError, '''\
-follow general procedure laid out in gpr_energy_density:
-  - when we resample we should estimate de/dp instead of just loge
-  - convert regression for de/dp to phi=log(de/dp -1)
-  - only include the model variance as the white noise term in gp.gpr_altogether
-we also need to set up a way to integrate a curve drawn from the process on phi to get e(p)
-need to think carefully about how we are going to set up the covariance matrix for phi...maybe just the diagonal is good enough?
+follow general procedure laid out in gpr_energy_density
+at this point, we should only be dealing with processes on phi, so things should be quite similar to what's in gpr_energy_density from this point onward
 '''
 
 
@@ -298,10 +484,9 @@ with open(pklpath, 'w') as file_obj:
 
 ### plot the result
 if opts.evaluate_plot:
-    raise NotImplementedError, 'implement sanity_check_plot'
     figname = pklpath[:-3]+'png'
     if opts.verbose:
         print('saving: '+figname)
-    fig, _, _ = sanity_check_plot(logp_evaluate, mean, cov, logps, means)
+    fig, _, _ = sanity_check_plot(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)
     fig.savefig(figname)
     plt.close(fig)
