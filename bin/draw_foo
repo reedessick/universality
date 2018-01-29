@@ -47,14 +47,14 @@ if opts.verbose:
 xlabel, ylabel, x_tst, mean, cov = gp.pklload(pklpath)
 
 ### draw a bunch of realizations of the process
-tmp = '\r[ %6d / '+'%6d ]'%(opts.num_draws)                           # for reporting progress
 path = os.path.join(opts.output_dir, 'draw_foo'+opts.tag+'-%06d.csv') # for generating filenames
+tmp = '\r[ %6d / '+'%6d ] '%(opts.num_draws)+' saving: '+path         # for reporting progress
 header = '%s,%s'%(xlabel, ylabel)                                     # for writing file contents
 row = '%.9e,%.9e'
 
 for i in xrange(opts.num_draws):
     if opts.verbose:
-        sys.stdout.write(tmp%(i+1))
+        sys.stdout.write(tmp%(i+1, i))
         sys.stdout.flush()
 
     # draw the realization
@@ -62,9 +62,10 @@ for i in xrange(opts.num_draws):
 
     # write the realization to disk
     csvpath = path%i
-    if opts.verbose:
-        print('saving: '+csvpath)
     with open(csvpath, 'w') as file_obj:
         print >> file_obj, header
         for sample in zip(x_tst, y_tst):
             print >> file_obj, row%sample
+
+if opts.verbose:
+    sys.stdout.write('\n')

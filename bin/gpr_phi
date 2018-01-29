@@ -7,7 +7,6 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import os
-import pickle ### FIXME: figure out a better way to represent the process on disk than this...
 
 import numpy as np
 
@@ -364,19 +363,25 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     truths.append(truth)
 
     ### save the process for this resample to file
+    ### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
+
+    # just f
+    pklpath = os.path.join(opts.output_dir, 'gpr_phi-f-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
+    if opts.verbose:
+        print('writing process to: '+pklpath)
+    gp.pkldump(pklpath, 'logpressurec2', 'logenergy_densityc2', logp_resample[truth], mean_f, cov_f_f)
+
+    # just df/dx
+    pklpath = os.path.join(opts.output_dir, 'gpr_phi-dfdx-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
+    if opts.verbose:
+        print('writing process to: '+pklpath)
+    gp.pkldump(pklpath, 'logpressurec2', 'dlogenergy_densitydpressure', logp_resample[truth], mean_dfdx, cov_dfdx_dfdx)
+    
+    # just phi
     pklpath = os.path.join(opts.output_dir, 'gpr_phi-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
     if opts.verbose:
         print('writing process to: '+pklpath)
-    with open(pklpath, 'w') as file_obj:
-        pickle.dump(logp_resample[truth], file_obj)
-        pickle.dump(mean_f, file_obj)
-        pickle.dump(mean_dfdx, file_obj)
-        pickle.dump(mean_phi, file_obj)
-        pickle.dump(cov_f_f, file_obj)
-        pickle.dump(cov_f_dfdx, file_obj)
-        pickle.dump(cov_dfdx_f, file_obj)
-        pickle.dump(cov_dfdx_dfdx, file_obj)
-        pickle.dump(cov_phi_phi, file_obj)
+    gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[truth], mean_phi, cov_phi_phi)
 
     ### plot the result
     if opts.resample_plot:

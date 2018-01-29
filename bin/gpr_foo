@@ -7,7 +7,6 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import os
-import pickle
 
 import numpy as np
 
