@@ -482,10 +482,7 @@ mean, cov = gp.gpr_altogether(
 pklpath = os.path.join(opts.output_dir, 'gpr_phi%s.pkl'%opts.tag)
 if opts.verbose:
     print('writing process to: '+pklpath)
-with open(pklpath, 'w') as file_obj:
-    pickle.dump(logp_evaluate, file_obj)
-    pickle.dump(mean, file_obj)
-    pickle.dump(cov, file_obj)
+gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_evaluate, mean, cov)
 
 ### plot the result
 if opts.evaluate_plot:

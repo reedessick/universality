@@ -158,8 +158,4 @@ mean += Y_test ### add back in the mean you've subtracted
 pklpath = os.path.join(opts.output_dir, 'gpr_foo-%s-%s%s.pkl'%tuple(labels+[opts.tag]))
 if opts.verbose:
     print('writing process to: '+pklpath)
-with open(pklpath, 'w') as file_obj:
-    pickle.dump(labels, file_obj)
-    pickle.dump(Xtest, file_obj)
-    pickle.dump(mean, file_obj)
-    pickle.dump(cov, file_obj)
+gp.pkldump(pklpath, labels[0], labels[1], Xtest, mean, cov)

@@ -15,6 +15,27 @@ __default_sigma2__ = __default_sigma__**2
 __default_l2__ = __default_l__**2
 
 #-------------------------------------------------
+# i/o specific for storing processes
+#-------------------------------------------------
+
+def pkldump(path, xlabel, ylabel, x_tst, mean, cov):
+    with open(path, 'w') as file_obj:
+        pickle.dump(xlabel, file_obj) 
+        pickle.dump(ylabel, file_obj) 
+        pickle.dump(x_tst, file_obj) 
+        pickle.dump(mean, file_obj) 
+        pickle.dump(cov, file_obj) 
+
+def pklload(path):
+    with open(path, 'r') as file_obj:
+        xlabel = pickle.load(file_obj)
+        ylabel = pickle.load(file_obj)
+        x_tst = pickle.load(file_obj)
+        mean = pickle.load(file_obj)
+        cov = pickle.load(file_obj)
+    return xlabel, ylabel, x_tst, mean, cov
+
+#-------------------------------------------------
 # convenience functions for sanity checking
 #-------------------------------------------------
 
