@@ -12,6 +12,10 @@ import pickle
 
 import numpy as np
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -25,6 +29,8 @@ parser.add_option('-v', '--verbose', default=False, action='store_true')
 
 parser.add_option('-n', '--num-draws', default=1, type='int',
     help='DEFAULT=1')
+
+parser.add_option('', '--plot', default=False, action='store_true')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -45,6 +51,19 @@ if opts.tag:
 if opts.verbose:
     print('reading process from: '+pklpath)
 xlabel, ylabel, x_tst, mean, cov = gp.pklload(pklpath)
+
+if opts.plot:
+    fig = plt.figure()
+    ax = fig.gca()
+
+    s = 3*np.diag(cov)**0.5 ### plot 3-sigma regions
+    ax.fill_between(x_tst, mean+s, mean-s, color='grey', alpha=0.5)
+    ax.plot(x_tst, mean, color='k')
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
 path = os.path.join(opts.output_dir, 'draw_foo'+opts.tag+'-%06d.csv') # for generating filenames
@@ -67,5 +86,16 @@ for i in xrange(opts.num_draws):
         for sample in zip(x_tst, y_tst):
             print >> file_obj, row%sample
 
+    # add to plot
+    if opts.plot:
+        ax.plot(x_tst, y_tst, color='b', alpha=min(0.25, 10./opts.num_draws))
+
 if opts.verbose:
     sys.stdout.write('\n')
+
+if opts.plot:
+    figname = os.path.join(opts.output_dir, 'draw_foo%s.png'%opts.tag)
+    if opts.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
