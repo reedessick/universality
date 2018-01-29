@@ -64,15 +64,9 @@ def sanity_check_plot(x_tst, f_tst, cov_tst, x_obs, f_obs):
         f = f[truth]
         f_int = np.interp(x, x_tst, f_tst)
         res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
-#        truth = (np.min(x)<=x_tst)*(x_tst<=np.max(x))
-#        res.plot(x_tst[truth], f_tst[truth]-np.interp(x_tst[truth], x, f), '.-', color=color) ### plot the residual at the test points
 
     ### decorate
     plt.setp(foo.get_xticklabels(), visible=False)
-
-#    foo_xlim = foo.get_xlim()
-#    res_xlim = res.get_xlim()
-#    xlim = min(foo_xlim[0], res_xlim[0]), max(foo_xlim[1], res_xlim[1])
 
     for ax in [foo, res]:
       ax.set_xlim(xmin=xmin, xmax=xmax)
@@ -180,6 +174,7 @@ logp_resample -= 2*np.log(utils.c)
 means = []
 covs = []
 logps = []
+truths = []
 
 for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and fill in data structures
     if opts.verbose:
@@ -191,7 +186,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     ### run gpr to resample this eos
     if opts.verbose:
         print('resampling %d observations to %d points'%(len(loge_obs), opts.resample_pressure_num))
-    truth = logp_resample<=np.max(logp_obs) ### only keep samples below the max tabulated value
+    truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
     mean, cov = gp.gpr_resample(
         logp_resample[truth],
         loge_obs,
@@ -206,6 +201,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     means.append(mean)
     covs.append(cov)
     logps.append(logp_resample[truth])
+    truths.append(truth)
 
     ### save the process for this resample to file
     pklpath = os.path.join(opts.output_dir, 'gpr_energy_density-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
@@ -244,8 +240,14 @@ covs_2d = np.zeros((Nobs,Nobs), dtype='float')
 ### iterate through pressure samples and compute theory variance of each
 for i in xrange(opts.resample_pressure_num):
     ### variance for this pressure sample
-    sample = [_[i] for _, N in zip(means, lens) if i<N]
-    var = np.var(sample) if sample else 0. ### only take the variance if there's a non-trivial sample at this pressure
+    sample_means = []
+    sample_vars = []
+    for mean, cov, truth in zip(means, covs, truths):
+        if truth[i]:
+            ind = np.sum(truth[:i+1])-1
+            sample_means.append( mean[ind] )
+            sample_vars.append( cov[ind,ind] )
+    var = np.var(sample_means) + np.sum(sample_vars) if sample_means else 0. ### only take the variance if there's a non-trivial sample at this pressure
 
     # multiply this sample by some factor (hyper-parameter)
     var *= opts.evaluate_model_multiplier
