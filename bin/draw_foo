@@ -94,6 +94,7 @@ if opts.verbose:
     sys.stdout.write('\n')
 
 if opts.plot:
+    ax.set_xlim(np.min(x_tst), np.max(x_tst))
     figname = os.path.join(opts.output_dir, 'draw_foo%s.png'%opts.tag)
     if opts.verbose:
         print('saving: '+figname)

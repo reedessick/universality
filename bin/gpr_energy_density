@@ -45,6 +45,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
     res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
     ### plot the regression
+    std *= 3 ### plot 3 sigma regions
     foo.fill_between(x_tst, f_tst-std_tst, f_tst+std_tst, color='grey', alpha=0.5)
     foo.plot(x_tst, f_tst, color='k')
 

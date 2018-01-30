@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+__usage__ = "quick_plot [--options] xcolumn ycolumn path.csv [path.csv path.csv ...]"
+__doc__ = "a script that generates a non-frills plot from a CSV file"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--linestyle', default='.-', type='string')
+
+parser.add_option('', '--log-x', default=False, action='store_true')
+parser.add_option('', '--log-y', default=False, action='store_true')
+
+parser.add_option('', '--min-x', default=None, type='float')
+parser.add_option('', '--max-x', default=None, type='float')
+parser.add_option('', '--min-y', default=None, type='float')
+parser.add_option('', '--max-y', default=None, type='float')
+
+parser.add_option('', '--unit-x', default=None, type='string')
+parser.add_option('', '--unit-y', default=None, type='string')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+assert len(args)>2, 'please supply at least 2 input arguments\n%s'%__usage__
+xcolumn, ycolumn = columns = args[:2]
+inpaths = args[2:]
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+#-------------------------------------------------
+
+fig = plt.figure()
+ax = fig.gca()
+
+for inpath in inpaths:
+    if opts.verbose:
+        print('reading: '+inpath)
+    data, _ = utils.load(inpath, columns)
+
+    truth = np.ones(len(data), dtype=bool)
+    if opts.min_x!=None:
+        truth *= (opts.min_x<=data[:,0])
+    if opts.max_y!=None:
+        truth *= (data[:,0]<=opts.max_x)
+    if opts.min_y!=None:
+        truth *= (opts.min_y<=data[:,1])
+    if opts.max_y!=None:
+        truth *= (data[:,1]<=opts.max_y)
+
+    data = data[truth,:]
+
+    ax.plot(data[:,0], data[:,1], opts.linestyle, label=os.path.basename(inpath)[:-4])
+
+if opts.log_x:
+    ax.set_xscale('log')
+if opts.log_y:
+    ax.set_yscale('log')
+
+if opts.unit_x!=None:
+    xcolumn = xcolumn+' [%s]'%opts.unit_x
+if opts.unit_y!=None:
+    ycolumn = ycolumn+' [%s]'%opts.unit_y
+
+ax.set_xlabel(xcolumn)
+ax.set_ylabel(ycolumn)
+
+if opts.min_x!=None:
+    ax.set_xlim(xmin=opts.min_x)
+
+if opts.max_x!=None:
+    ax.set_xlim(xmax=opts.max_x)
+
+if opts.min_y!=None:
+    ax.set_ylim(ymin=opts.min_y)
+
+if opts.max_y!=None:
+    ax.set_ylim(ymax=opts.max_y)
+
+ax.grid(True, which='both')
+
+figname = os.path.join(opts.output_dir, 'quick_plot%s.png'%opts.tag)
+if opts.verbose:
+    print('saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)

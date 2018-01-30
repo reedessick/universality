@@ -76,6 +76,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     )
 
     ### plot the regression
+    std_f *= 3 ### plot 3-sigma region
     foo.fill_between(x_tst, f_tst-std_f, f_tst+std_f, color='grey', alpha=0.5)
     foo.plot(x_tst, f_tst, color='k')
 
@@ -111,6 +112,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     foo.set_ylabel('$f$')
     
     ### plot the regression of dfdx
+    std_dfdx *= 3 ### plot 3-sigma region
     doo.fill_between(x_tst, dfdx_tst+std_dfdx, dfdx_tst-std_dfdx, color='grey', alpha=0.5)
     doo.plot(x_tst, dfdx_tst, color='k')
 
@@ -146,6 +148,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     doo.set_ylabel('df/dx')
 
     ### plot the regression for phi
+    std_phi *= 3 ### plot 3-sigma region
     phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
     phi.plot(x_tst, mean_phi, color='k')
 
@@ -195,6 +198,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
     res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
     ### plot the regression
+    std_tst *= 3 ### plot 3-sigma region
     foo.fill_between(x_tst, f_tst-std_tst, f_tst+std_tst, color='grey', alpha=0.5)
     foo.plot(x_tst, f_tst, color='k')
 

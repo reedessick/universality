@@ -41,7 +41,7 @@ if opts.verbose:
 data, columns = utils.load(inpath)
 
 pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
-denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is the definition of phi=log(de/dp -1)
+denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is the definition of phi=log(de/dp - 1)
 
 # perform numeric integration with trapazoidal approximation
 # NOTE: this could probably be improved....
@@ -61,5 +61,5 @@ if opts.verbose:
     print('writing: '+outpath)
 with open(outpath, 'w') as file_obj:
     print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2'])
-    for sample, e in zip(data, pressurec2, energy_densityc2):
+    for sample, p, e in zip(data, pressurec2, energy_densityc2):
         print >> file_obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e])
