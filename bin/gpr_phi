@@ -410,9 +410,9 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     ### run basic sanity checks to make sure we don't break anything downstream...
     if opts.check_for_nan:
         if np.any(mean_phi!=mean_phi):
-            raise ValueError, 'EOS produces nans for mean_phi when resampled!'
+            raise ValueError, path+' produces nans for mean_phi when resampled!'
         if np.any(cov_phi_phi!=cov_phi_phi):
-            raise ValueError, 'EOS producds nans for cov_phi_phi when resampled!'
+            raise ValueError, path+' producds nans for cov_phi_phi when resampled!'
 
 #-------------------------------------------------
 # below this point, I only care about phi and therefore neglect f, dfdx, etc

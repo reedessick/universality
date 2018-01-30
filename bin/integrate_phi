@@ -23,6 +23,10 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('', '--sigma-energy_densityc2', default=0, type='float',
+    help='The reference energy_densityc2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
+DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
+
 opts, args = parser.parse_args()
 N = len(args)
 assert N in [3, 4], 'please supply either 3 or 4 input arguments\n%s'%__usage__
@@ -54,7 +58,7 @@ energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
 
 # scale the result to match reference energy at reference pressure
-energy_densityc2 += ref_ec2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
+energy_densityc2 += ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
 
 # write output
 if opts.verbose:
