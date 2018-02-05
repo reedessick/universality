@@ -100,7 +100,7 @@ if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+inpath)
     weights, _ = utils.load(inpath, [opts.weight_column])
-    weights = weights.reshape((len(weights)))
+    weights = weights.flatten()
 
     if opts.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))

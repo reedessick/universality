@@ -104,7 +104,7 @@ def logkde(samples, data, variances, weights=None):
         else:
             Nsamp, Ndim = samples.shape
 
-        if weights==None:
+        if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
             Ndata = len(data)
             weights = np.ones(Ndata, dtype='float')/Ndata
 

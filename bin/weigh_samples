@@ -54,8 +54,8 @@ srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=opts.verbose) ### whi
 if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+srcpath)
-    weights, _ = utils.load(srcpath, verbose=opts.verbose)
-    weights = weights.reshape((len(weights)))
+    weights, _ = utils.load(srcpath, [opts.weight_column])
+    weights = weights.flatten()
 
     if opts.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))
