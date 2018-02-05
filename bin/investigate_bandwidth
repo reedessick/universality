@@ -111,8 +111,7 @@ if opts.weight_column!=None:
     weights /= np.sum(weights)
 
 else:
-    N = len(data)
-    weights = np.ones(N, dtype='float')/N
+    weights = None
 
 #------------------------
 
