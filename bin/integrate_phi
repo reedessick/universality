@@ -47,10 +47,12 @@ data, columns = utils.load(inpath)
 pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
 denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is the definition of phi=log(de/dp - 1)
 
+#------------------------
+
 # perform numeric integration with trapazoidal approximation
-# NOTE: this could probably be improved....
+# NOTE: this could probably be improved...
 if opts.verbose:
-    print('performing numeric integration via trapazoidal approximation')
+    print('performing numeric integration for energy_density via trapazoidal approximation')
 energy_densityc2 = np.empty_like(pressurec2, dtype='float')
 energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 
@@ -60,10 +62,22 @@ energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densi
 # scale the result to match reference energy at reference pressure
 energy_densityc2 += ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
 
+#------------------------
+
+# perform numeric integration to obtain baryon density along with energy_density and pressure
+# NOTE: this could probably be improved as well...
+if opts.verbose:
+    print('performing numeric integration for baryon_density via trapazoidal approximation')
+baryon_density = np.empty_like(pressurec2, dtype='float')
+baryon_density[:] = energy_densityc2[0] ### NOTE: we assume baryon_density=energy_densityc2 at the beginning of the integration (p<<e)
+integrand = 1./(energy_densityc2+pressurec2)
+baryon_density[1:] *= np.exp(np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(energy_densityc2[1:]-energy_densityc2[:-1]))) ### multiply by this factor
+
+### NOTE: we now assume 
 # write output
 if opts.verbose:
     print('writing: '+outpath)
 with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2'])
-    for sample, p, e in zip(data, pressurec2, energy_densityc2):
-        print >> file_obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e])
+    print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2', 'baryon_density'])
+    for sample, p, e, rho in zip(data, pressurec2, energy_densityc2, baryon_density):
+        print >> file_obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e, rho])
