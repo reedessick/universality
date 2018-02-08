@@ -325,7 +325,9 @@ def mean_phi(x_tst, mean_f, mean_dfdx):
 
     return mean_phi
     '''
-    return np.log(np.exp(mean_f)/np.exp(x_tst) * mean_dfdx - 1) ### NOTE: there might be issues with numerical stability here...
+    ans = np.exp(mean_f)/np.exp(x_tst) * mean_dfdx - 1 ### NOTE: there might be issues with numerical stability here...
+    truth = ans>0 ### FIXME? only these points are causal, so we return this boolean array for filtering on the user's side
+    return np.log(ans), truth
 
 def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx):
     '''

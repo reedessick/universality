@@ -357,8 +357,20 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
 
     if opts.verbose:
         print('computing process for phi')
-    mean_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
-    cov_phi_phi = gp.cov_phi_phi(logp_resample[truth], mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx)
+    mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
+    mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
+    TRUTH = truth[:]
+    TRUTH[truth] = truth_phi
+
+    cov_phi_phi = gp.cov_phi_phi(
+        logp_resample[TRUTH],
+        mean_f[truth_phi],
+        mean_dfdx[truth_phi],
+        cov_f_f[truth_phi,:][:,truth_phi],
+        cov_f_dfdx[truth_phi,:][:,truth_phi],
+        cov_dfdx_f[truth_phi,:][:,truth_phi],
+        cov_dfdx_dfdx[truth_phi,:][:,truth_phi],
+    )
 
     ### store these for when we build the big covariance matrix for the "altogether" regression
     means.append(mean_phi)
@@ -385,7 +397,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
     pklpath = os.path.join(opts.output_dir, 'gpr_phi-%s%s.pkl'%(os.path.basename(path)[:-4], opts.tag))
     if opts.verbose:
         print('writing process to: '+pklpath)
-    gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[truth], mean_phi, cov_phi_phi)
+    gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[TRUTH], mean_phi, cov_phi_phi)
 
     ### plot the result
     if opts.resample_plot:
@@ -393,12 +405,12 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         if opts.verbose:
             print('saving: '+figname)
         fig = big_sanity_check_plot(
-            logp_resample[truth],
-            mean_f,
-            mean_dfdx,
+            logp_resample[TRUTH],
+            mean_f[truth_phi],
+            mean_dfdx[truth_phi],
             mean_phi,
-            np.diag(cov_f_f)**0.5,
-            np.diag(cov_dfdx_dfdx)**0.5,
+            (np.diag(cov_f_f)**0.5)[truth_phi],
+            (np.diag(cov_dfdx_dfdx)**0.5)[truth_phi],
             np.diag(cov_phi_phi)**0.5,
             [logp_obs],
             [loge_obs],
