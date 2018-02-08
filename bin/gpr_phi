@@ -214,7 +214,8 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
         x = x[truth]
         f = f[truth]
         f_int = np.interp(x, x_tst, f_tst)
-        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+#        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        res.plot(x, f_int-f, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
 
     foo.set_ylim(ylim)
 
@@ -226,7 +227,8 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
       ax.grid(True, which='both')
 
     res.set_xlabel('$x$')
-    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+#    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    res.set_ylabel(r'$f_\ast-f$')
     foo.set_ylabel('$f$')
 
     return fig, foo, res
