@@ -25,7 +25,7 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--linestyle', default='.-', type='string')
+parser.add_option('', '--linestyle', default='-', type='string')
 
 parser.add_option('', '--alpha', default=1.0, type='float')
 
@@ -39,6 +39,14 @@ parser.add_option('', '--max-y', default=None, type='float')
 
 parser.add_option('', '--unit-x', default=None, type='string')
 parser.add_option('', '--unit-y', default=None, type='string')
+
+parser.add_option('', '--legend', default=False, action='store_true',
+    help='include a legend in the plot')
+
+parser.add_option('', '--emphasize', default=[], type='string', action='append',
+    help='plot these EOS with a heavier weight on top of everything else')
+parser.add_option('', '--emphasize-linewidth', default=4.0, type='float')
+parser.add_option('', '--emphasize-color', default='k', type='string')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -84,6 +92,35 @@ for inpath in inpaths:
         label=os.path.basename(inpath)[:-4],
     )
 
+if opts.verbose and opts.emphasize:
+    print('plotting emphasized data')
+for inpath in opts.emphasize:
+    if opts.verbose:
+        print('reading: '+inpath)
+    data, _ = utils.load(inpath, columns)
+
+    truth = np.ones(len(data), dtype=bool)
+    if opts.min_x!=None:
+        truth *= (opts.min_x<=data[:,0])
+    if opts.max_y!=None:
+        truth *= (data[:,0]<=opts.max_x)
+    if opts.min_y!=None:
+        truth *= (opts.min_y<=data[:,1])
+    if opts.max_y!=None:
+        truth *= (data[:,1]<=opts.max_y)
+
+    data = data[truth,:]
+
+    ax.plot(
+        data[:,0],
+        data[:,1],
+        linestyle='-',
+        alpha=1.0,
+        color=opts.emphasize_color,
+        linewidth=opts.emphasize_linewidth,
+        label=os.path.basename(inpath)[:-4],
+    )
+
 if opts.log_x:
     ax.set_xscale('log')
 if opts.log_y:
@@ -110,6 +147,8 @@ if opts.max_y!=None:
     ax.set_ylim(ymax=opts.max_y)
 
 ax.grid(True, which='both')
+if opts.legend:
+    ax.legend(loc='best')
 
 figname = os.path.join(opts.output_dir, 'quick_plot%s.png'%opts.tag)
 if opts.verbose:
