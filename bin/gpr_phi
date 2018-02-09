@@ -204,7 +204,8 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
 
     ylim = foo.get_ylim()
 
-    res.fill_between(x_tst, -std_tst/f_tst, +std_tst/f_tst, color='grey', alpha=0.5)
+#    res.fill_between(x_tst, -std_tst/f_tst, +std_tst/f_tst, color='grey', alpha=0.5)
+    res.fill_between(x_tst, -std_tst, +std_tst, color='grey', alpha=0.5)
     res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
 
     ### iterate through observed data and overlay
