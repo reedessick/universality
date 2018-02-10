@@ -60,7 +60,15 @@ energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
 
 # scale the result to match reference energy at reference pressure
-energy_densityc2 += ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
+ec2 = ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2
+energy_densityc2 += ec2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
+
+### throw away pressures corresponding to negative energy densities!
+truth = energy_densityc2 >= 0
+
+data = data[truth,:]
+pressurec2 = pressurec2[truth]
+energy_densityc2 = energy_densityc2[truth]
 
 #------------------------
 
@@ -68,10 +76,16 @@ energy_densityc2 += ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2 - np.
 # NOTE: this could probably be improved as well...
 if opts.verbose:
     print('performing numeric integration for baryon_density via trapazoidal approximation')
-baryon_density = np.empty_like(pressurec2, dtype='float')
-baryon_density[:] = energy_densityc2[0] ### NOTE: we assume baryon_density=energy_densityc2 at the beginning of the integration (p<<e)
+baryon_density = np.ones_like(pressurec2, dtype='float')
+
 integrand = 1./(energy_densityc2+pressurec2)
 baryon_density[1:] *= np.exp(np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(energy_densityc2[1:]-energy_densityc2[:-1]))) ### multiply by this factor
+
+### FIXME: match baryon density to energy density at reference pressure
+#baryon_density *= ec2 / np.interp(ref_pc2, pressurec2, baryon_density)
+
+### match at the lowest allowed energy density
+baryon_density *= energy_densityc2[0]
 
 ### NOTE: we now assume 
 # write output
