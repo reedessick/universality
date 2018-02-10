@@ -225,6 +225,13 @@ if opts.plot:
     figname = pklpath[:-3]+'png'
     if opts.verbose:
         print('saving: '+figname)
-    fig, _, _ = sanity_check_plot(x_evaluate, mean, np.diag(cov)**0.5, [x_obs]*Npkl, means, [np.diag(c)**0.5 for c in covs])
+    fig, _, _ = sanity_check_plot(
+        x_evaluate,
+        mean,
+        np.diag(cov)**0.5,
+        [x_obs]*Npkl,
+        means,
+        [np.diag(c)**0.5 for c in covs],
+    )
     fig.savefig(figname)
     plt.close(fig)

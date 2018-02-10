@@ -186,7 +186,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     ### return
     return fig, (foo, res), (doo, des), (phi, pes)
 
-def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
+def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs, std_obs):
     '''
     a helper function for plotting regressions as a way to sanity check results
     '''
@@ -204,19 +204,23 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
 
     ylim = foo.get_ylim()
 
-#    res.fill_between(x_tst, -std_tst/f_tst, +std_tst/f_tst, color='grey', alpha=0.5)
     res.fill_between(x_tst, -std_tst, +std_tst, color='grey', alpha=0.5)
     res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
 
     ### iterate through observed data and overlay
-    for x, f in zip(x_obs, f_obs):
+    for x, f, s in zip(x_obs, f_obs, std_obs):
         color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+
+        s *= 3 ### plot 3-sigma region
+        foo.fill_between(x, f+s, f-s, alpha=0.1, color=color)
+
         truth = (xmin<=x)*(x<=xmax)
         x = x[truth]
         f = f[truth]
+        s = s[truth]
         f_int = np.interp(x, x_tst, f_tst)
-#        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
         res.plot(x, f_int-f, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        res.fill_between(x, f_int-f-s, f_int-f+s, alpha=0.1, color=color)
 
     foo.set_ylim(ylim)
 
@@ -228,7 +232,6 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
       ax.grid(True, which='both')
 
     res.set_xlabel('$x$')
-#    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
     res.set_ylabel(r'$f_\ast-f$')
     foo.set_ylabel('$f$')
 
@@ -513,6 +516,13 @@ if opts.evaluate_plot:
     figname = pklpath[:-3]+'png'
     if opts.verbose:
         print('saving: '+figname)
-    fig, _, _ = sanity_check_plot(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)
+    fig, _, _ = sanity_check_plot(
+        logp_evaluate,
+        mean,
+        np.diag(cov)**0.5,
+        logps,
+        means,
+        [np.diag(c)**0.5 for c in covs],
+    )
     fig.savefig(figname)
     plt.close(fig)
