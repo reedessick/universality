@@ -27,6 +27,10 @@ parser.add_option('', '--sigma-energy_densityc2', default=0, type='float',
     help='The reference energy_densityc2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
 
+parser.add_option('', '--sigma-pressurec2', default=0, type='float',
+    help='The reference pressurec2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
+DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
+
 opts, args = parser.parse_args()
 N = len(args)
 assert N in [3, 4], 'please supply either 3 or 4 input arguments\n%s'%__usage__
@@ -60,8 +64,9 @@ energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
 
 # scale the result to match reference energy at reference pressure
-ec2 = ref_ec2 + np.random.rand()*opts.sigma_energy_densityc2
-energy_densityc2 += ec2 - np.interp(ref_pc2, pressurec2, energy_densityc2)
+ec2 = ref_ec2 + np.random.randn()*opts.sigma_energy_densityc2
+pc2 = ref_pc2 + np.random.randn()*opts.sigma_pressurec2
+energy_densityc2 += ec2 - np.interp(pc2, pressurec2, energy_densityc2)
 
 ### throw away pressures corresponding to negative energy densities!
 truth = energy_densityc2 >= 0
