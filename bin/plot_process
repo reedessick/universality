@@ -35,6 +35,7 @@ def quantile(x, quantiles, weights=None):
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_option('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_option('', '--num-points', default=101, type='int',
     help='the number of interpolation points used when plotting')
@@ -84,6 +85,8 @@ quantiles = []
 for q in opts.quantile:
     quantiles += [q, (1-q)]
 
+opts.verbose |= opts.Verbose
+
 #-------------------------------------------------
 
 if opts.verbose:
@@ -117,7 +120,7 @@ else:
 y_test = np.empty((N, opts.num_points), dtype='float')
 for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
     path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
-    if opts.verbose:
+    if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
 
