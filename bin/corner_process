@@ -13,6 +13,8 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+import corner
+
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -34,7 +36,7 @@ parser.add_option('', '--weight-column', default=None, type='string',
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('', '--reference-value', default=[], type='float', action='append',
+parser.add_option('-r', '--reference-value', default=[], type='float', action='append',
     help='the reference values at which we extract values from the EOS parameters. \
 DEFAULT=[]')
 
@@ -64,7 +66,8 @@ if not os.path.exists(opts.output_dir):
 
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, cols = utils.load(inpath, [opts.eos_column])
+data, _ = utils.load(inpath, [opts.eos_column])
+data = data[:,0]
 N = len(data)
 
 if opts.weight_column!=None:
@@ -85,30 +88,36 @@ else:
 if opts.verbose:
     print('extacting data at reference values')
 Ncol = len(columns)
-Nref = len(reference_value)
-data = np.empty((N, Nref*Ncol), dtype='float')
+Nref = len(opts.reference_value)
+ans = np.empty((N, Nref*Ncol), dtype='float')
 
-loadcolumns = set([reference]+columns)
-for i, eos in enumerate(data[opts.eos_columns]):
-    path = os.path.join(opts.eos_dir, 'draw_foo-%s.csv'%eos)
+loadcolumns = [reference]+columns
+refind = loadcolumns.index(reference)
+for i, eos in enumerate(data):
+    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
     if opts.verbose:
         print('    '+path)
-    d, c = utils.load(path, loadcolumns, logcolumns=opts.logcolumn)
+    d, c = utils.load(path, loadcolumns)
 
     for j, column in enumerate(c[1:]):
-        data[i,j*Ncol:(j+1)*Ncol] = np.interp(opts.reference_value, d[opts.reference_value], d[column])
+        ans[i,j*Nref:(j+1)*Nref] = np.interp(opts.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
 
 #-----------------------
 
 if opts.verbose:
     print('plotting')
 
+### build labels and take logs as needed
 labels = []
-for column in enumerate(cols):
-    labels += [column+'(%s=%.3e)'%(reference, value) for value in opts.reference_value]
+for i, column in enumerate(columns):
+    if column in opts.logcolumn:
+        labels += ['log('+column+')\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
+        ans[:,i*Nref:(i+1)*Nref] = np.log(ans[:,i*Nref:(i+1)*Nref])
+    else:
+        labels += [column+'\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
 
 fig = corner.corner(
-    data,
+    ans,
     labels=labels,
     weights=weights,
 )

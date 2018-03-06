@@ -20,6 +20,18 @@ from universality import utils
 
 #-------------------------------------------------
 
+def quantile(x, quantiles, weights=None):
+    if weights is None:
+        return np.percentile(x, np.array(quantiles)*100)
+
+    else:
+        order = x.argsort()
+        x = x[order]
+        csum = np.cumsum(weights[order])
+        return np.array([x[[csum<=q]][-1] for q in quantiles])
+
+#-------------------------------------------------
+
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
@@ -40,11 +52,14 @@ parser.add_option('', '--weight-column', default=None, type='string',
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('', '--quantile', default=[], type='int', action='append',
+parser.add_option('', '--quantile', default=[], type='float', action='append',
     help='plot these quantiles. We plot the quantile specified along with 1-quantile. \
 DEFAULT=[0.1]')
 parser.add_option('', '--alpha', default=0.25, type='float', 
     help='DEFAULT=0.25')
+
+parser.add_option('', '--ymin', default=None, type='float')
+parser.add_option('', '--ymax', default=None, type='float')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -62,19 +77,19 @@ if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
 
 if not opts.quantile:
-    opts.quanitle = [0.1]
+    opts.quantile = [0.1]
 opts.quantile.sort()
 
-percentiles = []
-for quantile in opts.quantile:
-    percentiles.append( quantile*100 )
-    percentiles.append( (1-quantile)*100 )
+quantiles = []
+for q in opts.quantile:
+    quantiles += [q, (1-q)]
 
 #-------------------------------------------------
 
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, columns = utils.load(inpath, [xcolumn, ycolumn, opts.eos_column], logcolumns=opts.logcolumn)
+data, _ = utils.load(inpath, [opts.eos_column])
+data = data[:,0]
 N = len(data)
 
 if opts.weight_column!=None:
@@ -100,20 +115,20 @@ else:
     x_test = np.linspace(xmin, xmax, opts.num_points)
 
 y_test = np.empty((N, opts.num_points), dtype='float')
-for i, (sample, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%sample[opts.eos_column])
+for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
+    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
     if opts.verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
 
-    y_test[i] = np.interp(x_tst, d[xcolumn], d[ycolumn])
+    y_test[i] = np.interp(x_test, d[:,0], d[:,1])
 
 ### compute the quantiles
-y = np.empty((len(opts.quantile), opts.num_points), dtype='float')
+y = np.empty((len(quantiles), opts.num_points), dtype='float')
+y_median = np.empty_like(x_test, dtype='float')
 for i in xrange(opts.num_points):
-    y[:,i] = np.percentile(y[:,i], percentiles)
-
-y_test = np.mean(y_test, axis=0)
+    y[:,i] = quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
+    y_median[i] = quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
 
 #------------------------
 
@@ -126,7 +141,7 @@ ax = fig.gca()
 for i in xrange(len(opts.quantile)): ### fill between pairs of quantiles
     ax.fill_between(x_test, y[2*i,:], y[2*i+1,:], alpha=opts.alpha, color='k')
 
-ax.plot(x_test, y_test, alpha=opts.alpha, color='k') ### plot first moment
+ax.plot(x_test, y_median, color='k', alpha=1.0) ### plot the median
 
 if xcolumn in opts.logcolumn:
     ax.set_xscale('log')
@@ -138,6 +153,12 @@ ax.grid(True, which='both')
 
 ax.set_xlabel(xcolumn)
 ax.set_ylabel(ycolumn)
+
+ax.set_xlim(xmin=xmin, xmax=xmax)
+if opts.ymin!=None:
+    ax.set_ylim(ymin=opts.ymin)
+if opts.ymax!=None:
+    ax.set_ylim(ymax=opts.ymax)
 
 figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
 if opts.verbose:
