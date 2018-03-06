@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __doc__ = "generate plots of processes from CSV files which refer to EOS tables (other csv files)"
-__usage__ = "plot_process [--options] column1 column2 samples.csv"
+__usage__ = "plot_process [--options] column1 column2 samples.csv eos_dir"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -33,8 +33,8 @@ parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
 opts, args = parser.parse_arg()
-assert len(args)==3, 'please supply exactly 3 input argument\n%s'%__usage__
-column1, column2, inpath = args
+assert len(args)==4, 'please supply exactly 4 input argument\n%s'%__usage__
+column1, column2, inpath, eos_dir = args
 
 if opts.tag:
     opts.tag = "_"+opts.tag

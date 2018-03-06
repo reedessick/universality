@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __doc__ = "generate plots of processes from CSV files which refer to EOS tables (other csv files) as a corner plot at a few reference points"
-__usage__ = "corner_process [--options] column1 column2 label,samples.csv"
+__usage__ = "corner_process [--options] samples.csv eos_dir column [column column ...]"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -33,8 +33,9 @@ parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
 opts, args = parser.parse_arg()
-assert len(args)==3, 'please supply exactly 3 input argument\n%s'%__usage__
-column1, column2, inpath = args
+assert len(args)>2, 'please supply at least 3 input argument\n%s'%__usage__
+inpath, eos_dir = args[:2]
+columns = args[2:]
 
 if opts.tag:
     opts.tag = "_"+opts.tag
