@@ -40,9 +40,9 @@ parser.add_option('', '--weight-column', default=None, type='string',
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('', '--sigma', default=[1], type='int', action='append',
-    help='the sigma levels to plot. Can be repeated to specify multiple levels. \
-DEFAULT=[1]')
+parser.add_option('', '--quantile', default=[], type='int', action='append',
+    help='plot these quantiles. We plot the quantile specified along with 1-quantile. \
+DEFAULT=[0.1]')
 parser.add_option('', '--alpha', default=0.25, type='float', 
     help='DEFAULT=0.25')
 
@@ -60,6 +60,15 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+if not opts.quantile:
+    opts.quanitle = [0.1]
+opts.quantile.sort()
+
+percentiles = []
+for quantile in opts.quantile:
+    percentiles.append( quantile*100 )
+    percentiles.append( (1-quantile)*100 )
 
 #-------------------------------------------------
 
@@ -90,20 +99,21 @@ if xcolumn in opts.logcolumn:
 else:
     x_test = np.linspace(xmin, xmax, opts.num_points)
 
-y_test = np.zeros_like(x_test, dtype='float')
-y2_test = np.zeros_like(x_test, dtype='float')
-for sample, weight in zip(data, weights): ### iterate over samples and compute weighted moments
+y_test = np.empty((N, opts.num_points), dtype='float')
+for i, (sample, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
     path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%sample[opts.eos_column])
     if opts.verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
 
-    y = np.interp(x_tst, d[xcolumn], d[ycolumn])
-    y_test += weight*y     ### first moment
-    y2_test += weight*y**2 ### second moment
+    y_test[i] = np.interp(x_tst, d[xcolumn], d[ycolumn])
 
-### compute the standard deviation
-s_test = (y2_test - y_test**2)**0.5
+### compute the quantiles
+y = np.empty((len(opts.quantile), opts.num_points), dtype='float')
+for i in xrange(opts.num_points):
+    y[:,i] = np.percentile(y[:,i], percentiles)
+
+y_test = np.mean(y_test, axis=0)
 
 #------------------------
 
@@ -113,8 +123,9 @@ if opts.verbose:
 fig = plt.figure()
 ax = fig.gca()
 
-for sigma in sorted(opts.sigma)[::-1]: ### plot sigma regions
-    ax.fill_between(x_test, y_test-sigma*s_test, y_test+sigma*s_test, alpha=opts.alpha, color='k')
+for i in xrange(len(opts.quantile)): ### fill between pairs of quantiles
+    ax.fill_between(x_test, y[2*i,:], y[2*i+1,:], alpha=opts.alpha, color='k')
+
 ax.plot(x_test, y_test, alpha=opts.alpha, color='k') ### plot first moment
 
 if xcolumn in opts.logcolumn:
