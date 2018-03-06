@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __doc__ = "generate plots of processes from CSV files which refer to EOS tables (other csv files)"
-__usage__ = "plot_process [--options] column1 column2 samples.csv eos_dir"
+__usage__ = "plot_process [--options] samples.csv y-column x-column x-min x-max"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -24,17 +24,36 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('', '--num-points', default=101, type='int',
+    help='the number of interpolation points used when plotting')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_option('', '--eos-column', default='eos', type='string')
+parser.add_option('', '--eos-dir', default='.', type='string')
+
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
+parser.add_option('', '--sigma', default=[1], type='int', action='append',
+    help='the sigma levels to plot. Can be repeated to specify multiple levels. \
+DEFAULT=[1]')
+parser.add_option('', '--alpha', default=0.25, type='float', 
+    help='DEFAULT=0.25')
+
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
-opts, args = parser.parse_arg()
-assert len(args)==4, 'please supply exactly 4 input argument\n%s'%__usage__
-column1, column2, inpath, eos_dir = args
+opts, args = parser.parse_args()
+assert len(args)==5, 'please supply exactly 6 input argument\n%s'%__usage__
+inpath, ycolumn, xcolumn, xmin, xmax = args
+xmax = float(xmax)
+xmin = float(xmin)
 
 if opts.tag:
     opts.tag = "_"+opts.tag
@@ -44,6 +63,73 @@ if not os.path.exists(opts.output_dir):
 
 #-------------------------------------------------
 
-raise NotImplementedError, '''\
-figure out exactly what you want to plot here...
-'''
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data, columns = utils.load(inpath, [xcolumn, ycolumn, opts.eos_column], logcolumns=opts.logcolumn)
+N = len(data)
+
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    weights = np.ones(N, dtype='float')/N
+
+#-----------------------
+
+if opts.verbose:
+    print('computing confidence intervals from %d samples'%len(data))
+if xcolumn in opts.logcolumn:
+    x_test = np.logspace(np.log10(xmin), np.log10(xmax), opts.num_points)
+else:
+    x_test = np.linspace(xmin, xmax, opts.num_points)
+
+y_test = np.zeros_like(x_test, dtype='float')
+y2_test = np.zeros_like(x_test, dtype='float')
+for sample, weight in zip(data, weights): ### iterate over samples and compute weighted moments
+    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%sample[opts.eos_column])
+    if opts.verbose:
+        print('    '+path)
+    d, c = utils.load(path, [xcolumn, ycolumn])
+
+    y = np.interp(x_tst, d[xcolumn], d[ycolumn])
+    y_test += weight*y     ### first moment
+    y2_test += weight*y**2 ### second moment
+
+### compute the standard deviation
+s_test = (y2_test - y_test**2)**0.5
+
+#------------------------
+
+if opts.verbose:
+    print('plotting')
+
+fig = plt.figure()
+ax = fig.gca()
+
+for sigma in sorted(opts.sigma)[::-1]: ### plot sigma regions
+    ax.fill_between(x_test, y_test-sigma*s_test, y_test+sigma*s_test, alpha=opts.alpha, color='k')
+ax.plot(x_test, y_test, alpha=opts.alpha, color='k') ### plot first moment
+
+if xcolumn in opts.logcolumn:
+    ax.set_xscale('log')
+
+if ycolumn in opts.logcolumn:
+    ax.set_yscale('log')
+
+ax.grid(True, which='both')
+
+ax.set_xlabel(xcolumn)
+ax.set_ylabel(ycolumn)
+
+figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
+if opts.verbose:
+    print('saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)
