@@ -225,7 +225,7 @@ if opts.ymax!=None:
 fig.text(0.1, 0.95, label1, color=opts.color1, ha='left', va='center')
 fig.text(0.9, 0.95, label2, color=opts.color2, ha='right', va='center')
 
-figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
+figname = os.path.join(opts.output_dir, 'overlay-plot_process%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)

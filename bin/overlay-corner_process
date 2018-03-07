@@ -181,7 +181,7 @@ fig = corner.corner(
 fig.text(0.75, 0.80, label1, color=opts.color1, ha='center', va='center')
 fig.text(0.75, 0.75, label2, color=opts.color2, ha='center', va='center')
 
-figname = os.path.join(opts.output_dir, 'corner_process%s.png'%opts.tag)
+figname = os.path.join(opts.output_dir, 'overlay-corner_process%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
