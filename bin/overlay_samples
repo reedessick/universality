@@ -46,6 +46,9 @@ parser.add_option('', '--weight2-column', default=None, type='string',
 parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
+parser.add_option('', '--color1', default='b', type='string')
+parser.add_option('', '--color2', default='r', type='string')
+
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -130,7 +133,7 @@ fig = corner.corner(
     labels=labels,
     range=ranges1,
     weights=weights1,
-    color='b',
+    color=opts.color1,
 )
 
 corner.corner(
@@ -138,7 +141,7 @@ corner.corner(
     labels=labels,
     range=ranges2,
     weights=weights2,
-    color='r',
+    color=opts.color2,
     fig=fig,
 )
 
