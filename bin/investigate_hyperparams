@@ -6,8 +6,9 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
-from universality import hyperparams as hp
 
 import matplotlib
 matplotlib.use("Agg")
@@ -16,6 +17,10 @@ from matplotlib import pyplot as plt
 import corner
 
 from optparse import OptionParser
+
+### non-standard libraries
+from universality import hyperparams as hp
+from universality import utils
 
 #-------------------------------------------------
 
@@ -36,9 +41,9 @@ parser.add_option('', '--min-l', default=0.1, type='float',
 parser.add_option('', '--max-l', default=5.0, type='float',
     help='DEFAULT=5.0')
 
-parser.add_option('', '--min-sigma_noise', default=1.e-4, type='float',
+parser.add_option('', '--min-sigma_obs', default=1.e-4, type='float',
     help='DEFAULT=1e-4')
-parser.add_option('', '--max-sigma_noise', default=1., type='float',
+parser.add_option('', '--max-sigma_obs', default=1., type='float',
     help='DEFAULT=1')
 
 parser.add_option('', '--num-grid', default=hp.__default_num__, type='int',
@@ -55,10 +60,14 @@ parser.add_option('', '--num-walkers', default=hp.__default_num_walkers__, type=
 parser.add_option('', '--maxL-method', default=hp.__default_method__, type='string',
     help='DEFAULT='+hp.__default_method__)
 
+parser.add_option('', '--maxL-tol', default=hp.__default_tol__, type='float',
+    help='DEFAULT=%s'%hp.__default_tol__)
+
 parser.add_option('', '--grid', default=False, action='store_true')
 parser.add_option('', '--mcmc', default=False, action='store_true')
 parser.add_option('', '--maxL', default=False, action='store_true')
 
+parser.add_option('', '--include-logL', default=False, action='store_true')
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -84,7 +93,7 @@ if not os.path.exists(opts.output_dir):
 
 #-------------------------------------------------
 
-if otps.verbose:
+if opts.verbose:
     print('reading: '+inpath)
 data, cols = utils.load(inpath, columns, logcolumns=logcolumns)
 x_obs = data[:,0]
@@ -93,6 +102,10 @@ f_obs = data[:,1]
 #--- now do some logLikelihood stuff!
 
 overlayfig = None
+
+labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
+if opts.include_logL:
+    labels.append('$\log\mathcal{L}$')
 
 if opts.maxL:
     if opts.verbose:
@@ -103,19 +116,21 @@ if opts.maxL:
         x_obs,
         (opts.min_sigma, opts.max_sigma),
         (opts.min_l, opts.max_l),
-        (opts.min_sigma_noise, opts.max_sigma_noise),
-        method=opts.method,
-        tol=opts.tol,
+        (opts.min_sigma_obs, opts.max_sigma_obs),
+        method=opts.maxL_method,
+        tol=opts.maxL_tol,
     )
     print '''\
 sigma = %.3e
 l     = %.3f
-sigma_noise = %.3e
+sigma_obs = %.3e
 logL = %.3e
 '''%tuple(maxL[0])
 
     ### add to overlay plot
-    truths = tuple(maxL[['sigma','l','sigma_noise']][0])
+    truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
+    if opts.include_logL:
+        truths.append(maxL['logLike'][0])
 
 else:
     truths = None
@@ -131,11 +146,16 @@ if opts.grid:
         x_obs,
         (opts.min_sigma, opts.max_sigma),
         (opts.min_l, opts.max_l),
-        (opts.min_sigma_noise, opts.max_sigma_noise),
+        (opts.min_sigma_obs, opts.max_sigma_obs),
         num_sigma=opts.num_grid,
         num_l=opts.num_grid,
-        num_sigma_noise=opts.num_grid,
+        num_sigma_obs=opts.num_grid,
     )
+
+    if opts.include_logL:
+        data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
+    else:
+        data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
 
     weights = np.exp(grid['logLike']-np.max(grid['logLike']))
     weights /= np.sum(weights)
@@ -143,10 +163,10 @@ if opts.grid:
     if opts.verbose:
         print('    plotting')
     fig = corner.corner(
-        grid[['sigma','l','sigma_noise']],
+        data,
         labels=labels,
         weights=weights,
-        truth=truth,
+        truths=truths,
         color='b',
     )
     figname = '%s/investigate_hyperparams-grid%s.png'%(opts.output_dir, opts.tag)
@@ -157,7 +177,7 @@ if opts.grid:
 
     ### add to overlay plot
     overlayfig = corner.corner(
-        grid[['sigma','l','sigma_noise']],
+        data,
         labels=labels,
         weights=weights,
         figure=overlayfig,
@@ -176,15 +196,20 @@ if opts.mcmc:
         x_obs,
         (opts.min_sigma, opts.max_sigma),
         (opts.min_l, opts.max_l),
-        (opts.min_sigma_noise, opts.max_sigma_noise),
+        (opts.min_sigma_obs, opts.max_sigma_obs),
         num_samples=opts.num_mcmc,
         num_walkers=opts.num_walkers,
     )
 
+    if opts.include_logL:
+        data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
+    else:
+        data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
+
     if opts.verbose:
         print('    plotting')
     fig = corner.corner(
-        mcmc[['sigma','l','sigma_noise']],
+        data,
         labels=labels,
         truths=truths,
         color='r',
@@ -197,7 +222,7 @@ if opts.mcmc:
 
     ### add to overlay plot
     overlayfig = corner.corner(
-        grid[['sigma','l','sigma_noise']],
+        data,
         labels=labels,
         figure=overlayfig,
         color='r',

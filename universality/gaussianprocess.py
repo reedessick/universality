@@ -119,7 +119,7 @@ def _dcov_dsigma2(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_ob
     a helper function for the derivative of cov_obs_obs with respect to sigma2
     '''
     X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
-    return np.exp(-0.5(X1-X2)**2/l2) ### simple derivative of cov_f1_f2
+    return np.exp(-0.5*(X1-X2)**2/l2) ### simple derivative of cov_f1_f2
 
 def _dcov_dl2(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
@@ -133,8 +133,7 @@ def _dcov_dsigma2_obs(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma
     '''
     a helper function for the derivative of cov_obs_obs with respect to sigma2_obs
     '''
-    N = len(x_obs)
-    return np.diag(N,N) ### derivative of diagonal, white noise
+    return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
 
 def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
@@ -143,6 +142,11 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
 
     return logL, (dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs)
     '''
+    if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
+        return np.infty
+
+#    print 's2: %.3e\nl2: %.3e\no2: %.3e'%(sigma2, l2, sigma2_obs)
+
     cov = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     ### compute the logLikelihood
@@ -151,11 +155,24 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
     obs = -0.5*np.dot(f_obs, np.dot(np.linalg.inv(cov), f_obs))
     nrm = -0.5*N*np.log(2*np.pi)
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
-    det = -0.5*np.sum(np.log(np.linalg.eigvals(cov).real)) ### FIXME: this may be fragile
-#    m = np.max(cov)
-#    det = -0.5*(np.log(np.linalg.det(cov/m)) + N*np.log(m))
+#    det = -0.5*np.sum(np.log(np.linalg.eigvals(cov).real)) ### FIXME: this may be fragile
+    m = np.max(cov)
+    det = np.linalg.det(cov/m)
 
-    return obs + det + nrm ### assemble components and return
+#    print '    det', det
+#    if det < 0:
+#        raw_input(cov/m)
+
+    det = -0.5*(np.log(det) + N*np.log(m))
+
+#    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e'%(obs, nrm, det)
+#    raw_input('lnL: %.3e'%(obs+det+nrm))
+
+    if det<np.infty:
+        return obs + det + nrm ### assemble components and return
+
+    else:
+        return obs + nrm ### assume bad things are happening so this is an unlikely part of hyperparam space. Leave of det, which should be a strictly positive addition
 
 def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
@@ -164,14 +181,17 @@ def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sig
 
     return logL, (dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs)
     '''
-    invcov_obs_obs = np.linalg.inv(_cov_obs_obs(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs))
+    if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
+        raise ValueError, 'unphysical hyperparameters!'
+
+    invcov_obs_obs = np.linalg.inv(_cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs))
     a = np.dot(invcov_obs_obs, f_obs)
 
     ### compute the gradient with each hyperparameter
     m = np.outer(a,a) - invcov_obs_obs
     dlogL_dsigma2 = 0.5*np.trace(np.dot(m, _dcov_dsigma2(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)))
     dlogL_dl2     = 0.5*np.trace(np.dot(m, _dcov_dl2(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)))
-    dlogL_dsigma2_obs = 0.5*np.trace(np.dot(m, _dcov_dsigma2_obs(sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)))
+    dlogL_dsigma2_obs = 0.5*np.trace(np.dot(m, _dcov_dsigma2_obs(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)))
 
     return dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs
 
