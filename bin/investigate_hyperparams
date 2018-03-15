@@ -1,0 +1,214 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that lets users investigate hyperparameters and different optimization/marginalization techniques"
+__usage__ = "investigate_hyperparams [--options] xcolumn ycolumn eos.csv"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import numpy as np
+from universality import hyperparams as hp
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+import corner
+
+from optparse import OptionParser
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--log-xcolumn', default=False, action='store_true')
+parser.add_option('', '--log-ycolumn', default=False, action='store_true')
+
+parser.add_option('', '--min-sigma', default=1.e-4, type='float',
+    help='DEFAULT=1e-4')
+parser.add_option('', '--max-sigma', default=1., type='float',
+    help='DEFAULT=1')
+
+parser.add_option('', '--min-l', default=0.1, type='float',
+    help='DEFAULT=0.1')
+parser.add_option('', '--max-l', default=5.0, type='float',
+    help='DEFAULT=5.0')
+
+parser.add_option('', '--min-sigma_noise', default=1.e-4, type='float',
+    help='DEFAULT=1e-4')
+parser.add_option('', '--max-sigma_noise', default=1., type='float',
+    help='DEFAULT=1')
+
+parser.add_option('', '--num-grid', default=hp.__default_num__, type='int',
+    help='the number of grid points in each dimension. \
+DEFAULT=%d'%hp.__default_num__)
+
+parser.add_option('', '--num-mcmc', default=hp.__default_num__, type='int',
+    help='the number of samples to draw in mcmc. \
+DEFAULT=%d'%hp.__default_num__)
+
+parser.add_option('', '--num-walkers', default=hp.__default_num_walkers__, type='int',
+    help='DEFAULT=%d'%hp.__default_num_walkers__)
+
+parser.add_option('', '--maxL-method', default=hp.__default_method__, type='string',
+    help='DEFAULT='+hp.__default_method__)
+
+parser.add_option('', '--grid', default=False, action='store_true')
+parser.add_option('', '--mcmc', default=False, action='store_true')
+parser.add_option('', '--maxL', default=False, action='store_true')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+
+assert len(args)>2, 'please supply at least 2 input arguments\n%s'%__usage__
+assert np.any((opts.grid, opts.mcmc, opts.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
+
+xcolumn, ycolumn = columns = args[:2]
+inpath = args[2]
+
+logcolumns = []
+if opts.log_xcolumn:
+    logcolumns.append(xcolumn)
+if opts.log_ycolumn:
+    logcolumns.append(ycolumn)
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+#-------------------------------------------------
+
+if otps.verbose:
+    print('reading: '+inpath)
+data, cols = utils.load(inpath, columns, logcolumns=logcolumns)
+x_obs = data[:,0]
+f_obs = data[:,1]
+
+#--- now do some logLikelihood stuff!
+
+overlayfig = None
+
+if opts.maxL:
+    if opts.verbose:
+        print('finding maxLikelihood')
+
+    maxL = hp.logLike_maxL(
+        f_obs,
+        x_obs,
+        (opts.min_sigma, opts.max_sigma),
+        (opts.min_l, opts.max_l),
+        (opts.min_sigma_noise, opts.max_sigma_noise),
+        method=opts.method,
+        tol=opts.tol,
+    )
+    print '''\
+sigma = %.3e
+l     = %.3f
+sigma_noise = %.3e
+logL = %.3e
+'''%tuple(maxL[0])
+
+    ### add to overlay plot
+    truths = tuple(maxL[['sigma','l','sigma_noise']][0])
+
+else:
+    truths = None
+
+#---
+
+if opts.grid:
+    if opts.verbose:
+        print('evaluating on a grid')
+
+    grid = hp.logLike_grid(
+        f_obs,
+        x_obs,
+        (opts.min_sigma, opts.max_sigma),
+        (opts.min_l, opts.max_l),
+        (opts.min_sigma_noise, opts.max_sigma_noise),
+        num_sigma=opts.num_grid,
+        num_l=opts.num_grid,
+        num_sigma_noise=opts.num_grid,
+    )
+
+    weights = np.exp(grid['logLike']-np.max(grid['logLike']))
+    weights /= np.sum(weights)
+
+    if opts.verbose:
+        print('    plotting')
+    fig = corner.corner(
+        grid[['sigma','l','sigma_noise']],
+        labels=labels,
+        weights=weights,
+        truth=truth,
+        color='b',
+    )
+    figname = '%s/investigate_hyperparams-grid%s.png'%(opts.output_dir, opts.tag)
+    if opts.verbose:
+        print('    saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
+
+    ### add to overlay plot
+    overlayfig = corner.corner(
+        grid[['sigma','l','sigma_noise']],
+        labels=labels,
+        weights=weights,
+        figure=overlayfig,
+        color='b',
+        truths=truths,
+    )
+
+#---
+
+if opts.mcmc:
+    if opts.verbose:
+        print('running mcmc')
+
+    mcmc = hp.logLike_mcmc(
+        f_obs,
+        x_obs,
+        (opts.min_sigma, opts.max_sigma),
+        (opts.min_l, opts.max_l),
+        (opts.min_sigma_noise, opts.max_sigma_noise),
+        num_samples=opts.num_mcmc,
+        num_walkers=opts.num_walkers,
+    )
+
+    if opts.verbose:
+        print('    plotting')
+    fig = corner.corner(
+        mcmc[['sigma','l','sigma_noise']],
+        labels=labels,
+        truths=truths,
+        color='r',
+    )
+    figname = '%s/investigate_hyperparams-mcmc%s.png'%(opts.output_dir, opts.tag)
+    if opts.verbose:
+        print('    saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
+
+    ### add to overlay plot
+    overlayfig = corner.corner(
+        grid[['sigma','l','sigma_noise']],
+        labels=labels,
+        figure=overlayfig,
+        color='r',
+        truths=truths,
+    )
+
+#--- wrap up overlay plot
+
+if overlayfig:
+    figname = '%s/investigate_hyperparams%s.png'%(opts.output_dir, opts.tag)
+    if opts.verbose:
+        print('saving: '+figname)
+    overlayfig.savefig(figname)
+    plt.close(overlayfig)
