@@ -28,6 +28,8 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('', '--poly-degree', default=1, type='int')
+
 parser.add_option('', '--log-xcolumn', default=False, action='store_true')
 parser.add_option('', '--log-ycolumn', default=False, action='store_true')
 
@@ -127,6 +129,7 @@ if opts.maxL:
         (opts.min_sigma_obs, opts.max_sigma_obs),
         method=opts.maxL_method,
         tol=opts.maxL_tol,
+        degree=opts.poly_degree,
     )
     print '''\
 sigma = %.3e
@@ -164,6 +167,7 @@ if opts.grid:
         l_prior=opts.l_prior,
         sigma_prior=opts.sigma_prior,
         sigma_obs_prior=opts.sigma_obs_prior,
+        degree=opts.poly_degree,
     )
 
     if opts.include_logL:
@@ -222,6 +226,7 @@ if opts.mcmc:
         l_prior=opts.l_prior,
         sigma_prior=opts.sigma_prior,
         sigma_obs_prior=opts.sigma_obs_prior,
+        degree=opts.poly_degree,
     )
 
     if opts.include_logL:

@@ -34,6 +34,7 @@ def logLike_grid(
         sigma_prior='log',
         sigma_obs_prior='log',
         l_prior='lin',
+        degree=1,
     ):
     '''
     compute logLike on a grid and return "samples" with associated logLike values corresponding to each grid point
@@ -70,7 +71,7 @@ def logLike_grid(
 
     ### iterate over grid points and copmute logLike for each
     return np.array(
-        [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
+        [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
         dtype=__samples_dtype__,
     )
 
@@ -85,6 +86,7 @@ def logLike_mcmc(
         sigma_prior='log',
         sigma_obs_prior='log',
         l_prior='lin',
+        degree=1,
     ):
     '''
     draw samples from the target distribution defined by logLike using emcee
@@ -111,7 +113,7 @@ def logLike_mcmc(
     else:
         raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
 
-    foo = lambda args: gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2) \
+    foo = lambda args: gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=1) \
         + ln_sigma_prior(args[0]) \
         + ln_l_prior(args[1]) \
         + ln_sigma_obs_prior(args[2])
@@ -144,6 +146,7 @@ def logLike_maxL(
         (min_sigma_obs, max_sigma_obs),
         method=__default_method__,
         tol=__default_tol__,
+        degree=1,
     ):
     '''
     find the maximum logLikelihood as a function of hyperparamters.
@@ -158,8 +161,8 @@ def logLike_maxL(
 
     x0 = (min_sigma*max_sigma)**0.5, (min_l+max_l)*0.5, (min_sigma_obs*max_sigma_obs)**0.5
 
-    foo = lambda args: -gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2)
-    jac = lambda args: -np.array(gp.grad_logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2))
+    foo = lambda args: -gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=degree)
+    jac = lambda args: -np.array(gp.grad_logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=degree))
 
     res = optimize.minimize(
         foo,

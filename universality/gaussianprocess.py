@@ -6,6 +6,8 @@ __author__ = "reed.essick@ligo.org"
 import numpy as np
 import pickle
 
+import time
+
 #-------------------------------------------------
 
 ### defaults
@@ -135,23 +137,31 @@ def _dcov_dsigma2_obs(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma
     '''
     return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
 
-def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__, timeit=False, degree=1):
     '''
     computes the logLikelihood and jacobian thereof based on the covariance between observation points
     the covariance is constructed given the hyper parameters just as it is for gpr_f and gpr_dfdx
 
     return logL, (dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs)
     '''
+    if timeit:
+        t0 = time.time()
+
     if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
         return np.infty
 
     cov = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
+    f_fit, _ = poly_model(np.array([]), f_obs, x_obs, degree=degree)
+
     ### compute the logLikelihood
     N = len(x_obs)
+
     # compute components separately because they each require different techniques to stabilize them numerically
-    obs = -0.5*np.dot(f_obs, np.dot(np.linalg.inv(cov), f_obs))
+    obs = -0.5*np.dot(f_obs-f_fit, np.dot(np.linalg.inv(cov), f_obs-f_fit))
+
     nrm = -0.5*N*np.log(2*np.pi)
+
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
     sign, det = np.linalg.slogdet(cov)
     if sign<0:
@@ -160,9 +170,12 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
 
 #    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e\nsgn: %.1f\nlnL: %.3e'%(obs, nrm, det, sign, obs+nrm+det)
 
+    if timeit:
+        print time.time()-t0
+
     return obs + det + nrm ### assemble components and return
 
-def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__, degree=1):
     '''
     computes the logLikelihood and jacobian thereof based on the covariance between observation points
     the covariance is constructed given the hyper parameters just as it is for gpr_f and gpr_dfdx
@@ -172,8 +185,10 @@ def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sig
     if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
         raise ValueError, 'unphysical hyperparameters!'
 
+    f_fit, _ = poly_model(np.array([]), f_obs, x_obs, degree=degree) 
+
     invcov_obs_obs = np.linalg.inv(_cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs))
-    a = np.dot(invcov_obs_obs, f_obs)
+    a = np.dot(invcov_obs_obs, f_obs-f_fit)
 
     ### compute the gradient with each hyperparameter
     m = np.outer(a,a) - invcov_obs_obs
