@@ -63,10 +63,15 @@ parser.add_option('', '--maxL-method', default=hp.__default_method__, type='stri
 parser.add_option('', '--maxL-tol', default=hp.__default_tol__, type='float',
     help='DEFAULT=%s'%hp.__default_tol__)
 
+parser.add_option('', '--l-prior', default='lin', type='string')
+parser.add_option('', '--sigma-prior', default='log', type='string')
+parser.add_option('', '--sigma_obs-prior', default='log', type='string')
+
 parser.add_option('', '--grid', default=False, action='store_true')
 parser.add_option('', '--mcmc', default=False, action='store_true')
 parser.add_option('', '--maxL', default=False, action='store_true')
 
+parser.add_option('', '--log-sigmas', default=False, action='store_true')
 parser.add_option('', '--include-logL', default=False, action='store_true')
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -103,7 +108,10 @@ f_obs = data[:,1]
 
 overlayfig = None
 
-labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
+if opts.log_sigmas:
+    labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
+else:
+    labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$']
 if opts.include_logL:
     labels.append('$\log\mathcal{L}$')
 
@@ -124,11 +132,14 @@ if opts.maxL:
 sigma = %.3e
 l     = %.3f
 sigma_obs = %.3e
-logL = %.3e
-'''%tuple(maxL[0])
+logL = %.3e'''%tuple(maxL[0])
 
     ### add to overlay plot
-    truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
+    if opts.log_sigmas:
+        truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
+    else:
+        truths = [maxL['sigma'][0], maxL['l'][0], maxL['sigma_obs'][0]]
+
     if opts.include_logL:
         truths.append(maxL['logLike'][0])
 
@@ -150,12 +161,21 @@ if opts.grid:
         num_sigma=opts.num_grid,
         num_l=opts.num_grid,
         num_sigma_obs=opts.num_grid,
+        l_prior=opts.l_prior,
+        sigma_prior=opts.sigma_prior,
+        sigma_obs_prior=opts.sigma_obs_prior,
     )
 
     if opts.include_logL:
-        data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
+        if opts.log_sigmas:
+            data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
+        else:
+            data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['logLike']])
     else:
-        data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
+        if opts.log_sigmas:
+            data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
+        else:
+            data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs']])
 
     weights = np.exp(grid['logLike']-np.max(grid['logLike']))
     weights /= np.sum(weights)
@@ -180,9 +200,9 @@ if opts.grid:
         data,
         labels=labels,
         weights=weights,
-        figure=overlayfig,
         color='b',
         truths=truths,
+        fig=overlayfig,
     )
 
 #---
@@ -199,12 +219,21 @@ if opts.mcmc:
         (opts.min_sigma_obs, opts.max_sigma_obs),
         num_samples=opts.num_mcmc,
         num_walkers=opts.num_walkers,
+        l_prior=opts.l_prior,
+        sigma_prior=opts.sigma_prior,
+        sigma_obs_prior=opts.sigma_obs_prior,
     )
 
     if opts.include_logL:
-        data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
+        if opts.log_sigmas:
+            data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
+        else:
+            data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']])
     else:
-        data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
+        if opts.log_sigmas:
+            data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
+        else:
+            data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs']])
 
     if opts.verbose:
         print('    plotting')
@@ -220,13 +249,17 @@ if opts.mcmc:
     fig.savefig(figname)
     plt.close(fig)
 
+    N = opts.num_walkers*opts.num_mcmc
+    weights = np.ones(N, dtype='float')/N
+
     ### add to overlay plot
     overlayfig = corner.corner(
         data,
         labels=labels,
-        figure=overlayfig,
+        weights=weights,
         color='r',
         truths=truths,
+        fig=overlayfig,
     )
 
 #--- wrap up overlay plot

@@ -145,8 +145,6 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
     if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
         return np.infty
 
-#    print 's2: %.3e\nl2: %.3e\no2: %.3e'%(sigma2, l2, sigma2_obs)
-
     cov = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     ### compute the logLikelihood
@@ -155,24 +153,14 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
     obs = -0.5*np.dot(f_obs, np.dot(np.linalg.inv(cov), f_obs))
     nrm = -0.5*N*np.log(2*np.pi)
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
-#    det = -0.5*np.sum(np.log(np.linalg.eigvals(cov).real)) ### FIXME: this may be fragile
-    m = np.max(cov)
-    det = np.linalg.det(cov/m)
+    sign, det = np.linalg.slogdet(cov)
+    if sign<0:
+        raise ValueError, 'unphysical covariance matrix!'
+    det *= -0.5
 
-#    print '    det', det
-#    if det < 0:
-#        raw_input(cov/m)
+#    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e\nsgn: %.1f\nlnL: %.3e'%(obs, nrm, det, sign, obs+nrm+det)
 
-    det = -0.5*(np.log(det) + N*np.log(m))
-
-#    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e'%(obs, nrm, det)
-#    raw_input('lnL: %.3e'%(obs+det+nrm))
-
-    if det<np.infty:
-        return obs + det + nrm ### assemble components and return
-
-    else:
-        return obs + nrm ### assume bad things are happening so this is an unlikely part of hyperparam space. Leave of det, which should be a strictly positive addition
+    return obs + det + nrm ### assemble components and return
 
 def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
     '''
