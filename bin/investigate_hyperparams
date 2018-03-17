@@ -73,6 +73,9 @@ parser.add_option('', '--grid', default=False, action='store_true')
 parser.add_option('', '--mcmc', default=False, action='store_true')
 parser.add_option('', '--maxL', default=False, action='store_true')
 
+parser.add_option('', '--strip-mcmc', default=0, type='int',
+    help='the number of burn in samples to reject from the mcmc sampler')
+
 parser.add_option('', '--log-sigmas', default=False, action='store_true')
 parser.add_option('', '--include-logL', default=False, action='store_true')
 parser.add_option('-o', '--output-dir', default='.', type='string')
@@ -169,6 +172,14 @@ if opts.grid:
         sigma_obs_prior=opts.sigma_obs_prior,
         degree=opts.poly_degree,
     )
+    path = "%s/investigate_bandwidth-grid%s.csv"%(opts.output_dir, opts.tag)
+    if opts.verbose:
+        print('writing: '+path)
+    tmp = ','.join('%.9e' for _ in grid.dtype.names)
+    with open(path, 'w') as file_obj:
+        print >> file_obj, ','.join(grid.dtype.names)
+        for sample in grid:
+            print >> file_obj, tmp%tuple(sample)
 
     if opts.include_logL:
         if opts.log_sigmas:
@@ -228,6 +239,18 @@ if opts.mcmc:
         sigma_obs_prior=opts.sigma_obs_prior,
         degree=opts.poly_degree,
     )
+    if opts.verbose:
+        print('discaring %d samples as burn in'%opts.strip_mcmc)
+    mcmc = mcmc[opts.strip_mcmc:]
+
+    path = "%s/investigate_bandwidth-mcmc%s.csv"%(opts.output_dir, opts.tag)
+    if opts.verbose:
+        print('writing: '+path)
+    tmp = ','.join('%.9e' for _ in mcmc.dtype.names)
+    with open(path, 'w') as file_obj:
+        print >> file_obj, ','.join(mcmc.dtype.names)
+        for sample in mcmc:
+            print >> file_obj, tmp%tuple(sample)
 
     if opts.include_logL:
         if opts.log_sigmas:
@@ -254,7 +277,7 @@ if opts.mcmc:
     fig.savefig(figname)
     plt.close(fig)
 
-    N = opts.num_walkers*opts.num_mcmc
+    N = len(data)
     weights = np.ones(N, dtype='float')/N
 
     ### add to overlay plot

@@ -134,7 +134,7 @@ def logLike_mcmc(
     lnprob = sampler.lnprobability
 
     return np.array(
-        [(sigma[i,j], l[i,j], sigma_obs[i,j], lnprob[i,j]) for i in xrange(num_walkers) for j in xrange(num_samples)],
+        [(sigma[i,j], l[i,j], sigma_obs[i,j], lnprob[i,j]) for j in xrange(num_samples) for i in xrange(num_walkers)],
         dtype=__samples_dtype__,
     )
 
