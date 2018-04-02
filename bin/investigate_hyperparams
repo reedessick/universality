@@ -240,7 +240,7 @@ if opts.mcmc:
         degree=opts.poly_degree,
     )
     if opts.verbose:
-        print('discaring %d samples as burn in'%opts.strip_mcmc)
+        print('discarding %d samples as burn in'%opts.strip_mcmc)
     mcmc = mcmc[opts.strip_mcmc:]
 
     path = "%s/investigate_bandwidth-mcmc%s.csv"%(opts.output_dir, opts.tag)
