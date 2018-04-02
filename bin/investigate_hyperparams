@@ -224,7 +224,7 @@ if opts.grid:
 
 if opts.mcmc:
     if opts.verbose:
-        print('running mcmc')
+        print('running MCMC for %d steps with %d walkers'%(opts.num_mcmc, opts.num_walkers))
 
     mcmc = hp.logLike_mcmc(
         f_obs,
