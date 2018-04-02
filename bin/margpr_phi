@@ -1,0 +1,382 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that lets users investigate hyperparameters and different optimization/marginalization techniques"
+__usage__ = "investigate_hyperparams [--options] eos.csv"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+import corner
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import gaussianprocess as gp
+from universality import hyperparams as hp
+from universality import utils
+
+#-------------------------------------------------
+
+__default_min_pressure__ = 1e30 ### g/cm^3
+__default_max_pressure__ = 1e38
+
+__default_num__ = 51
+
+__default_poly_degree__ = 1
+
+#-------------------------------------------------
+
+def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, x_obs, f_obs):
+    '''
+    a basic set of plots for sanity-checking the regression
+    '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
+    zeros = np.zeros_like(x_tst, dtype='int')
+
+    ### compute dfdx_obs and phi_obs
+    dfdx_obs = []
+    phi_obs = []
+    for x, f in zip(x_obs, f_obs):
+
+        # numerically estimate df/dx
+        dfdx = gp.num_dfdx(x, f)
+        dfdx_obs.append(dfdx) # add to list
+
+        # compute phi = np.log(np.exp(f)/np.exp(x) * dfdx - 1)
+        phi_obs.append( np.log(np.exp(f)/np.exp(x)*dfdx - 1) )
+
+    ### set up figures and axes
+    fig = plt.figure(figsize=(18,6))
+
+    foo = plt.subplot(2,3,1) # the function itself
+    res = plt.subplot(2,3,4) # the residual between GPR and the function
+
+    doo = plt.subplot(2,3,2) # derivative of the function
+    des = plt.subplot(2,3,5) # residual in derivative of the function
+
+    phi = plt.subplot(2,3,3) # phi = log(df/dx - 1)
+    pes = plt.subplot(2,3,6) # residuals of phi
+
+    plt.subplots_adjust(
+        hspace=0.02,
+        wspace=0.2,
+        left=0.08,
+        right=0.99,
+        bottom=0.10,
+        top=0.90,
+    )
+
+    ### plot the regression
+    std_f *= 3 ### plot 3-sigma region
+    foo.fill_between(x_tst, f_tst-std_f, f_tst+std_f, color='grey', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
+
+#    res.fill_between(x_tst, -std_f/f_tst, +std_f/f_tst, color='grey', alpha=0.5)
+    res.fill_between(x_tst, -std_f, +std_f, color='grey', alpha=0.5)
+    res.plot(x_tst, zeros, color='k')
+
+    ylim = foo.get_ylim(), 2*np.array(res.get_ylim())
+
+    # iterate and overlay data
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        f = f[truth]
+        f_int = np.interp(x, x_tst, f_tst)
+#        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        res.plot(x, f_int-f, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    foo.set_ylim(ylim[0])
+    res.set_ylim(ylim[1])
+
+    # decorate regression
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    res.set_xlabel('$x$')
+#    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    res.set_ylabel(r'$f_\ast-f$')
+    foo.set_ylabel('$f$')
+
+    ### plot the regression of dfdx
+    std_dfdx *= 3 ### plot 3-sigma region
+    doo.fill_between(x_tst, dfdx_tst+std_dfdx, dfdx_tst-std_dfdx, color='grey', alpha=0.5)
+    doo.plot(x_tst, dfdx_tst, color='k')
+
+#    des.fill_between(x_tst, -std_dfdx/dfdx_tst, +std_dfdx/dfdx_tst, color='grey', alpha=0.5)
+    des.fill_between(x_tst, -std_dfdx, +std_dfdx, color='grey', alpha=0.5)
+    des.plot(x_tst, zeros, color='k')
+
+    ylim = doo.get_ylim(), 2*np.array(des.get_ylim())
+
+    # iterate and overlay data
+    for x, dfdx in zip(x_obs, dfdx_obs):
+        color = doo.plot(x, dfdx, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        dfdx = dfdx[truth]
+        f_int = np.interp(x, x_tst, dfdx_tst)
+#        des.plot(x, (f_int-dfdx)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        des.plot(x, f_int-dfdx, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    doo.set_ylim(ylim[0])
+    des.set_ylim(ylim[1])
+
+    # decorate regression of dfdx
+    plt.setp(doo.get_xticklabels(), visible=False)
+
+    for ax in [doo, des]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    des.set_xlabel('$x$')
+#    des.set_ylabel(r'$([df/dx]_\ast - [df/dx])/[df/dx]_\ast$')
+    des.set_ylabel(r'$[df/dx]_\ast - [df/dx]$')
+    doo.set_ylabel('df/dx')
+
+    ### plot the regression for phi
+    std_phi *= 3 ### plot 3-sigma region
+    phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
+    phi.plot(x_tst, mean_phi, color='k')
+
+#    pes.fill_between(x_tst, +std_phi/mean_phi, -std_phi/mean_phi, color='grey', alpha=0.5)
+    pes.fill_between(x_tst, +std_phi, -std_phi, color='grey', alpha=0.5)
+    pes.plot(x_tst, zeros, color='k')
+
+    ylim = phi.get_ylim(), 2*np.array(pes.get_ylim())
+
+    # iterate over data
+    for x, p in zip(x_obs, phi_obs):
+        color = phi.plot(x, p, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        p = p[truth]
+        f_int = np.interp(x, x_tst, phi_tst)
+#        pes.plot(x, (f_int-p)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        pes.plot(x, (f_int-p), '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    phi.set_ylim(ylim[0])
+    pes.set_ylim(ylim[1])
+
+    # decorate regression of phi
+    plt.setp(phi.get_xticklabels(), visible=False)
+
+    for ax in [phi, pes]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    pes.set_xlabel('$x$')
+#    pes.set_ylabel(r'$(\phi_\ast - \phi)/\phi_\ast$')
+    pes.set_ylabel(r'$(\phi_\ast - \phi)$')
+    phi.set_ylabel('$\phi$')
+
+    ### return
+    return fig, (foo, res), (doo, des), (phi, pes)
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--pressure-bounds', default=(__default_min_pressure__, __default_max_pressure__), nargs=2, type='float',
+    help='min max values for resample-pressure. Specified in g/cm^3. \
+DEFAULT=%.3e %.3e'%(__default_min_pressure__, __default_max_pressure__))
+parser.add_option('', '--pressure-num', default=51, type='int',
+    help='resample to this number of points. \
+DEFAULT=%d'%__default_num__)
+parser.add_option('', '--poly-degree', default=1, type='int')
+
+parser.add_option('', '--min-sigma', default=1.e-4, type='float',
+    help='DEFAULT=1e-4')
+parser.add_option('', '--max-sigma', default=1., type='float',
+    help='DEFAULT=1')
+
+parser.add_option('', '--min-l', default=0.1, type='float',
+    help='DEFAULT=0.1')
+parser.add_option('', '--max-l', default=5.0, type='float',
+    help='DEFAULT=5.0')
+
+parser.add_option('', '--min-sigma_obs', default=1.e-4, type='float',
+    help='DEFAULT=1e-4')
+parser.add_option('', '--max-sigma_obs', default=1., type='float',
+    help='DEFAULT=1')
+
+parser.add_option('', '--num-mcmc', default=hp.__default_num__, type='int',
+    help='the number of samples to draw in mcmc. \
+DEFAULT=%d'%hp.__default_num__)
+parser.add_option('', '--strip-mcmc', default=0, type='int',
+    help='the number of burn in samples to reject from the mcmc sampler')
+
+parser.add_option('', '--num-walkers', default=hp.__default_num_walkers__, type='int',
+    help='DEFAULT=%d'%hp.__default_num_walkers__)
+
+parser.add_option('', '--l-prior', default='lin', type='string')
+parser.add_option('', '--sigma-prior', default='log', type='string')
+parser.add_option('', '--sigma_obs-prior', default='log', type='string')
+
+parser.add_option('', '--plot', default=False, action='store_true',
+    help='generate plots for each resampled eos for sanity checking purposes')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+
+assert len(args)==1, 'please supply exactly 1 input argument\n%s'%__usage__
+inpath = args[0]
+basename = os.path.basename(inpath)[:-4]
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+#-------------------------------------------------
+
+if opts.verbose:
+    print('reading: '+inpath)
+data, cols = utils.load(inpath, ['pressurec2', 'energy_densityc2'])
+logp_obs = np.log(data[:,0])
+loge_obs = np.log(data[:,1])
+
+### sample logLike to get distribution of hyperparams
+if opts.verbose:
+    print('running MCMC for %d steps with %d walkers to sample hyperparameters'%(opts.num_mcmc, opts.num_walkers))
+mcmc = hp.logLike_mcmc(
+    loge_obs,
+    logp_obs,
+    (opts.min_sigma, opts.max_sigma),
+    (opts.min_l, opts.max_l),
+    (opts.min_sigma_obs, opts.max_sigma_obs),
+    num_samples=opts.num_mcmc,
+    num_walkers=opts.num_walkers,
+    l_prior=opts.l_prior,
+    sigma_prior=opts.sigma_prior,
+    sigma_obs_prior=opts.sigma_obs_prior,
+    degree=opts.poly_degree,
+)
+if opts.verbose:
+    print('discarding %d samples as burn in'%opts.strip_mcmc)
+mcmc = mcmc[opts.strip_mcmc:]
+
+path = "%s/margpr_phi-mcmc-%s%s.csv"%(opts.output_dir, basename, opts.tag)
+if opts.verbose:
+    print('writing: '+path)
+tmp = ','.join('%.9e' for _ in mcmc.dtype.names)
+with open(path, 'w') as file_obj:
+    print >> file_obj, ','.join(mcmc.dtype.names)
+    for sample in mcmc:
+        print >> file_obj, tmp%tuple(sample)
+
+if opts.plot:
+    if opts.verbose:
+        print('plotting')
+    fig = corner.corner(
+        np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']]),
+        labels=['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$', '$\log\mathcal{L}$'],
+    )
+    figname = '%s/margpr_phi-mcmc-%s%s.png'%(opts.output_dir, basename, opts.tag)
+    if opts.verbose:
+        print('    saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
+
+
+### resample eos into a big matrix
+### generate all data structures we'll need here
+if opts.verbose:
+    print('resampling to %d points within [%.3e, %.3e] g/cm^3'%((opts.pressure_num,)+opts.pressure_bounds))
+logp_resample = np.linspace(
+    np.log(opts.pressure_bounds[0]),
+    np.log(opts.pressure_bounds[1]),
+    opts.pressure_num,
+)
+logp_resample -= 2*np.log(utils.c)
+
+### run gpr to resample this eos
+if opts.verbose:
+    print('resampling %d observations to %d+%d points'%(len(loge_obs), opts.pressure_num, opts.pressure_num))
+truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
+if not np.any(truth):
+    raise ValueError, 'no samples found with requested range. Skipping this EOS'
+logp_resample = logp_resample[truth]
+
+mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = hp.samples2resample_f_dfdx(
+    logp_resample,
+    loge_obs,
+    logp_obs,
+    mcmc,
+    degree=opts.poly_degree,
+)
+
+if opts.verbose:
+    print('computing process for phi')
+mean_phi, truth = gp.mean_phi(logp_resample, mean_f, mean_dfdx)
+mean_phi = mean_phi[truth] ### prune bad (acausal?) samples from the data set!
+
+cov_phi_phi = gp.cov_phi_phi(
+    logp_resample[truth],
+    mean_f[truth],
+    mean_dfdx[truth],
+    cov_f_f[truth,:][:,truth],
+    cov_f_dfdx[truth,:][:,truth],
+    cov_dfdx_f[truth,:][:,truth],
+    cov_dfdx_dfdx[truth,:][:,truth],
+)
+
+### save the process for this resample to file
+### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
+
+# just f
+pklpath = os.path.join(opts.output_dir, 'margpr_phi-f-%s%s.pkl'%(basename, opts.tag))
+if opts.verbose:
+    print('writing process to: '+pklpath)
+gp.pkldump(pklpath, 'logpressurec2', 'logenergy_densityc2', logp_resample, mean_f, cov_f_f)
+
+# just df/dx
+pklpath = os.path.join(opts.output_dir, 'margpr_phi-dfdx-%s%s.pkl'%(basename, opts.tag))
+if opts.verbose:
+    print('writing process to: '+pklpath)
+gp.pkldump(pklpath, 'logpressurec2', 'dlogenergy_densitydpressure', logp_resample, mean_dfdx, cov_dfdx_dfdx)
+
+# just phi
+pklpath = os.path.join(opts.output_dir, 'margpr_phi-%s%s.pkl'%(basename, opts.tag))
+if opts.verbose:
+    print('writing process to: '+pklpath)
+gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[truth], mean_phi, cov_phi_phi)
+
+#--- generate a sanity check plot?
+if opts.plot:
+    figname = pklpath[:-3]+'png'
+    if opts.verbose:
+        print('saving: '+figname)
+    fig = big_sanity_check_plot(
+        logp_resample[truth],
+        mean_f[truth],
+        mean_dfdx[truth],
+        mean_phi,
+        (np.diag(cov_f_f)**0.5)[truth],
+        (np.diag(cov_dfdx_dfdx)**0.5)[truth],
+        np.diag(cov_phi_phi)**0.5,
+        [logp_obs],
+        [loge_obs],
+    )[0]
+    fig.suptitle(os.path.basename(path)[:-4])
+    fig.savefig(figname)
+    plt.close(fig)

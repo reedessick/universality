@@ -22,6 +22,90 @@ __samples_dtype__ = [('sigma','float'), ('l','float'), ('sigma_obs','float'), ('
 ### methods useful for a basic squared-exponential kernel
 #-------------------------------------------------
 
+def samples2gpr_f_dfdx(
+        x_tst,
+        f_obs,
+        x_obs,
+        samples,
+        weights=None,
+    ):
+    """
+    estimate the covariances needed for inference of f, dfdx based on samples of hyperparameters
+    same as gaussianprocess.gpr_f_dfdx() but with marginalization over hyperparameters
+    """
+    Ntst = len(x_tst)
+    NTST = 2*Ntst
+    Nobs = len(x_obs)
+
+    # covariance between test points
+    cov_tst_tst = np.zeros((NTST,NTST), dtype='float')
+    # covariance between test and observation points
+    cov_tst_obs = np.zeros((NTST,Nobs), dtype='float')
+    # covariance between observation and test points
+    cov_obs_tst = np.zeros((Nobs,NTST), dtype='float')
+    # covariance between observation points
+    cov_obs_obs = np.zeros((Nobs,Nobs), dtype='float')
+
+    N = 1.*len(samples)
+    if weights is None:
+        weights = np.ones(N, dtype='float')
+    weights /= np.sum(weights)
+
+    for sample, weight in zip(samples, weights):
+        ### pull out hyperparameters from this sample
+        sigma2 = sample['sigma']**2
+        l2 = sample['l']**2
+        sigma2_obs = sample['sigma_obs']**2
+
+        # covariance between test points
+        cov_tst_tst[:Ntst,:Ntst] += weight*gp.cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+        cov_tst_tst[:Ntst,Ntst:] += weight*gp.cov_f1_df2dx2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+        cov_tst_tst[Ntst:,:Ntst] += weight*gp.cov_df1dx1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+        cov_tst_tst[Ntst:,:Ntst] += weight*gp.cov_df1dx1_df2dx2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+
+        # covariance between test and observation points
+        cov_tst_obs[:Ntst,:] += weight*gp.cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+        cov_tst_obs[Ntst:,:] += weight*gp.cov_df1dx1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
+
+        # covariance between observation and test points
+        cov_obs_tst[:,Ntst:] += weight*gp.cov_f1_df2dx2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+        cov_obs_tst[:,:Ntst] += weight*gp.cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+
+        # covariance between observation points
+        cov_obs_obs += weight*gp._cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+
+    # delegate to perform GPR
+    mean, cov = gp.gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+
+    ### slice the resulting arrays and return
+    ### relies on the ordering we constructed within our covariance matricies!
+    #            mean_f             mean_dfdx            cov_f_f          cov_f_dfdx        cov_dfdx_f      cov_dfdx_dfdx
+    return mean[:Ntst], mean[Ntst:], cov[:Ntst,:Ntst], cov[:Ntst,Ntst:], cov[Ntst:,:Ntst], cov[:Ntst,:Ntst]
+
+def samples2resample_f_dfdx(
+        x_tst,
+        f_obs,
+        x_obs,
+        samples,
+        weights=None,
+        degree=1,
+    ):
+    """
+    same as gaussianprocess.gpr_resample_f_dfdx() but with marginalization over hyperparameters
+    """
+    # compute poly fit
+    f_fit, f_tst, dfdx_tst = gp.poly_model_f_dfdx(x_tst, f_obs, x_obs, degree=degree)
+
+    # delegate to perform GPR
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = samples2gpr_f_dfdx(x_tst, f_obs-f_fit, x_obs, samples, weights=weights)
+
+    mean_f += f_tst
+    mean_dfdx += dfdx_tst
+
+    return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx
+
+#------------------------
+
 def logLike_grid(
         f_obs,
         x_obs,
