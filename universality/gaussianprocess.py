@@ -165,8 +165,10 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
     sign, det = np.linalg.slogdet(cov)
     if sign<0:
-        raise ValueError, 'unphysical covariance matrix!'
-    det *= -0.5
+        det = -np.infty ### rule this out by setting logLike -> -infty
+#        raise ValueError, 'unphysical covariance matrix!'
+    else:
+        det *= -0.5
 
 #    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e\nsgn: %.1f\nlnL: %.3e'%(obs, nrm, det, sign, obs+nrm+det)
 

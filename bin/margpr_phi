@@ -258,9 +258,14 @@ loge_obs = np.log(data[:,1])
 ### sample logLike to get distribution of hyperparams
 if opts.verbose:
     print('running MCMC for %d steps with %d walkers to sample hyperparameters'%(opts.num_mcmc, opts.num_walkers))
+
+#c2 = utils.c**2
+#truth = (np.log(opts.pressure_bounds[0]/c2)<=logp_obs)*(logp_obs<=np.log(opts.pressure_bounds[1]/c2))
+truth = np.ones_like(logp_obs, dtype=bool)
+
 mcmc = hp.logLike_mcmc(
-    loge_obs,
-    logp_obs,
+    loge_obs[truth],
+    logp_obs[truth],
     (opts.min_sigma, opts.max_sigma),
     (opts.min_l, opts.max_l),
     (opts.min_sigma_obs, opts.max_sigma_obs),
