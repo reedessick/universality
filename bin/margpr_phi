@@ -301,7 +301,7 @@ if opts.plot:
 ### resample eos into a big matrix
 ### generate all data structures we'll need here
 if opts.verbose:
-    print('resampling to %d points within [%.3e, %.3e] g/cm^3'%((opts.pressure_num,)+opts.pressure_bounds))
+    print('resampling %d observations to %d+%d pointswithin [%.3e, %.3e] g/cm^3 '%(len(loge_obs), opts.pressure_num, opts.pressure_num)+opts.pressure_bounds)
 logp_resample = np.linspace(
     np.log(opts.pressure_bounds[0]),
     np.log(opts.pressure_bounds[1]),
@@ -310,8 +310,6 @@ logp_resample = np.linspace(
 logp_resample -= 2*np.log(utils.c)
 
 ### run gpr to resample this eos
-if opts.verbose:
-    print('resampling %d observations to %d+%d points'%(len(loge_obs), opts.pressure_num, opts.pressure_num))
 truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
 if not np.any(truth):
     raise ValueError, 'no samples found with requested range. Skipping this EOS'
