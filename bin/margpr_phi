@@ -301,7 +301,7 @@ if opts.plot:
 ### resample eos into a big matrix
 ### generate all data structures we'll need here
 if opts.verbose:
-    print('resampling %d observations to %d+%d pointswithin [%.3e, %.3e] g/cm^3 '%(len(loge_obs), opts.pressure_num, opts.pressure_num)+opts.pressure_bounds)
+    print('resampling %d observations to %d+%d points within [%.3e, %.3e] g/cm^3 '%((len(loge_obs), opts.pressure_num, opts.pressure_num,)+opts.pressure_bounds))
 logp_resample = np.linspace(
     np.log(opts.pressure_bounds[0]),
     np.log(opts.pressure_bounds[1]),
