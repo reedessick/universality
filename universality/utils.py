@@ -76,6 +76,21 @@ def whiten(data, verbose=False, outlier_stdv=np.infty):
 
     return data, means, stds
 
+def iqr_whiten(data, verbose=False, low=0.16, high=0.84):
+    medians = np.median(data, axis=0)
+    iqrs = np.percentile(data, 100*high, axis=0) - np.percentile(data, 100*low, axis=0)
+
+    data -= medians
+    data /= iqrs
+
+    if verbose:
+        print('whitening marginal distributions')
+        for i, (m, s) in enumerate(zip(medians, iqrs)):
+            print('  median(%01d) = %+.3e'%(i, m))
+            print('  IQR[%.2f,%.2f](%01d) = %+.3e'%(low, high, i, s))
+
+    return data, medians, iqrs
+
 def downsample(data, n):
     N = len(data)
     assert n>0 and n<=N, 'cannot downsample size=%d to size=%d'%(N, n)
