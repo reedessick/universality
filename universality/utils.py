@@ -60,12 +60,13 @@ def whiten(data, verbose=False, outlier_stdv=np.infty):
     data /= stds
 
     # adjust stds to reject outliers
-    for i in xrange(data.shape[1]):
-        truth = np.abs(data[:,i]) < outlier_stdv
-        refactor = np.std(data[truth,i])
+    if outlier_stdv < np.infty:
+        for i in xrange(data.shape[1]):
+            truth = np.abs(data[:,i]) < outlier_stdv
+            refactor = np.std(data[truth,i])
 
-        stds[i] *= refactor
-        data[i] /= refactor
+            stds[i] *= refactor
+            data[:,i] /= refactor
 
     if verbose:
         print('whitening marginal distributions')
