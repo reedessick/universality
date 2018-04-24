@@ -52,16 +52,26 @@ def check_columns(present, required):
     for column in required:
         assert column in present, 'required column=%s is missing!'%column
 
-def whiten(data, verbose=False):
+def whiten(data, verbose=False, outlier_stdv=np.infty):
     means = np.mean(data, axis=0)
     stds = np.std(data, axis=0)
+
+    data -= means
+    data /= stds
+
+    # adjust stds to reject outliers
+    for i in xrange(data.shape[1]):
+        truth = np.abs(data[:,i]) < outlier_stdv
+        refactor = np.std(data[truth,i])
+
+        stds[i] *= refactor
+        data[i] /= refactor
+
     if verbose:
         print('whitening marginal distributions')
         for i, (m, s) in enumerate(zip(means, stds)):
             print('  mean(%01d) = %+.3e'%(i, m))
             print('  stdv(%01d) = %+.3e'%(i, s))
-    data -= means
-    data /= stds
 
     return data, means, stds
 
