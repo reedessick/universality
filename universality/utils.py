@@ -70,9 +70,14 @@ def whiten(data, verbose=False, outlier_stdv=np.infty):
 
     if verbose:
         print('whitening marginal distributions')
-        for i, (m, s) in enumerate(zip(means, stds)):
-            print('  mean(%01d) = %+.3e'%(i, m))
-            print('  stdv(%01d) = %+.3e'%(i, s))
+        if len(data.shape)==1:
+            print('  mean = %+.3e'%(means))
+            print('  stdv = %+.3e'%(stds))
+
+        else:
+            for i, (m, s) in enumerate(zip(means, stds)):
+                print('  mean(%01d) = %+.3e'%(i, m))
+                print('  stdv(%01d) = %+.3e'%(i, s))
 
     return data, means, stds
 
@@ -85,9 +90,14 @@ def iqr_whiten(data, verbose=False, low=0.16, high=0.84):
 
     if verbose:
         print('whitening marginal distributions')
-        for i, (m, s) in enumerate(zip(medians, iqrs)):
-            print('  median(%01d) = %+.3e'%(i, m))
-            print('  IQR[%.2f,%.2f](%01d) = %+.3e'%(low, high, i, s))
+        if len(data.shape)==1:
+            print('  median = %+.3e'%(medians))
+            print('  IQR[%.2f,%.2f] = %+.3e'%(low, high, iqrs))
+
+        else:
+            for i, (m, s) in enumerate(zip(medians, iqrs)):
+                print('  median(%01d) = %+.3e'%(i, m))
+                print('  IQR[%.2f,%.2f](%01d) = %+.3e'%(low, high, i, s))
 
     return data, medians, iqrs
 
