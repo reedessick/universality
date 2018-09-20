@@ -34,7 +34,7 @@ __default_poly_degree__ = 1
 
 #-------------------------------------------------
 
-def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, x_obs, f_obs):
+def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, x_obs, f_obs, num_sigma=1):
     '''
     a basic set of plots for sanity-checking the regression
     '''
@@ -77,7 +77,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     )
 
     ### plot the regression
-    std_f *= 3 ### plot 3-sigma region
+    std_f *= num_sigma
     foo.fill_between(x_tst, f_tst-std_f, f_tst+std_f, color='grey', alpha=0.5)
     foo.plot(x_tst, f_tst, color='k')
 
@@ -113,7 +113,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     foo.set_ylabel('$f$')
 
     ### plot the regression of dfdx
-    std_dfdx *= 3 ### plot 3-sigma region
+    std_dfdx *= num_sigma
     doo.fill_between(x_tst, dfdx_tst+std_dfdx, dfdx_tst-std_dfdx, color='grey', alpha=0.5)
     doo.plot(x_tst, dfdx_tst, color='k')
 
@@ -149,7 +149,7 @@ def big_sanity_check_plot(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_
     doo.set_ylabel('df/dx')
 
     ### plot the regression for phi
-    std_phi *= 3 ### plot 3-sigma region
+    std_phi *= num_sigma
     phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
     phi.plot(x_tst, mean_phi, color='k')
 
