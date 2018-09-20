@@ -108,6 +108,9 @@ if opts.weight_column!=None:
 else:
     weights = np.ones(N, dtype='float')/N
 
+truth = weights>0
+Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
+
 #-----------------------
 
 if opts.verbose:
@@ -162,6 +165,8 @@ if opts.ymin!=None:
     ax.set_ylim(ymin=opts.ymin)
 if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
+
+ax.set_title("$N_\mathrm{eff} = %.1f$"%Neff)
 
 figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
 if opts.verbose:

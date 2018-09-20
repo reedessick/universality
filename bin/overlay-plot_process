@@ -121,6 +121,9 @@ if opts.weight1_column!=None:
 else:
     weights1 = np.ones(N1, dtype='float')/N1
 
+truth = weights1 > 0
+Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
+
 #---
 
 if opts.verbose:
@@ -141,6 +144,9 @@ if opts.weight2_column!=None:
 
 else:
     weights2 = np.ones(N2, dtype='float')/N2
+
+truth = weights2 > 0
+Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
 
 #-----------
 
@@ -222,8 +228,8 @@ if opts.ymin!=None:
 if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
 
-fig.text(0.1, 0.95, label1, color=opts.color1, ha='left', va='center')
-fig.text(0.9, 0.95, label2, color=opts.color2, ha='right', va='center')
+fig.text(0.1, 0.95, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, color=opts.color1, ha='left', va='center')
+fig.text(0.9, 0.95, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, color=opts.color2, ha='right', va='center')
 
 figname = os.path.join(opts.output_dir, 'overlay-plot_process%s.png'%opts.tag)
 if opts.verbose:
