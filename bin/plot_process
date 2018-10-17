@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+plt.rcParams.update({'font.family':'serif',}) # 'text.usetex':True})
 
 from optparse import OptionParser
 
@@ -47,6 +48,9 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos-column', default='eos', type='string')
 parser.add_option('', '--eos-dir', default='.', type='string')
+parser.add_option('', '--eos-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
@@ -61,6 +65,20 @@ parser.add_option('', '--alpha', default=0.25, type='float',
 
 parser.add_option('', '--ymin', default=None, type='float')
 parser.add_option('', '--ymax', default=None, type='float')
+
+parser.add_option('--x-label', default=None, type='string',
+    help='override column name as the label')
+parser.add_option('--y-label', default=None, type='string',
+    help='override column name as the label')
+
+parser.add_option('--reference', default=[], type='string', action='append',
+    help='path to a reference EOS that will be plotted on top of the process. Can be repeated to specify multiple reference curves. \
+The columns must be the same as those supplied in the input arguments. \
+DEFAULT=[]')
+parser.add_option('--residuals', default=False, action='store_true',
+    help='if True, plot the residuals between the median of the process and the reference curves.')
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -122,7 +140,7 @@ else:
 
 y_test = np.empty((N, opts.num_points), dtype='float')
 for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos_dir, opts.glob_str%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
@@ -138,16 +156,38 @@ for i in xrange(opts.num_points):
 
 #------------------------
 
+reference = []
+if opts.reference:
+    for path in opts.reference:
+        if opts.verbose:
+            print('reading reference curve from: '+path)
+        reference.append(utils.load(path, [xcolumn, ycolumn]))
+
+#------------------------
+
 if opts.verbose:
     print('plotting')
 
 fig = plt.figure()
-ax = fig.gca()
+if opts.residual:
+    ax = fig.add_axes([0.15, 0.46, 0.8, 0.8])
+    ax_res = fig.add_axes([0.15, 0.15, 0.8, 0.3])
+else:
+    ax = fig.gca()
 
 for i in xrange(len(opts.quantile)): ### fill between pairs of quantiles
     ax.fill_between(x_test, y[2*i,:], y[2*i+1,:], alpha=opts.alpha, color='k')
+    if opts.residual:
+        ax_res.fill_between(x_test, y[2*i,:]-ymedian, y[2*i+1,:]-ymedian, alpha=opts.alpha, color='k')
 
 ax.plot(x_test, y_median, color='k', alpha=1.0) ### plot the median
+if opts.residual:
+    ax_res.plot(x_test, np.zeros_like(x_test), color='k', alpha=1.0)
+    
+for x, y in reference:
+    color = ax.plot(x, y)[0].get_color()
+    if opts.residual:
+        ax_res.plot(x, y-np.interp(x, x_test, y_median), color=color)
 
 if xcolumn in opts.logcolumn:
     ax.set_xscale('log')
@@ -157,16 +197,17 @@ if ycolumn in opts.logcolumn:
 
 ax.grid(True, which='both')
 
-ax.set_xlabel(xcolumn)
-ax.set_ylabel(ycolumn)
-
 ax.set_xlim(xmin=xmin, xmax=xmax)
 if opts.ymin!=None:
     ax.set_ylim(ymin=opts.ymin)
 if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
 
-ax.set_title("$N_\mathrm{eff} = %.1f$"%Neff)
+if opts.include_neff:
+    ax.set_title("$N_\mathrm{eff} = %.1f$"%Neff)
+
+ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
+ax.set_ylabel(opts.y_label if opts.y_label is not None else ycolumn)
 
 figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
 if opts.verbose:
