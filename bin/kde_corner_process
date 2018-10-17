@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+__doc__ = "generate plots of processes from CSV files which refer to EOS tables (other csv files) as a corner plot at a few reference points. Uses KDEs to make the plots pretty"
+__usage__ = "kde_corner_process [--options] samples.csv reference_column column [column column ...]"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
