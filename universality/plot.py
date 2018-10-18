@@ -54,6 +54,14 @@ def kde_corner(data, bandwidths=None, labels=None, ranges=None, truths=None, wei
         assert len(weights)==Nsamp, 'must have the same number of rows in data and weights'
 
     ### construct figure and axes objects
+    raise NotImplementedError
 
     ### iterate over columns, building 2D KDEs as needed
     raise NotImplementedError
+
+    ### return figure
+    raise NotImplementedError
+
+#-------------------------------------------------
+
+### FIXME: move all the sanity-check plots from within executables to in here...
