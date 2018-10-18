@@ -10,14 +10,11 @@ import os
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -48,10 +45,10 @@ alpha = 0.5
 #-------------------------------------------------
 
 ### instantiate figure
-fig = plt.figure()
-ax_pe = plt.subplot(3,1,1)
-ax_pdedp = plt.subplot(3,1,2)
-ax_pv = plt.subplot(3,1,3)
+fig = plot.plt.figure()
+ax_pe = plot.plt.subplot(3,1,1)
+ax_pdedp = plot.plt.subplot(3,1,2)
+ax_pv = plot.plt.subplot(3,1,3)
 
 ### iterate and plot
 for path in args:
@@ -99,10 +96,10 @@ e_label = r'$\epsilon$ [erg/cm$^3$]'
 p_label = r'$p$ [erg/cm$^3$]'
 dedp_label = r'$d\log \epsilon/d\log p$'
 v_label = r'$v^2/c^2 = (d\epsilon/dp)^{-1}$'
-plt.setp(ax_pe.get_xticklabels(), visible=False)
+plot.plt.setp(ax_pe.get_xticklabels(), visible=False)
 ax_pe.set_ylabel(e_label)
 
-plt.setp(ax_pdedp.get_xticklabels(), visible=False)
+plot.plt.setp(ax_pdedp.get_xticklabels(), visible=False)
 ax_pdedp.set_ylabel(dedp_label)
 
 ax_pv.set_xlabel(p_label)
@@ -121,11 +118,11 @@ xlim = ax_pe.get_xlim()
 ax_pdedp.set_xlim(xlim)
 ax_pv.set_xlim(xlim)
 
-plt.subplots_adjust(hspace=0.1, wspace=0.1)
+plot.plt.subplots_adjust(hspace=0.1, wspace=0.1)
 
 ### save
 figname = os.path.join(opts.output_dir, 'plot_dedp%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)

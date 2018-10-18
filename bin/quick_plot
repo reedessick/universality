@@ -10,14 +10,11 @@ import os
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -64,7 +61,7 @@ if opts.tag:
 
 #-------------------------------------------------
 
-fig = plt.figure()
+fig = plot.plt.figure()
 ax = fig.gca()
 
 for inpath in inpaths:
@@ -154,4 +151,4 @@ figname = os.path.join(opts.output_dir, 'quick_plot%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)

@@ -12,14 +12,11 @@ import pickle
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import gaussianprocess as gp
+from universality import plot
 
 #-------------------------------------------------
 
@@ -53,7 +50,7 @@ if opts.verbose:
 xlabel, ylabel, x_tst, mean, cov = gp.pklload(pklpath)
 
 if opts.plot:
-    fig = plt.figure()
+    fig = plot.plt.figure()
     ax = fig.gca()
 
     s = 3*np.diag(cov)**0.5 ### plot 3-sigma regions
@@ -99,4 +96,4 @@ if opts.plot:
     if opts.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)

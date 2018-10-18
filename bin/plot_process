@@ -9,15 +9,11 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-plt.rcParams.update({'font.family':'serif',}) # 'text.usetex':True})
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -168,7 +164,7 @@ if opts.reference:
 if opts.verbose:
     print('plotting')
 
-fig = plt.figure()
+fig = plot.plt.figure()
 if opts.residual:
     ax = fig.add_axes([0.15, 0.46, 0.8, 0.8])
     ax_res = fig.add_axes([0.15, 0.15, 0.8, 0.3])
@@ -213,4 +209,4 @@ figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)

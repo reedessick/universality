@@ -9,14 +9,11 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -152,9 +149,9 @@ if opts.verbose:
 if opts.verbose:
     print('bandwidth vs logLikelihood')
 
-fig = plt.figure()
-ax_logL = plt.subplot(2,1,1)
-ax_glogL = plt.subplot(2,1,2)
+fig = plot.plt.figure()
+ax_logL = plot.plt.subplot(2,1,1)
+ax_glogL = plot.plt.subplot(2,1,2)
 
 #norm = Nsamp**-0.5 ### normalization for how I expect the std to scale
                    ### we compute it based on single-event validation sets, and we have Nsamp of those
@@ -184,7 +181,7 @@ for ax in [ax_logL, ax_glogL]:
 #ymin, ymax = ax_glogL.get_ylim()
 #ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
 
-plt.setp(ax_logL.get_xticklabels(), visible=False)
+plot.plt.setp(ax_logL.get_xticklabels(), visible=False)
 ax_glogL.set_xlabel('$\log b$')
 
 ax_logL.set_ylabel('$\log L$')
@@ -195,7 +192,7 @@ figname = os.path.join(opts.output_dir, 'investigate_bandwidth-logLike%s.png'%op
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)
 
 #--- visualization of resulting KDEs...
 if opts.verbose:
@@ -217,12 +214,12 @@ for b in opts.bandwidth:
     # actually generate figure
     if opts.verbose:
         print('  plotting')
-    fig = plt.figure()
+    fig = plot.plt.figure()
 
     # iterate through all pairs of columns, generating an axis for both
     for row in xrange(Ncol):
         for col in xrange(row+1): ### only plot the lower-left triangle
-            ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
+            ax = plot.plt.subplot(Ncol, Ncol, row*Ncol+col+1)
 
             truth[:] = False
 
@@ -261,23 +258,23 @@ for b in opts.bandwidth:
 
             # decorate                
             if row!=(Ncol-1):
-                plt.setp(ax.get_xticklabels(), visible=False)
+                plot.plt.setp(ax.get_xticklabels(), visible=False)
             else:
                 ax.set_xlabel('$%s$'%columns[col])
 
             if col!=0 or row==0: #!=0
-                plt.setp(ax.get_yticklabels(), visible=False)
+                plot.plt.setp(ax.get_yticklabels(), visible=False)
             else:
                 ax.set_ylabel('$%s$'%columns[row])
 
             ax.grid(True, which='both')
-            plt.setp(ax.get_xticklabels(), rotation=45)
+            plot.plt.setp(ax.get_xticklabels(), rotation=45)
 
             ax.set_xlim(means[col]+stds[col]*bounds[col])
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)
-    plt.subplots_adjust(
+    plot.plt.subplots_adjust(
         hspace=0.1,
         wspace=0.1,
         left=0.11,
@@ -291,4 +288,4 @@ for b in opts.bandwidth:
     if opts.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)

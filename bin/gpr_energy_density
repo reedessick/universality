@@ -10,15 +10,12 @@ import os
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard
 from universality import utils
 from universality import gaussianprocess as gp
+from universality import plot
 
 #-------------------------------------------------
 
@@ -40,7 +37,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
     xmin = np.min(x_tst)
     xmax = np.max(x_tst)
 
-    fig = plt.figure()
+    fig = plot.plt.figure()
     foo = fig.add_axes([0.13, 0.30, 0.85, 0.65]) ### the actual data
     res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
@@ -64,7 +61,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs):
         res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
 
     ### decorate
-    plt.setp(foo.get_xticklabels(), visible=False)
+    plot.plt.setp(foo.get_xticklabels(), visible=False)
 
     for ax in [foo, res]:
       ax.set_xlim(xmin=xmin, xmax=xmax)
@@ -219,7 +216,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         fig = sanity_check_plot(logp_resample[truth], mean, np.diag(cov)**0.5, [logp_obs], [loge_obs])[0]
         fig.suptitle(os.path.basename(path)[:-4])
         fig.savefig(figname)
-        plt.close(fig)
+        plot.plt.close(fig)
 
 if opts.verbose:
     print('computing modeling uncertainty at each pressure')
@@ -303,4 +300,4 @@ if opts.evaluate_plot:
         print('saving: '+figname)
     fig = sanity_check_plot(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)[0]
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)

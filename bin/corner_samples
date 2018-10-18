@@ -9,16 +9,11 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
-import corner
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -29,6 +24,12 @@ parser.add_option('-v', '--verbose', default=False, action='store_true')
 parser.add_option('', '--logcolumn', default=[], type='string', action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+parser.add_option('', '--column-label', nargs=2, default=[], type='string', action='append',
+    help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
+DEFAULT+[]')
+parser.add_option('', '--column-truth', nargs=2, default=[], type='string', action='append',
+    help='include this as an injected value for this column. e.g: \'xcol 5\'. \
 DEFAULT=[]')
 
 parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
@@ -42,6 +43,9 @@ parser.add_option('', '--weight-column-is-log', default=False, action='store_tru
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 parser.add_option('', '--whiten', default=False, action='store_true')
+
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -60,6 +64,12 @@ if not os.path.exists(opts.output_dir):
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
 
+labeldict = dict(opts.column_label)
+labels = [labeldict.get(col, '$'+col+'$') for col in columns]
+
+truthdict = dict((col, float(val)) for col, val in opts.column_truth)
+truths = [truthdict.get(col, None) for col in columns]
+
 #-------------------------------------------------
 
 ### read in data from csv
@@ -76,6 +86,7 @@ for i, col in enumerate(columns):
 
 if opts.whiten:
     data, means, stds = utils.whiten(data, verbose=opts.verbose)
+    truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
 
 if opts.weight_column!=None:
     if opts.verbose:
@@ -98,17 +109,19 @@ Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
 
 if opts.verbose:
     print('plotting')
-fig = corner.corner(
+fig = plot.corner(
     data,
-    labels=['$%s$'%c for c in columns],
+    truths=truths,
+    labels=labels,
     range=ranges,
     weights=weights,
 )
 
-fig.suptitle('$N_\mathrm{eff} = %.1f'%Neff)
+if opts.include_neff:
+    fig.suptitle('$N_\mathrm{eff} = %.1f'%Neff)
 
 figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)

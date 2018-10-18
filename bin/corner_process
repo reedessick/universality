@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+plt.rcParams.update({'font.family':'serif',}) # 'text.usetex':True})
 
 import corner
 
@@ -19,6 +20,7 @@ from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -43,6 +45,9 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos-column', default='eos', type='string')
 parser.add_option('', '--eos-dir', default='.', type='string')
+
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -121,16 +126,17 @@ for i, column in enumerate(columns):
     else:
         labels += [column+'\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
 
-fig = corner.corner(
+fig = plot.corner(
     ans,
     labels=labels,
     weights=weights,
 )
 
-fig.suptitle('$N_\mathrm{eff} = %.1f$'%Neff)
+if opts.include_neff:
+    fig.suptitle('$N_\mathrm{eff} = %.1f$'%Neff)
 
 figname = os.path.join(opts.output_dir, 'corner_process%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)

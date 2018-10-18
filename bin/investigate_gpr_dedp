@@ -11,15 +11,12 @@ import sys
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
 from universality import gaussianprocess as gp
+from universality import plot
 
 #-------------------------------------------------
 
@@ -115,7 +112,7 @@ logL = logL.reshape((num_l, num_sigma, num_sigma_obs))
 ### actually generate figure
 if opts.verbose:
     print('  plotting')
-fig = plt.figure()
+fig = plot.plt.figure()
 
 # iterate through all pairs of columns, generating an axis for both
 columns = ['l', '\sigma', '\sigma_\mathrm{obs}']
@@ -131,7 +128,7 @@ Ncol = 3
 alpha = 0.5 ### used for cross-hairs
 for row in xrange(Ncol):
     for col in xrange(row+1): ### only plot the lower-left triangle
-        ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
+        ax = plot.plt.subplot(Ncol, Ncol, row*Ncol+col+1)
 
         # actually plot
         if row==col:
@@ -155,24 +152,24 @@ for row in xrange(Ncol):
 
         # decorate                
         if row!=(Ncol-1):
-            plt.setp(ax.get_xticklabels(), visible=False)
+            plot.plt.setp(ax.get_xticklabels(), visible=False)
         else:
             ax.set_xlabel('$%s$'%columns[col])
 
         if col!=0 or row==0: #!=0
-            plt.setp(ax.get_yticklabels(), visible=False)
+            plot.plt.setp(ax.get_yticklabels(), visible=False)
         else:
             ax.set_ylabel('$%s$'%columns[row])
 
         ax.grid(True, which='both')
-        plt.setp(ax.get_xticklabels(), rotation=45)
+        plot.plt.setp(ax.get_xticklabels(), rotation=45)
 
         ax.set_xscale(scales[col])
         ax.set_xlim(bounds[col])
 
 # further decorate
 fig.suptitle(os.path.basename(inpath)[:-4])
-plt.subplots_adjust(
+plot.plt.subplots_adjust(
     hspace=0.1,
     wspace=0.1,
     left=0.11,
@@ -186,7 +183,7 @@ figname = os.path.join(opts.output_dir, 'investigate_gpr_dedp-logLike%s.png'%(op
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plt.close(fig)
+plot.plt.close(fig)
 
 #------------------------
 

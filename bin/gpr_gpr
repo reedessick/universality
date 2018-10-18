@@ -10,15 +10,12 @@ import os
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from optparse import OptionParser
 
 ### non-standard
 from universality import utils
 from universality import gaussianprocess as gp
+from universality import plot
 
 #-------------------------------------------------
 
@@ -40,7 +37,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs, std_obs):
     xmin = np.min(x_tst)
     xmax = np.max(x_tst)
 
-    fig = plt.figure()
+    fig = plot.plt.figure()
     foo = fig.add_axes([0.13, 0.30, 0.85, 0.65]) ### the actual data
     res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
@@ -72,7 +69,7 @@ def sanity_check_plot(x_tst, f_tst, std_tst, x_obs, f_obs, std_obs):
     foo.set_ylim(ylim)
 
     ### decorate
-    plt.setp(foo.get_xticklabels(), visible=False)
+    plot.plt.setp(foo.get_xticklabels(), visible=False)
 
     for ax in [foo, res]:
       ax.set_xlim(xmin=xmin, xmax=xmax)
@@ -234,4 +231,4 @@ if opts.plot:
         [np.diag(c)**0.5 for c in covs],
     )
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)

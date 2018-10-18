@@ -5,3 +5,130 @@ __usage__ = "kde_corner_samples [--options] samples.csv column1 [column2 column3
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
+
+import os
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+from universality import plot
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+parser.add_option('', '--column-label', nargs=2, default=[], type='string', action='append',
+    help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
+DEFAULT=[]')
+parser.add_option('', '--column-truth', nargs=2, default=[], type='string', action='append',
+    help='include this as an injected value for this column. e.g: \'xcol 5\'. \
+DEFAULT=[]')
+
+parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
+    help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_option('', '--whiten', default=False, action='store_true',
+    help='if specified, bandwidths will be interpreted as the whitened bandwidths.')
+parser.add_option('', '--bandwidth', nargs=2, default=[], type='string',
+    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
+
+parser.add_option('-o', '--output-dir', default='.', type='string')
+parser.add_option('-t', '--tag', default='', type='string')
+
+opts, args = parser.parse_args()
+assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
+inpath = args[0]
+columns = args[1:]
+Ncol = len(columns)
+
+bandwidthdict = dict((col, float(b)) for col, b in opts.bandwidth)
+bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns]
+
+if opts.tag:
+    opts.tag = "_"+opts.tag
+
+if not os.path.exists(opts.output_dir):
+    os.makedirs(opts.output_dir)
+
+rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
+
+labeldict = dict(opts.column_label)
+labels = [labeldict.get(col, '$'+col+'$') for col in columns]
+
+truthdict = dict((col, float(val)) for col, val in opts.column_truth)
+truths = [truthdict.get(col, None) for col in columns]
+
+#-------------------------------------------------
+
+### read in data from csv
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+
+ranges = []
+for i, col in enumerate(columns):
+    if rangesdict.has_key(col):
+        ranges.append(rangesdict[col])
+    else:
+        ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+
+if opts.whiten:
+    data, means, stds = utils.whiten(data, verbose=opts.verbose)
+    truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
+
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype='float')/N
+
+truth = weights > 0
+Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
+
+#------------------------
+
+if opts.verbose:
+    print('plotting')
+fig = plot.corner(
+    data,
+    bandwidths,
+    truths=truths,
+    labels=labels,
+    range=ranges,
+    weights=weights,
+)
+
+if opts.include_neff:
+    fig.suptitle('$N_\mathrm{eff} = %.1f'%Neff)
+
+figname = os.path.join(opts.output_dir, 'kde_corner_samples%s.png'%opts.tag)
+if opts.verbose:
+    print('saving: '+figname)
+fig.savefig(figname)
+plot.plt.close(fig)

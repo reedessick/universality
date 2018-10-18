@@ -10,6 +10,8 @@ import numpy as np
 c = (299792458*100) # speed of light in (cm/s)
 c2 = c**2
 
+DEFAULT_BANDWIDTH = 0.1
+
 #-------------------------------------------------
 # basic utilities for simulating samples
 #-------------------------------------------------

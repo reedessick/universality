@@ -10,10 +10,6 @@ import os
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 import corner
 
 from optparse import OptionParser
@@ -21,6 +17,7 @@ from optparse import OptionParser
 ### non-standard libraries
 from universality import hyperparams as hp
 from universality import utils
+from universality import plot
 
 #-------------------------------------------------
 
@@ -208,7 +205,7 @@ if opts.grid:
     if opts.verbose:
         print('    saving: '+figname)
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)
 
     ### add to overlay plot
     overlayfig = corner.corner(
@@ -275,7 +272,7 @@ if opts.mcmc:
     if opts.verbose:
         print('    saving: '+figname)
     fig.savefig(figname)
-    plt.close(fig)
+    plot.plt.close(fig)
 
     N = len(data)
     weights = np.ones(N, dtype='float')/N
@@ -297,4 +294,4 @@ if overlayfig:
     if opts.verbose:
         print('saving: '+figname)
     overlayfig.savefig(figname)
-    plt.close(overlayfig)
+    plot.plt.close(overlayfig)
