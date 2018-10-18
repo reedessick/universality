@@ -149,7 +149,7 @@ for i, column in enumerate(columns):
         labels += [column+'\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
 
     truths += [truthdict[column].get(value, None) for value in opts.reference_value]
-    bandwidths += [bandwidthdict[column].get(value, plot.DEFAULT_BANDWIDTH) for value in opts.reference_value]
+    bandwidths += [bandwidthdict[column].get(value, utils.DEFAULT_BANDWIDTH) for value in opts.reference_value]
 
 fig = plot.kde_corner(
     ans,

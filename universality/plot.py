@@ -14,13 +14,13 @@ from corner import corner
 
 ### non-standard libraries
 from . import utils
-from .stats import kde2levels
+from .stats import logkde2levels
 
 #-------------------------------------------------
 
 DEFAULT_LEVELS=[0.1, 0.5, 0.9]
 DEFAULT_NUM_POINTS = 25
-DEFAULT_BANDWIDTH = 0.1
+DEFAULT_BANDWIDTH = utils.DEFAULT_BANDWIDTH
 DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 12
 
 DEFAULT_COLOR1 = 'k'
@@ -78,12 +78,7 @@ def kde_corner(
         assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
 
     if ranges is None:
-        ranges = []
-        for i in xrange(Ncol):
-            m = np.min(data[:,i])
-            M = np.max(data[:,i])
-            delta = (M-m)*0.1
-            ranges.append((m-delta, M+delta))
+        ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
     else:
         assert len(ranges)==Ncol, 'must have the same number of columns in data and ranges'
 
@@ -161,14 +156,15 @@ def kde_corner(
                     )
 
                     kde = utils.logkde(
-                        np.transpose([_.flatten() for _ in np.meshgrid(vects[col], vects[row], indexing='ij')]),
+                        utils.vects2flatgrid(vects[col], vects[row]),
                         utils.reflect(data[:,truth], ranges[truth]) if reflect else data[:,truth],
                         bandwidths[truth],
                     )
+                    thrs = np.exp(logkde2levels(kde, levels))
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.5, levels=kde2levels(kde, levels))
+                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.5, levels=thrs)
 
             # decorate
             ax.grid(True, which='both')

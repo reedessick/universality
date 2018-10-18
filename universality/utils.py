@@ -126,6 +126,15 @@ def logaddexp(logx):
 # cross-validation likelihood
 #-------------------------------------------------
 
+def data2range(data, pad=0.1):
+    m = np.min(data)
+    M = np.max(data)
+    delta = (M-m)*0.1
+    return (m-delta, M+delta)
+
+def vects2flatgrid(*vects):
+    return np.transpose([_.flatten() for _ in np.meshgrid(*vects, indexing='ij')])
+
 def neff(weights):
     """the effective number of samples based on a set of weights"""
     truth = weights > 0

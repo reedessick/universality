@@ -43,11 +43,31 @@ If you do not specify a bandwidth for a column, the default value (%.3f) will be
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
 
+### options about what to compute
+parser.add_option('--confidence-region', default=[], type='float', action='append',
+    help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
+parser.add_option('--entropy', defualt=False, action='store_true')
+parser.add_option('--information', default=False, action='store_true')
+
+parser.add_option('--argmax', default=False, action='store_true')
+parser.add_option('--dlogL', default=[], type='string', action='append',
+    help='comma separated list of the parameter values used within dlogL. Can be repeated.')
+parser.add_option('--dtheta', default=[], type='string', action='append',
+    help='comma separated list of the parameter values used within dtheta. Can be repeated.')
+
 opts, args = parser.parse_args()
 assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
 inpath = args[0]
 columns = args[1:]
 Ncol = len(columns)
+
+rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
+
+opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
+opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
+
+bandwidthdict = dict((col, float(val)) for val in opts.bandwidth)
+bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns]
 
 #-------------------------------------------------
 
@@ -84,5 +104,37 @@ else:
 #------------------------
 
 if opts.verbose:
+    print('computing kde')
+ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
+vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
+
+logkde = utils.logkde(
+    utils.vects2flatgrid(*vects),
+    utils.reflect(data, ranges) if reflect else data,
+    bandwidths,
+    weights=weights,
+)
+
+if opts.verbose:
     print('computing statistics')
-raise NotImplementedError
+
+if opts.confidence_region:
+    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region):
+        print('Volume(CR=%.3f) = %.6e'%(level, vol))
+
+if opts.entropy:
+    print('H = %.6e'%stats.entropy(vects, logkde))
+
+if opts.information:
+    print('I = %.6e'%stats.information(vects, logkde))
+
+if opts.argmax:
+    print('argmax = %s'%(stats.argmax(vects, logkde))
+
+if opts.dlogL:
+    for point in opts.dlogL:
+        print('dlogL(%s) = %.6e'%(point, stats.dlogL(point, vects, logkde))
+
+if opts.dtheta:
+    for point in opts.dtheta:
+        print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde))

@@ -26,11 +26,6 @@ parser.add_option('', '--logcolumn', default=[], type='string', action='append',
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
-parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
-    help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
-Can specify ranges for multiple columns by repeating this option. \
-DEFAULT will use the minimum and maximum observed sample points.')
-
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
@@ -55,6 +50,17 @@ If you do not specify a bandwidth for a column, the default value (%.3f) will be
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
 
+### options about what to compute
+parser.add_option('--confidence-region', default=[], type='float', action='append',
+    help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
+parser.add_option('--entropy', defualt=False, action='store_true')
+parser.add_option('--information', default=False, action='store_true')
+
+parser.add_option('--argmax', default=False, action='store_true')
+parser.add_option('--dlogL', default=[], type='string', action='append',
+    help='comma separated list of the parameter values used within dlogL. Can be repeated.')
+parser.add_option('--dtheta', default=[], type='string', action='append',
+    help='comma separated list of the parameter values used within dtheta. Can be repeated.')
 
 opts, args = parser.parse_args()
 assert len(opts.reference_value), 'please supply at least one --reference-value\n%s'%__usage__
@@ -66,7 +72,12 @@ columns = args[2:]
 
 opts.verbose |= opts.Verbose 
 
-#-------------------------------------------------
+opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
+opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
+
+bandwidthdict = dict((col, {}) for col in columns)
+for col, ref, val in opts.bandwidth:
+    bandwidthdict[col][float(ref)] = float(val)
 
 #-------------------------------------------------
 
@@ -111,6 +122,39 @@ for i, eos in enumerate(data):
 #------------------------
 
 if verbose:
-    print('computing statistics')
-raise NotImplementedError
+    print('computing kde')
+ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
+vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
+bandwidths = []
+for column in columns:
+    bandwidths += [bandwidthdict[column].get(value, utils.DEFAULT_BANDWIDTH) for value in opts.reference_value]
 
+logkde = utils.logkde(
+    utils.vects2flatgrid(*vects),
+    utils.reflect(data, ranges) if reflect else data,
+    bandwidths,
+    weights=weights,
+)
+
+if verbose:
+    print('computing statistics')
+if opts.confidence_region:
+    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region):
+        print('Volume(CR=%.3f) = %.6e'%(level, vol))
+
+if opts.entropy:
+    print('H = %.6e'%stats.entropy(vects, logkde))
+
+if opts.information:
+    print('I = %.6e'%stats.information(vects, logkde))
+
+if opts.argmax:
+    print('argmax = %s'%(stats.argmax(vects, logkde))
+
+if opts.dlogL:
+    for point in opts.dlogL:
+        print('dlogL(%s) = %.6e'%(point, stats.dlogL(point, vects, logkde))
+
+if opts.dtheta:
+    for point in opts.dtheta:
+        print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde))
