@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+
+__doc__ = "generate statistics of processes from CSV files which refer to EOS tables (other csv files) as a corner plot at a few reference points. Uses KDEs to make the plots pretty"
+__usage__ = "kde_stats_process [--options] samples.csv reference_column column [column column ...]"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+from universality import stats
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_option('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \ 
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
+    help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_option('-r', '--reference-value', default=[], type='float', action='append',
+    help='the reference values at which we extract values from the EOS parameters. \
+DEFAULT=[]')
+
+parser.add_option('', '--eos-column', default='eos', type='string')
+parser.add_option('', '--eos-dir', default='.', type='string')
+parser.add_option('', '--eos-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
+
+parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
+    help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
+parser.add_option('', '--bandwidth', nargs=3, default=[], type='string',
+    help='the bandwidths used for each column specified at each reference value. e.g.: "col ${ref_val} ${bandwidth}". \
+We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+parser.add_option('', '--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+
+
+opts, args = parser.parse_args()
+assert len(opts.reference_value), 'please supply at least one --reference-value\n%s'%__usage__
+opts.reference_value.sort()
+    
+assert len(args)>2, 'please supply at least 3 input argument\n%s'%__usage__
+inpath, reference = args[:2]
+columns = args[2:]
+
+opts.verbose |= opts.Verbose 
+
+#-------------------------------------------------
+
+#-------------------------------------------------
+
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data, _ = utils.load(inpath, [opts.eos_column])
+data = data[:,0]
+N = len(data)
+
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    weights = np.ones(N, dtype='float')/N
+
+#------------------------
+
+if opts.verbose:
+    print('extacting data at reference values')
+Ncol = len(columns)
+Nref = len(opts.reference_value)
+ans = np.empty((N, Nref*Ncol), dtype='float')
+
+loadcolumns = [reference]+columns
+refind = loadcolumns.index(reference)
+for i, eos in enumerate(data):
+    path = os.path.join(opts.eos_dir, opts.eos_basename%eos)
+    if opts.Verbose:
+        print('    '+path)
+    d, c = utils.load(path, loadcolumns)
+
+    for j, column in enumerate(c[1:]):
+        ans[i,j*Nref:(j+1)*Nref] = np.interp(opts.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
+
+#------------------------
+
+if verbose:
+    print('computing statistics')
+raise NotImplementedError
+

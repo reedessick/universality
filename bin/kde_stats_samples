@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+__doc__ = "generate statistics based on the KDE over these samples"
+__usage__ = "kde_stats_samples [--options] samples.csv column1 [column2 column3...]"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+from universality import stats
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
+    help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+
+parser.add_option('', '--weight-column', default=None, type='string',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
+    help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
+parser.add_option('', '--bandwidth', nargs=2, default=[], type='string',
+    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+parser.add_option('', '--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+
+opts, args = parser.parse_args()
+assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
+inpath = args[0]
+columns = args[1:]
+Ncol = len(columns)
+
+#-------------------------------------------------
+
+### read in data from csv
+if opts.verbose:
+    print('reading samples from: '+inpath)
+data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+
+ranges = []
+for i, col in enumerate(columns):
+    if rangesdict.has_key(col):
+        ranges.append(rangesdict[col])
+    else:
+        ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+
+if opts.whiten:
+    data, means, stds = utils.whiten(data, verbose=opts.verbose)
+    truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
+
+if opts.weight_column!=None:
+    if opts.verbose:
+        print('reading in non-trivial weights from: '+inpath)
+    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights = weights.reshape((len(weights)))
+
+    if opts.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype='float')/N
+
+#------------------------
+
+if opts.verbose:
+    print('computing statistics')
+raise NotImplementedError

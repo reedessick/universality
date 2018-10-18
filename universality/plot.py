@@ -14,6 +14,7 @@ from corner import corner
 
 ### non-standard libraries
 from . import utils
+from .stats import kde2levels
 
 #-------------------------------------------------
 
@@ -41,20 +42,6 @@ MAIN_AXES_POSITION = [0.15, 0.46, 0.8, 0.8]
 RESIDUAL_AXES_POSITION = [0.15, 0.15, 0.8, 0.3]
 
 #-------------------------------------------------
-
-def kde2levels(kde, levels):
-    kde = kde.flatten()
-
-    order = kde.argsort()[::-1] ### largest to smallest
-    ckde = np.cumsum(kde[order]) ### cumulative distribution
-    ckde /= np.sum(kde)
-
-    ans = []
-    for level in levels: ### iterate through levels, returning the kde value associated with that confidence
-                         ### assume kde spacing is close enough that interpolation isn't worth while...
-        ans.append(kde[order[ckde<=level][-1]])
-
-    return ans
 
 def kde_corner(
         data,
