@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 
 __doc__ = "a quick corner plot"
-__usage__ = "overlay_samples [--options] label,samples1.csv label,samples2.csv column1 [column2 column3...]"
+__usage__ = "overlay-corner_samples [--options] label,samples1.csv label,samples2.csv column1 [column2 column3...]"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
 import os
 import numpy as np
-
-import corner
 
 from optparse import OptionParser
 
@@ -45,6 +43,9 @@ parser.add_option('', '--weight2-column-is-log', default=False, action='store_tr
 
 parser.add_option('', '--color1', default='b', type='string')
 parser.add_option('', '--color2', default='r', type='string')
+
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
@@ -92,9 +93,6 @@ else:
     N = len(data1)
     weights1 = np.ones(N, dtype='float')/N
 
-truth = weights1 > 0
-Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
-
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+in2path)
@@ -121,9 +119,6 @@ else:
     N = len(data2)
     weights2 = np.ones(N, dtype='float')/N
 
-truth = weights2 > 0
-Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
-
 #------------------------
 
 if opts.verbose:
@@ -131,7 +126,7 @@ if opts.verbose:
 
 labels = ['$%s$'%c for c in columns]
 
-fig = corner.corner(
+fig = plot.corner(
     data1,
     labels=labels,
     range=ranges1,
@@ -139,7 +134,7 @@ fig = corner.corner(
     color=opts.color1,
 )
 
-corner.corner(
+plot.corner(
     data2,
     labels=labels,
     range=ranges2,
@@ -148,10 +143,16 @@ corner.corner(
     fig=fig,
 )
 
-fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, ha='center', va='center', color='b')
-fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, ha='center', va='center', color='r')
+if opts.include_neff:
+    truth = weights1 > 0
+    Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
+    truth = weights2 > 0
+    Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
 
-figname = os.path.join(opts.output_dir, 'overlay_samples%s.png'%opts.tag)
+    fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, ha='center', va='center', color='b')
+    fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, ha='center', va='center', color='r')
+
+figname = os.path.join(opts.output_dir, 'overlay-corner_samples%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
