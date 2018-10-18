@@ -122,9 +122,6 @@ if opts.weight_column!=None:
 else:
     weights = np.ones(N, dtype='float')/N
 
-truth = weights>0
-Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-
 #-----------------------
 
 if opts.verbose:
@@ -166,8 +163,8 @@ if opts.verbose:
 
 fig = plot.plt.figure()
 if opts.residual:
-    ax = fig.add_axes([0.15, 0.46, 0.8, 0.8])
-    ax_res = fig.add_axes([0.15, 0.15, 0.8, 0.3])
+    ax = fig.add_axes(plot.MAIN_AXES_POSITION)
+    ax_res = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
 else:
     ax = fig.gca()
 
@@ -200,6 +197,8 @@ if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
 
 if opts.include_neff:
+    truth = weights>0
+    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
     ax.set_title("$N_\mathrm{eff} = %.1f$"%Neff)
 
 ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)

@@ -102,9 +102,6 @@ else:
     N = len(data)
     weights = np.ones(N, dtype='float')/N
 
-truth = weights > 0
-Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-
 #------------------------
 
 if opts.verbose:
@@ -118,6 +115,8 @@ fig = plot.corner(
 )
 
 if opts.include_neff:
+    truth = weights > 0
+    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
     fig.suptitle('$N_\mathrm{eff} = %.1f'%Neff)
 
 figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)

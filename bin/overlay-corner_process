@@ -50,6 +50,9 @@ parser.add_option('', '--eos2-dir', default='.', type='string')
 parser.add_option('', '--color1', default='b', type='string')
 parser.add_option('', '--color2', default='r', type='string')
 
+parser.add_option('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples')
+
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -93,9 +96,6 @@ if opts.weight1_column!=None:
 else:
     weights1 = np.ones(N1, dtype='float')/N1
 
-truth = weights1 > 0
-Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
-
 if opts.verbose:
     print('reading samples for %s from: %s'%(label2, inpath2))
 data2, _ = utils.load(inpath2, [opts.eos2_column])
@@ -114,9 +114,6 @@ if opts.weight2_column!=None:
 
 else:
     weights2 = np.ones(N2, dtype='float')/N2
-
-truth = weights2 > 0
-Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
 
 #------------------------
 
@@ -179,8 +176,14 @@ fig = corner.corner(
     fig=fig,
 )
 
-fig.text(0.75, 0.80, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, color=opts.color1, ha='center', va='center')
-fig.text(0.75, 0.75, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, color=opts.color2, ha='center', va='center')
+if opts.include_neff:
+    truth = weights1 > 0
+    Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
+    truth = weights2 > 0
+    Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
+
+    fig.text(0.75, 0.80, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, color=opts.color1, ha='center', va='center')
+    fig.text(0.75, 0.75, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, color=opts.color2, ha='center', va='center')
 
 figname = os.path.join(opts.output_dir, 'overlay-corner_process%s.png'%opts.tag)
 if opts.verbose:

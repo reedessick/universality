@@ -9,13 +9,6 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-plt.rcParams.update({'font.family':'serif',}) # 'text.usetex':True})
-
-import corner
-
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -32,6 +25,12 @@ parser.add_option('-V', '--Verbose', default=False, action='store_true')
 parser.add_option('', '--logcolumn', default=[], type='string', action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+parser.add_option('', '--column-label', nargs=2, default=[], type='string', action='append',
+    help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
+DEFAULT=[]')
+parser.add_option('', '--column-truth', nargs=3, default=[], type='string', action='append',
+    help='include this as an injected value for this column at the specified reference value. e.g: \'xcol ${ref_val} ${inj_val}\'. \
 DEFAULT=[]')
 
 parser.add_option('', '--weight-column', default=None, type='string',
@@ -69,6 +68,10 @@ if not os.path.exists(opts.output_dir):
 
 opts.verbose |= opts.Verbose
 
+truthdict = dict((col, {}) for col in columns)
+for col, ref, val in opts.column_truth:
+    truthdict[col][float(ref)] = float(val)
+
 #-------------------------------------------------
 
 if opts.verbose:
@@ -89,9 +92,6 @@ if opts.weight_column!=None:
 
 else:
     weights = np.ones(N, dtype='float')/N
-
-truth = weights > 0
-Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
 
 #------------------------
 
@@ -119,20 +119,26 @@ if opts.verbose:
 
 ### build labels and take logs as needed
 labels = []
+truths = []
 for i, column in enumerate(columns):
     if column in opts.logcolumn:
-        labels += ['log('+column+')\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
+        labels += ['log('+labeldict.get(column, column)+')\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
         ans[:,i*Nref:(i+1)*Nref] = np.log(ans[:,i*Nref:(i+1)*Nref])
     else:
-        labels += [column+'\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
+        labels += [labeldict.get(column, column)+'\n(%s=%.3e)'%(reference, value) for value in opts.reference_value]
+
+    truths += [truthdict[column].get(value, None) for value in opts.reference_value]
 
 fig = plot.corner(
     ans,
     labels=labels,
+    truths=truths,
     weights=weights,
 )
 
 if opts.include_neff:
+    truth = weights > 0
+    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
     fig.suptitle('$N_\mathrm{eff} = %.1f$'%Neff)
 
 figname = os.path.join(opts.output_dir, 'corner_process%s.png'%opts.tag)

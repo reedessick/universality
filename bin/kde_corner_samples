@@ -59,9 +59,6 @@ inpath = args[0]
 columns = args[1:]
 Ncol = len(columns)
 
-bandwidthdict = dict((col, float(b)) for col, b in opts.bandwidth)
-bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns]
-
 if opts.tag:
     opts.tag = "_"+opts.tag
 
@@ -69,6 +66,9 @@ if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
+
+bandwidthdict = dict((col, float(b)) for col, b in opts.bandwidth)
+bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns]
 
 labeldict = dict(opts.column_label)
 labels = [labeldict.get(col, '$'+col+'$') for col in columns]
@@ -108,16 +108,13 @@ else:
     N = len(data)
     weights = np.ones(N, dtype='float')/N
 
-truth = weights > 0
-Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-
 #------------------------
 
 if opts.verbose:
     print('plotting')
-fig = plot.corner(
+fig = plot.kde_corner(
     data,
-    bandwidths,
+    bandwidths=bandwidths,
     truths=truths,
     labels=labels,
     range=ranges,
@@ -125,6 +122,8 @@ fig = plot.corner(
 )
 
 if opts.include_neff:
+    truth = weights > 0
+    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
     fig.suptitle('$N_\mathrm{eff} = %.1f'%Neff)
 
 figname = os.path.join(opts.output_dir, 'kde_corner_samples%s.png'%opts.tag)

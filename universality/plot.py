@@ -19,6 +19,9 @@ from . import utils
 
 DEFAULT_BANDWIDTH = 0.1
 
+MAIN_AXES_POSITION = [0.15, 0.46, 0.8, 0.8]
+RESIDUAL_AXES_POSITION = [0.15, 0.15, 0.8, 0.3]
+
 #-------------------------------------------------
 
 def kde_corner(data, bandwidths=None, labels=None, ranges=None, truths=None, weights=None):
