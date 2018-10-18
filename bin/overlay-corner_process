@@ -43,12 +43,20 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos1-column', default='eos', type='string')
 parser.add_option('', '--eos1-dir', default='.', type='string')
+parser.add_option('', '--eos1-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('', '--eos2-column', default='eos', type='string')
 parser.add_option('', '--eos2-dir', default='.', type='string')
+parser.add_option('', '--eos2-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
-parser.add_option('', '--color1', default='b', type='string')
-parser.add_option('', '--color2', default='r', type='string')
+parser.add_option('', '--color1', default=plot.DEFAULT_COLOR1, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR1)
+parser.add_option('', '--color2', default=plot.DEFAULT_COLOR2, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR2)
 
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples')
@@ -127,7 +135,7 @@ refind = loadcolumns.index(reference)
 
 ans1 = np.empty((N1, Nref*Ncol), dtype='float')
 for i, eos in enumerate(data1):
-    path = os.path.join(opts.eos1_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos1_dir, opts.eos1_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, loadcolumns)
@@ -137,7 +145,7 @@ for i, eos in enumerate(data1):
 
 ans2 = np.empty((N2, Nref*Ncol), dtype='float')
 for i, eos in enumerate(data2):
-    path = os.path.join(opts.eos2_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos2_dir, opts.eos2_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, loadcolumns)
@@ -168,7 +176,7 @@ fig = plot.corner(
     color=opts.color1,
 )
 
-fig = corner.corner(
+fig = plot.corner(
     ans2,
     labels=labels,
     weights=weights2,
@@ -177,13 +185,8 @@ fig = corner.corner(
 )
 
 if opts.include_neff:
-    truth = weights1 > 0
-    Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
-    truth = weights2 > 0
-    Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
-
-    fig.text(0.75, 0.80, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, color=opts.color1, ha='center', va='center')
-    fig.text(0.75, 0.75, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, color=opts.color2, ha='center', va='center')
+    fig.text(0.75, 0.80, label1+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights1), color=opts.color1, ha='center', va='center')
+    fig.text(0.75, 0.75, label2+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights2), color=opts.color2, ha='center', va='center')
 
 figname = os.path.join(opts.output_dir, 'overlay-corner_process%s.png'%opts.tag)
 if opts.verbose:

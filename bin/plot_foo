@@ -16,7 +16,7 @@ from optparse import OptionParser
 ### non-standard libraries
 from universality import utils
 from universality import gaussianprocess as gp
-from universaility import plot
+from universality import plot
 
 #-------------------------------------------------
 

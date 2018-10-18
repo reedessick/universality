@@ -10,8 +10,6 @@ import os
 
 import numpy as np
 
-import corner
-
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -289,7 +287,7 @@ with open(path, 'w') as file_obj:
 if opts.plot:
     if opts.verbose:
         print('plotting')
-    fig = corner.corner(
+    fig = plot.corner(
         np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']]),
         labels=['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$', '$\log\mathcal{L}$'],
     )

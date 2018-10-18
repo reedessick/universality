@@ -10,8 +10,6 @@ import os
 
 import numpy as np
 
-import corner
-
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -194,7 +192,7 @@ if opts.grid:
 
     if opts.verbose:
         print('    plotting')
-    fig = corner.corner(
+    fig = plot.corner(
         data,
         labels=labels,
         weights=weights,
@@ -208,7 +206,7 @@ if opts.grid:
     plot.plt.close(fig)
 
     ### add to overlay plot
-    overlayfig = corner.corner(
+    overlayfig = plot.corner(
         data,
         labels=labels,
         weights=weights,
@@ -262,7 +260,7 @@ if opts.mcmc:
 
     if opts.verbose:
         print('    plotting')
-    fig = corner.corner(
+    fig = plot.corner(
         data,
         labels=labels,
         truths=truths,
@@ -278,7 +276,7 @@ if opts.mcmc:
     weights = np.ones(N, dtype='float')/N
 
     ### add to overlay plot
-    overlayfig = corner.corner(
+    overlayfig = plot.corner(
         data,
         labels=labels,
         weights=weights,

@@ -209,68 +209,18 @@ truth =  np.empty(Ncol, dtype=bool) # used to index data within loop
 shape = (opts.num_points, opts.num_points) # used to reshape 2D sampling kdes
 
 for b in opts.bandwidth:
-    v[:] = b**2
+    v[:] = b
 
     # actually generate figure
     if opts.verbose:
         print('  plotting')
-    fig = plot.plt.figure()
-
-    # iterate through all pairs of columns, generating an axis for both
-    for row in xrange(Ncol):
-        for col in xrange(row+1): ### only plot the lower-left triangle
-            ax = plot.plt.subplot(Ncol, Ncol, row*Ncol+col+1)
-
-            truth[:] = False
-
-            # actually plot
-            if row==col:
-                # marginalized KDE
-                truth[col] = True
-
-                kde = utils.logkde(vects[col], data[:,truth], v[col], weights=weights)
-                kde = np.exp(kde-np.max(kde))
-
-                kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0]) # normalize kde to match what a histogram would yield
-                ax.plot(means[col]+stds[col]*vects[col], kde)
-
-                # direct histogram
-                ax.hist(means[col]+stds[col]*data[:,col], bins=Nbins, histtype='step', color='k', normed=True)
-
-            else:
-                # marginalized KDE
-                truth[row] = True
-                truth[col] = True
-
-                kde = utils.logkde(np.transpose([_.flatten() for _ in np.meshgrid(vects[col], vects[row], indexing='ij')]), data[:,truth], v[truth], weights=weights)
-                kde = np.exp(kde-np.max(kde)).reshape(shape)
-
-                kde /= np.sum(kde)*stds[col]*(vects[col][1]-vects[col][0])*stds[row]*(vects[row][1]-vects[row][0]) # normalize kde
-
-                ax.contour(means[col]+stds[col]*vects[col], means[row]+stds[row]*vects[row], kde.transpose())
-
-                # direct scatter plot
-                ax.scatter(means[col]+stds[col]*data[:,col], means[row]+stds[row]*data[:,row], marker='o', s=1, alpha=min(1, 500./N), color='k')
-
-                # decorate a bit here
-                # only set this if it is a 2D scatter plot!
-                ax.set_ylim(means[row]+stds[row]*bounds[row])
-
-            # decorate                
-            if row!=(Ncol-1):
-                plot.plt.setp(ax.get_xticklabels(), visible=False)
-            else:
-                ax.set_xlabel('$%s$'%columns[col])
-
-            if col!=0 or row==0: #!=0
-                plot.plt.setp(ax.get_yticklabels(), visible=False)
-            else:
-                ax.set_ylabel('$%s$'%columns[row])
-
-            ax.grid(True, which='both')
-            plot.plt.setp(ax.get_xticklabels(), rotation=45)
-
-            ax.set_xlim(means[col]+stds[col]*bounds[col])
+    fig = plot.kde_corner(
+        data,
+        bandwidths=v,
+        ranges=bounds,
+        weights=weights,
+        hist1D=True,
+    )
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)

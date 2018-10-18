@@ -44,9 +44,15 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos1-column', default='eos', type='string')
 parser.add_option('', '--eos1-dir', default='.', type='string')
+parser.add_option('', '--eos1-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('', '--eos2-column', default='eos', type='string')
 parser.add_option('', '--eos2-dir', default='.', type='string')
+parser.add_option('', '--eosi2-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('', '--weight1-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
@@ -64,8 +70,10 @@ DEFAULT=[0.1]')
 parser.add_option('', '--alpha', default=0.25, type='float', 
     help='DEFAULT=0.25')
 
-parser.add_option('', '--color1', default='b', type='string')
-parser.add_option('', '--color2', default='r', type='string')
+parser.add_option('', '--color1', default=plot.DEFAULT_COLOR1, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR1)
+parser.add_option('', '--color2', default=plot.DEFAULT_COLOR2, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR2)
 
 parser.add_option('', '--ymin', default=None, type='float')
 parser.add_option('', '--ymax', default=None, type='float')
@@ -164,7 +172,7 @@ if opts.verbose:
     print('computing confidence intervals for %s from %d samples'%(label1, len(data1)))
 y_test = np.empty((N1, opts.num_points), dtype='float')
 for i, (eos, weight) in enumerate(zip(data1, weights1)): ### iterate over samples and compute weighted moments
-    path = os.path.join(opts.eos1_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos1_dir, opts.eos1_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
@@ -184,7 +192,7 @@ if opts.verbose:
     print('computing confidence intervals for %s from %d samples'%(label2, len(data2)))
 y_test = np.empty((N2, opts.num_points), dtype='float')
 for i, (eos, weight) in enumerate(zip(data2, weights2)): ### iterate over samples and compute weighted moments
-    path = os.path.join(opts.eos2_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos2_dir, opts.eos2_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, [xcolumn, ycolumn])
@@ -260,13 +268,8 @@ if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
 
 if opts.include_neff:
-    truth = weights1 > 0
-    Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
-    truth = weights2 > 0
-    Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
-
-    fig.text(0.1, 0.95, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, color=opts.color1, ha='left', va='center')
-    fig.text(0.9, 0.95, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, color=opts.color2, ha='right', va='center')
+    fig.text(0.1, 0.95, label1+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights1), color=opts.color1, ha='left', va='center')
+    fig.text(0.9, 0.95, label2+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights2), color=opts.color2, ha='right', va='center')
 
 ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
 ax.set_ylabel(opts.y_label if opts.y_label is not None else ycolumn)

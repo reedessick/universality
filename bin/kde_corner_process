@@ -44,11 +44,20 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos-column', default='eos', type='string')
 parser.add_option('', '--eos-dir', default='.', type='string')
+parser.add_option('', '--eos-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
+parser.add_option('--color', default=plot.DEFAULT_COLOR1, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR1)
+parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
+    help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
 parser.add_option('', '--bandwidth', nargs=3, default=[], type='string',
     help='the bandwidths used for each column specified at each reference value. e.g.: "col ${ref_val} ${bandwidth}". \
 We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+parser.add_option('', '--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
 
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
@@ -115,7 +124,7 @@ ans = np.empty((N, Nref*Ncol), dtype='float')
 loadcolumns = [reference]+columns
 refind = loadcolumns.index(reference)
 for i, eos in enumerate(data):
-    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos_dir, opts.eos_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, loadcolumns)
@@ -142,18 +151,19 @@ for i, column in enumerate(columns):
     truths += [truthdict[column].get(value, None) for value in opts.reference_value]
     bandwidths += [bandwidthdict[column].get(value, plot.DEFAULT_BANDWIDTH) for value in opts.reference_value]
 
-fig = plot.ke_corner(
+fig = plot.kde_corner(
     ans,
     bandwidths=bandwidths,
     labels=labels,
     truths=truths,
     weights=weights,
+    num_points=opts.num_points,
+    color=opts.color,
+    reflect=opts.reflect,
 )
 
 if opts.include_neff:
-    truth = weights > 0
-    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-    fig.suptitle('$N_\mathrm{eff} = %.1f$'%Neff)
+    fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
 
 figname = os.path.join(opts.output_dir, 'kde_corner_process%s.png'%opts.tag)
 if opts.verbose:

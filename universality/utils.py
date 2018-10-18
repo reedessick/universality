@@ -126,6 +126,39 @@ def logaddexp(logx):
 # cross-validation likelihood
 #-------------------------------------------------
 
+def neff(weights):
+    """the effective number of samples based on a set of weights"""
+    truth = weights > 0
+    weights /= np.sum(weights)
+    return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
+
+def reflect(data, bounds):
+    """
+    expect
+        data.shape = (Nsamp, Ndim)
+        bounds.shape = (Ndim, 2)
+    returns a large array with data reflected across bounds for each dimension as one would want for reflecting boundary conditions in a KDE
+    """
+    Ndim = len(bounds)
+    d = data[...]
+    for i in xrange(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
+        # figure out how big the new array will be and create it
+        Nsamp = len(d)
+        twoNsamp = 2*Nsamp
+        d = np.empty((3*Nsamp, Ndim), dtype=float)
+
+        # fill everything in as just a copy of what we already had
+        d[:Nsamp,:] = m
+        d[Nsamp:twoNsamp,:] = m
+        d[twoNsamp:,:] = m
+
+        # now reflect 2 of the copies around the bounds for this dimension only
+        m, M = bounds[i]
+        d[Nsamp:twoNsamp,i] = 2*m - d[Nsamp:twoNsamp,i]
+        d[twoNsamp:,i] = 2*M - d[twoNsamp:,i]
+
+    return d
+
 def logkde(samples, data, variances, weights=None):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples
@@ -166,6 +199,67 @@ def logkde(samples, data, variances, weights=None):
 
     return logkdes
 
+def grad_logkde(samples, data, variances, weights=None):
+    """
+    Nsamp, Ndim = samples.shape
+    returns the gradient of the logLikelihood based on (data, variances, weights) at each sample (shape=Nsamp, Ndim)
+    """
+    shape = samples.shape
+    grad_logkdes = np.empty(shape, dtype=float)
+    if len(shape) in [1, 2]:
+
+        if len(shape)==1:
+            Nsamp = shape[0]
+            Ndim = 1
+            samples = samples.reshape((Nsamp,1))
+            data = data.reshape((len(data),1))
+
+        else:
+            Nsamp, Ndim = samples.shape
+
+        if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
+            Ndata = len(data)
+            weights = np.ones(Ndata, dtype='float')/Ndata
+
+        grad_logkdes = np.empty(Nsamp, dtype='float')
+        twov = -0.5/variances
+        for i in xrange(Nsamp):
+            sample = samples[i]
+
+            zi = (data-sample)**2 * twov ### shape: (Ndata, Ndim)
+            z = np.sum(zi, axis=1)       ### shape: (Ndata)
+
+            ### do this backflip to preserve accuracy
+            m = np.max(z)
+            z = weights[truth]*np.exp(z-m)
+            y = np.sum(z)
+            x = np.sum(z*(-zi/variances).transpose(), axis=1)
+
+            if y==0:
+               if np.all(x==0):
+                    grad_logL[i,:] = 0 ### this is the appropriate limit here
+               else:
+                    raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
+            else:
+                grad_logL[i,:] = twov + x/y
+
+    else:
+        raise ValueError, 'bad shape for samples'
+
+    return grad_logkdes
+
+def logvarkde(samples, data, variances, weights=None):
+    """
+    a wrapper around computing bootstrapped estimates of the variance of the kde
+    """
+    raise NotImplementedError
+
+def logcovkde((samples1, samples2), data, variances, weights=None):
+    """
+    a wrapper around computing bootstrapped estimates of the covariance of the kde (btwn points defined in samples1, samples2)
+    """
+    raise NotImplementedError
+
 def logleave1outLikelihood(data, variances, weights=None):
     """
     computes the logLikelihood for how well this bandwidth produces a KDE that reflects p(data|B) using samples drawn from p(B|data)=p(data|B)*p(B)
@@ -177,46 +271,42 @@ def logleave1outLikelihood(data, variances, weights=None):
 
     returns mean(logL), var(logL), mean(grad_logL), covar(dlogL/dvp)
     """
+    return logleavekoutLikelihood(data, variances, k=1, weights=weights)
+
+def logleavekoutLikelihood(data, variances, k=1, weights=None):
+    """
+    implements a leave-k-out cross validation estimate of the logLikelihood
+    """
     Nsamples, Ndim = data.shape
 
     if weights==None:
         weights = np.ones(Nsamples, dtype='float')/Nsamples
 
-    logL = np.empty(Nsamples, dtype='float')
-    grad_logL = np.empty((Nsamples, Ndim), dtype='float')
+    sets = [[] for _ in xrange(np.ceil(Nsamples/k))]
+    Nsets = len(segs)
+    for i in xrange(Nsamples):
+        sets[i%Nsets].append(i)
+
+    logL = np.empty(Nsets, dtype='float')
+    grad_logL = np.empty((Nsets, Ndim), dtype='float')
 
     twov = -0.5/variances
     truth = np.ones(Nsamples, dtype=bool)
 
-    for i in xrange(Nsamples):
-        sample = data[i]
+    for i in xrange(Nsets):
+        sample = data[sets[i]]
 
-        truth[i-1] = True
-        truth[i] = False
+        truth[:] = True
+        truth[sets[i]] = False
 
         ### compute logLikelihood
-        logL[i] = logkde(np.array([data[i]]), data[truth], variances, weights=weights[truth])[0]
+        logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth]))
 
         ### compute gradient of logLikelihood
-        ### NOTE: this repeats some work that's done within delegation to logkde, but that's probably fine
-        zi = (data[truth]-sample)**2 * twov ### shape: (Nsamples, Ndim)
-        z = np.sum(zi, axis=1)              ### shape: (Nsamples)
-
-        m = np.max(z)
-        z = weights[truth]*np.exp(z-m)
-        y = np.sum(z)
-        x = np.sum(z*(-zi/variances).transpose(), axis=1)
-
-        if y==0:
-            if np.all(x==0):
-                grad_logL[i,:] = 0 ### this is the appropriate limit here
-            else:
-                raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
-        else:
-            grad_logL[i,:] = twov + x/y
+        grad_logL[i,:] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth]), axis=0)
 
     ### add in constant terms to logL
-    logL -= np.log(Nsamples-1) ### take the average as needed
+    logL -= np.log(Nsets-1) ### take the average as needed
 
     ### compute statistics
     mlogL = np.mean(weights*logL) # scalar

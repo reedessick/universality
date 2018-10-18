@@ -41,8 +41,10 @@ parser.add_option('', '--weight2-column', default=None, type='string',
 parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('', '--color1', default='b', type='string')
-parser.add_option('', '--color2', default='r', type='string')
+parser.add_option('', '--color1', default=plot.DEFAULT_COLOR1, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR1)
+parser.add_option('', '--color2', default=plot.DEFAULT_COLOR2, type='string',
+    help='DEFAULT='+plot.DEFAULT_COLOR2)
 
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
@@ -144,13 +146,8 @@ plot.corner(
 )
 
 if opts.include_neff:
-    truth = weights1 > 0
-    Neff1 = np.exp(-np.sum(weights1[truth]*np.log(weights1[truth])))
-    truth = weights2 > 0
-    Neff2 = np.exp(-np.sum(weights2[truth]*np.log(weights2[truth])))
-
-    fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%Neff1, ha='center', va='center', color='b')
-    fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%Neff2, ha='center', va='center', color='r')
+    fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights1), ha='center', va='center', color='b')
+    fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights2), ha='center', va='center', color='r')
 
 figname = os.path.join(opts.output_dir, 'overlay-corner_samples%s.png'%opts.tag)
 if opts.verbose:

@@ -44,6 +44,9 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos-column', default='eos', type='string')
 parser.add_option('', '--eos-dir', default='.', type='string')
+parser.add_option('', '--eos-basename', default='draw_foo-%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
@@ -104,7 +107,7 @@ ans = np.empty((N, Nref*Ncol), dtype='float')
 loadcolumns = [reference]+columns
 refind = loadcolumns.index(reference)
 for i, eos in enumerate(data):
-    path = os.path.join(opts.eos_dir, 'draw_foo-%d.csv'%eos)
+    path = os.path.join(opts.eos_dir, opts.eos_basename%eos)
     if opts.Verbose:
         print('    '+path)
     d, c = utils.load(path, loadcolumns)
@@ -137,9 +140,7 @@ fig = plot.corner(
 )
 
 if opts.include_neff:
-    truth = weights > 0
-    Neff = np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-    fig.suptitle('$N_\mathrm{eff} = %.1f$'%Neff)
+    fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
 
 figname = os.path.join(opts.output_dir, 'corner_process%s.png'%opts.tag)
 if opts.verbose:
