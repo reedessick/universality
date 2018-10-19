@@ -75,6 +75,7 @@ def sym_kldiv(vects, logkde1, logkde2):
     """
     return kldiv(vects, logkde1, logkde2) + kldiv(vects, logkde2, logkde1)
 
+'''
 def dlogkde(point, vects, logkde):
     """
     returns the difference in loglikelihood between a point and the argmax of kde
@@ -137,6 +138,7 @@ def _interpn(point, vects, logkde):
         return logkde[distance==0] ### handle this as a special case so I don't divide by zero
     else:
         np.sum(logkde/distance)/np.sum(1./distance)
+'''
 
 def argmax(vects, logkde):
     """

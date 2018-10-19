@@ -43,6 +43,8 @@ parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action=
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
+parser.add_option('', '--prune', default=False, action='store_true',
+    help='throw away samples that fall outside ranges')
 
 ### options about what to compute
 parser.add_option('--confidence-region', default=[], type='float', action='append',
@@ -68,7 +70,7 @@ opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
 opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
 
 bandwidthdict = dict((col, float(val)) for val in opts.bandwidth)
-bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns]
+variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
 
 #-------------------------------------------------
 
@@ -109,10 +111,14 @@ if opts.verbose:
 ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
 vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
 
+if opts.prune:
+    data, weights = utils.prune(data, ranges, weights=weights)
+if opts.reflect:
+    data, weights = utils.reflect(data, ranges, weights=weights)
 logkde = utils.logkde(
     utils.vects2flatgrid(*vects),
-    utils.reflect(data, ranges) if reflect else data,
-    bandwidths,
+    data,
+    variances,
     weights=weights,
 )
 
@@ -133,8 +139,9 @@ if opts.argmax:
     print('argmax = %s'%(stats.argmax(vects, logkde))
 
 if opts.dlogL:
+    maxlogL = np.max(logkde)
     for point in opts.dlogL:
-        print('dlogL(%s) = %.6e'%(point, stats.dlogL(point, vects, logkde))
+        print('dlogL(%s) = %.6e'%(point, utils.logkde([point], data, variances, weights=weights) - maxlogL))
 
 if opts.dtheta:
     for point in opts.dtheta:

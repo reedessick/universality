@@ -61,6 +61,8 @@ We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
+parser.add_option('', '--purne', default=False, action='store_true',
+    help='throw away samples outside of the specified range')
 
 ### options about what to compute
 parser.add_option('--dkl', default=False, action='store_true')
@@ -89,6 +91,7 @@ for col, ref, val in opts.bandwidth:
 bandwidths = []
 for column in columns:
     bandwidths += [bandwidthdict[column].get(value, utils.DEFAULT_BANDWIDTH) for value in opts.reference_value]
+variances = np.array(bandwidths)**2
 
 #-------------------------------------------------
 
@@ -173,17 +176,25 @@ for i in xrange(Ncol):
 vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
 flatgrid = utils.vects2flatgrid(*vects)
 
+if opts.prune:
+    data1, weights1 = utils.prune(data1, ranges, weights=weights1)
+if opts.reflect:
+    data1, weights1 = utils.reflect(data1, ranges, weights=weights1)
 logkde1 = utils.logkde(
     flatgrid,
-    utils.reflect(data1, ranges) if reflect else data,
-    bandwidths,
+    data1,
+    variances,
     weights=weights1,
 )
 
+if opts.prune:
+    data2, weights2 = utils.prune(data2, ranges, weights=weights2)
+if opts.reflect:
+    data2, weights2 = utils.reflect(data2, ranges, weights=weights2)
 logkde2 = utils.logkde(
     flatgrid,
-    utils.reflect(data2, ranges) if reflect else data,
-    bandwidths,
+    data2,
+    variances,
     weights=weights2,
 )
 
@@ -198,8 +209,8 @@ if opts.sym_dkl:
     print('sym Dkl(1,2) = %.6e'%stats.sym_kldiv(vects, logkde1, logkde2))
 
 if opts.dlogL:
-    print('dlogL1(argmax2) = %.6e'%stats.dlogkde(stats.argmax(vects, logkde2), vects, logkde1))
-    print('dlogL2(argmax1) = %.6e'%stats.dlogkde(stats.argmax(vects, logkde1), vects, logkde2))
+    print('dlogL1(argmax2) = %.6e'%utils.logkde([stats.argmax(vects, logkde2)], data1, variances, weights=weights1) - np.max(logkde1))
+    print('dlogL2(argmax1) = %.6e'%utils.logkde([stats.argmax(vects, logkde1)], data2, variances, weights=weights2) - np.max(logkde2))
 
 if opts.dtheta:
     dtheta = stats.argmax(vects, logkde1) - stats.argmax(vects, logkde2)

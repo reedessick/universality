@@ -50,6 +50,8 @@ We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
+parser.add_option('', '--prune', default=False, action='store_true',
+    help='throw away samples that fall outside ranges')
 
 ### options about what to compute
 parser.add_option('--confidence-region', default=[], type='float', action='append',
@@ -129,11 +131,16 @@ vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
 bandwidths = []
 for column in columns:
     bandwidths += [bandwidthdict[column].get(value, utils.DEFAULT_BANDWIDTH) for value in opts.reference_value]
+variances = np.array(bandwidths)**2
 
+if opts.prune:
+    data, weights = utils.prune(data, ranges, weights=weights)
+if opts.reflect:
+    data, weights = utils.reflect(data, ranges, weights=weights)
 logkde = utils.logkde(
     utils.vects2flatgrid(*vects),
-    utils.reflect(data, ranges) if reflect else data,
-    bandwidths,
+    data,
+    variances,
     weights=weights,
 )
 
@@ -153,8 +160,9 @@ if opts.argmax:
     print('argmax = %s'%(stats.argmax(vects, logkde))
 
 if opts.dlogL:
+    maxlogL = np.max(logkde)
     for point in opts.dlogL:
-        print('dlogL(%s) = %.6e'%(point, stats.dlogL(point, vects, logkde))
+        print('dlogL(%s) = %.6e'%(point, utils.logkde([point], data, variances, weights=weights) - maxlogL))
 
 if opts.dtheta:
     for point in opts.dtheta:
