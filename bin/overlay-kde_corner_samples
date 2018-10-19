@@ -48,6 +48,11 @@ parser.add_option('', '--weight2-column', default=None, type='string',
 parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
+parser.add_option('--reference', default=[], type='string', action='append',
+    help='path to a reference CSV that will be plotted on top of the corner plot. Can be repeated to specify multiple reference curves. \
+The columns must be the same as those supplied in the input arguments. \
+DEFAULT=[]')
+
 parser.add_option('', '--color1', default=plot.DEFAULT_COLOR1, type='string',
     help='DEFAULT='+plot.DEFAULT_COLOR1)
 parser.add_option('', '--color2', default=plot.DEFAULT_COLOR2, type='string',
@@ -55,7 +60,7 @@ parser.add_option('', '--color2', default=plot.DEFAULT_COLOR2, type='string',
 
 parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
-parser.add_option('', '--bandwidth', nargs=2, default=[], type='string',
+parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
@@ -103,6 +108,15 @@ truthdict = dict((col, float(val)) for col, val in opts.column_truth)
 truths = [truthdict.get(col, None) for col in columns]
 
 #-------------------------------------------------
+
+### plot reference curves
+ref = []
+for path in opts.reference:
+    if opts.verbose:
+        print('reading reference curve from: '+path)
+    ref.append(utils.load(path, columns, logcolumns=opts.logcolumns)[0])
+
+#------------------------
 
 ### read in data from csv
 if opts.verbose:
@@ -165,10 +179,7 @@ if opts.prune:### throw away data that's outside the bounds
 #------------------------
 
 if opts.verbose:
-    print('plotting')
-
-labels = ['$%s$'%c for c in columns]
-
+    print('plotting '+label1)
 fig = plot.kde_corner(
     data1,
     bandwidths=bandwidths,
@@ -181,9 +192,11 @@ fig = plot.kde_corner(
     reflect=opts.reflect,
     verbose=opts.Verbose,
     hist1D=opts.hist1D,
-    level=opts.level,
+    levels=opts.level,
 )
 
+if opts.verbose:
+    print('plotting '+label2)
 plot.kde_corner(
     data2,
     bandwidths=bandwidths,
@@ -199,9 +212,18 @@ plot.kde_corner(
     levels=opts.level,
 )
 
+if opts.verbose and ref:
+    print('plotting reference curves')
+for r in ref:
+    plt.curve_corner(
+        r,
+        labels=labels,
+        ranges=ranges,
+    )
+
 if opts.include_neff:
-    fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights1), ha='center', va='center', color='b')
-    fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights2), ha='center', va='center', color='r')
+    fig.text(0.75, 0.75, label1+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights1), ha='center', va='center', color=opts.color1)
+    fig.text(0.75, 0.65, label2+'\n$N_\mathrm{eff} = %.1f$'%utils.neff(weights2), ha='center', va='center', color=opts.color2)
 
 figname = os.path.join(opts.output_dir, 'overlay-kde_corner_samples%s.png'%opts.tag)
 if opts.verbose:

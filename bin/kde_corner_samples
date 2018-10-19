@@ -46,6 +46,11 @@ parser.add_option('', '--weight-column-is-log', default=False, action='store_tru
 parser.add_option('', '--whiten', default=False, action='store_true',
     help='if specified, bandwidths will be interpreted as the whitened bandwidths.')
 
+parser.add_option('--reference', default=[], type='string', action='append',
+    help='path to a reference CSV that will be plotted on top of the corner plot. Can be repeated to specify multiple reference curves. \
+The columns must be the same as those supplied in the input arguments. \
+DEFAULT=[]')
+
 parser.add_option('--color', default=plot.DEFAULT_COLOR1, type='string',
     help='DEFAULT='+plot.DEFAULT_COLOR1)
 parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
@@ -98,6 +103,15 @@ truths = [truthdict.get(col, None) for col in columns]
 
 #-------------------------------------------------
 
+### plot reference curves
+ref = []
+for path in opts.reference:
+    if opts.verbose:
+        print('reading reference curve from: '+path)
+    ref.append(utils.load(path, columns, logcolumns=opts.logcolumns)[0])
+
+#------------------------
+
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+inpath)
@@ -114,6 +128,7 @@ if opts.whiten:
     data, means, stds = utils.whiten(data, verbose=opts.verbose)
     ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
     truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
+    ref = [np.array([(r[:,i]-m)/s for i, (m, s) in enumerate(zip(means, stds))]) for r in refs]
 
 if opts.weight_column!=None:
     if opts.verbose:
@@ -150,6 +165,15 @@ fig = plot.kde_corner(
     hist1D=opts.hist1D,
     levels=opts.level,
 )
+
+if opts.verbose and ref:
+   print('plotting reference curves')
+for r in ref:
+    plt.curve_corner(
+        r,
+        labels=labels,
+        ranges=ranges,
+    )
 
 if opts.include_neff:
     fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))

@@ -155,7 +155,7 @@ def prune(data, bounds, weights=None):
     else:
         return data[truth]
 
-def reflect(data, bounds):
+def reflect(data, bounds, weights=None):
     """
     expect
         data.shape = (Nsamp, Ndim)
@@ -183,8 +183,14 @@ def reflect(data, bounds):
 
         ### update reference to be the new array, then proceed to the next epoch
         d = new
+        if weights is not None:
+            weights = np.concatenate((weights, weights, weights))
 
-    return d
+    if weights is not None:
+        return d, weights
+
+    else:
+        return d
 
 def logkde(samples, data, variances, weights=None):
     """
