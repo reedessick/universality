@@ -20,6 +20,7 @@ from universality import plot
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_option('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_option('', '--logcolumn', default=[], type='string', action='append',
     help='convert the values read in for this column to natural log. \
@@ -63,6 +64,8 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+opts.verbose |= opts.Verbose
 
 #-------------------------------------------------
 
@@ -220,18 +223,11 @@ for b in opts.bandwidth:
         ranges=bounds,
         weights=weights,
         hist1D=True,
+        verbose=opts.Verbose,
     )
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)
-    plot.plt.subplots_adjust(
-        hspace=0.1,
-        wspace=0.1,
-        left=0.11,
-        right=0.98,
-        bottom=0.13,
-        top=0.95,
-    )
 
     # save
     figname = os.path.join(opts.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, opts.tag))

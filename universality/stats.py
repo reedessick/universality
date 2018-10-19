@@ -4,7 +4,6 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import numpy as np
-from scipy.interpolate import interpn
 
 #-------------------------------------------------
 
@@ -19,7 +18,12 @@ def logkde2levels(logkde, levels):
     ans = []
     for level in levels: ### iterate through levels, returning the kde value associated with that confidence
                          ### assume kde spacing is close enough that interpolation isn't worth while...
-        ans.append(logkde[order[ckde<=level][-1]])
+        ind = order[ckde<=level]
+        if len(ind):
+            ans.append(logkde[ind[-1]])
+        else: ### nothing is smaller than the first level, so we just add the first element
+              ### this issue should go away if we increase the number of samples in the kde...
+            ans.append(logkde[order[0]])
 
     return ans
 
@@ -125,7 +129,7 @@ def _interpn(point, vects, logkde):
     distances = np.empty(N, dtype=float)
     for l, lookup in enumerate(lookups):
         xi = np.array([vect[i] for vect, i in zip(vects, lookup)])
-        logkdes[l] = logkde[lookup])
+        logkdes[l] = logkde[lookup]
         distances[l] = np.sum((point-xi)**2)**0.5 ### euclidean distance
 
     # return the weighted sum

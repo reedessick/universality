@@ -149,22 +149,26 @@ def reflect(data, bounds):
     returns a large array with data reflected across bounds for each dimension as one would want for reflecting boundary conditions in a KDE
     """
     Ndim = len(bounds)
+
     d = data[...]
     for i in xrange(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
         # figure out how big the new array will be and create it
         Nsamp = len(d)
         twoNsamp = 2*Nsamp
-        d = np.empty((3*Nsamp, Ndim), dtype=float)
+        new = np.empty((3*Nsamp, Ndim), dtype=float)
 
         # fill everything in as just a copy of what we already had
-        d[:Nsamp,:] = m
-        d[Nsamp:twoNsamp,:] = m
-        d[twoNsamp:,:] = m
+        new[:Nsamp,...] = d
+        new[Nsamp:twoNsamp,...] = d
+        new[twoNsamp:,...] = d
 
         # now reflect 2 of the copies around the bounds for this dimension only
         m, M = bounds[i]
-        d[Nsamp:twoNsamp,i] = 2*m - d[Nsamp:twoNsamp,i]
-        d[twoNsamp:,i] = 2*M - d[twoNsamp:,i]
+        new[Nsamp:twoNsamp,i] = 2*m - d[:,i]
+        new[twoNsamp:,i] = 2*M - d[:,i]
+
+        ### update reference to be the new array, then proceed to the next epoch
+        d = new
 
     return d
 

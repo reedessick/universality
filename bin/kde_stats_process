@@ -7,6 +7,7 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import os
+import numpy as np
 
 from optparse import OptionParser
 
@@ -43,7 +44,7 @@ DEFAULT=draw_foo-%d.csv')
 
 parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
-parser.add_option('', '--bandwidth', nargs=3, default=[], type='string',
+parser.add_option('', '--bandwidth', nargs=3, default=[], type='string', action='append',
     help='the bandwidths used for each column specified at each reference value. e.g.: "col ${ref_val} ${bandwidth}". \
 We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)

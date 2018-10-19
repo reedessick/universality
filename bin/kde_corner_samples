@@ -7,6 +7,7 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import os
+import numpy as np
 
 from optparse import OptionParser
 
@@ -19,6 +20,7 @@ from universality import plot
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_option('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_option('', '--logcolumn', default=[], type='string', action='append',
     help='convert the values read in for this column to natural log. \
@@ -48,12 +50,16 @@ parser.add_option('--color', default=plot.DEFAULT_COLOR1, type='string',
     help='DEFAULT='+plot.DEFAULT_COLOR1)
 parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
-parser.add_option('', '--bandwidth', nargs=2, default=[], type='string',
+parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
 
+parser.add_option('--level', default=[], type=float, action='append',
+    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+parser.add_option('--hist1D', default=False, action='store_true',
+    help='include raw histrograms in 1D marginal panels')
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
 
@@ -71,6 +77,11 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+if not opts.level:
+    opts.level = plot.DEFAULT_LEVELS
+
+opts.verbose |= opts.Verbose
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
 
@@ -99,6 +110,7 @@ for i, col in enumerate(columns):
 
 if opts.whiten:
     data, means, stds = utils.whiten(data, verbose=opts.verbose)
+    ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
     truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
 
 if opts.weight_column!=None:
@@ -128,11 +140,14 @@ fig = plot.kde_corner(
     weights=weights,
     num_points=opts.num_points,
     color=opts.color,
-    reflect=opts.reflect
+    reflect=opts.reflect,
+    verbose=opts.Verbose,
+    hist1D=opts.hist1D,
+    levels=opts.level,
 )
 
 if opts.include_neff:
-    fig.suptitle('$N_\mathrm{eff} = %.1f'%utils.neff(weights))
+    fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
 
 figname = os.path.join(opts.output_dir, 'kde_corner_samples%s.png'%opts.tag)
 if opts.verbose:

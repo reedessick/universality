@@ -8,9 +8,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
-plt.rcParams.update({'font.family':'serif',}) # 'text.usetex':True})
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['text.usetex'] = True
 
-from corner import corner
+try:
+    from corner import corner as _corner
+except ImportError:
+    _corner = None
 
 ### non-standard libraries
 from . import utils
@@ -43,11 +47,16 @@ RESIDUAL_AXES_POSITION = [0.15, 0.15, 0.8, 0.3]
 
 #-------------------------------------------------
 
+def corner(*args, **kwargs):
+    if _corner is None:
+        raise ImportError('could not import corner')
+    return _corner(*args, **kwargs)
+
 def kde_corner(
         data,
         bandwidths=None,
         labels=None,
-        ranges=None,
+        range=None,
         truths=None,
         weights=None,
         color=DEFAULT_COLOR1,
@@ -58,6 +67,7 @@ def kde_corner(
         levels=DEFAULT_LEVELS,
         hist1D=False,  ### plot a normed histogram on the 1D marginal panels in addition to the KDE estimate
         reflect=False, ### reflect data points about the boundaries when performing the KDE; may be expensive...
+        verbose=False,
     ):
     """
     should be mostly equivalent to corner.corner, except we build our own KDEs and the like
@@ -71,26 +81,31 @@ def kde_corner(
         bandwidths = [DEFAULT_BANDWIDTH]*Ncol
     else:
         assert len(bandwidths)==Ncol, 'must have the same number of columns in data and bandwidths'
+    variances = np.array(bandwidths)**2
 
     if labels is None:
         labels = [str(i) for i in xrange(Ncol)]
     else:
         assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
+    labels = np.array(labels)
 
-    if ranges is None:
-        ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
+    if range is None:
+        range = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
     else:
-        assert len(ranges)==Ncol, 'must have the same number of columns in data and ranges'
+        assert len(range)==Ncol, 'must have the same number of columns in data and range'
+    range = np.array(range)
 
     if truths is None:
         truths = [None]*Ncol
     else:
         assert len(truths)==Ncol, 'must have the same number of columns in data and truths'
+    truths = np.array(truths)
 
     if weights is None:
         weights = np.ones(Nsamp, dtype=float)/Nsamp
     else:
         assert len(weights)==Nsamp, 'must have the same number of rows in data and weights'
+    weights = np.array(weights)
 
     ### construct figure and axes objects
     if fig is None:
@@ -109,12 +124,23 @@ def kde_corner(
     truth =  np.empty(Ncol, dtype=bool) # used to index data within loop
     include = [np.all(data[:,i]==data[:,i]) for i in xrange(Ncol)] # used to determine which data we should skip
 
-    vects = [np.linspace(m, M, num_points) for m, M in ranges] ### grid placement
+    vects = [np.linspace(m, M, num_points) for m, M in range] ### grid placement
     dvects = [v[1]-v[0] for v in vects]
 
+    ### set colors for scatter points
+    scatter_color = np.empty((Nsamp, 4), dtype=float)
+    scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(color)
+    mw, Mw = np.min(weights), np.max(weights)
+    if np.all(weights==Mw):
+        scatter_color[:,3] = min(1., 1000./Nsamp) ### equal weights
+    else:
+        scatter_color[:,3] = 5*weights/np.max(weights)
+        scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
+
+    ### set up bins for 1D marginal histograms, if requested
     if hist1D:
-        Nbins = max(10, int(Nsamp**0.5)/2)
-        bins = [np.linspace(m, M, Nbins+1) for m, M in ranges]
+        Nbins = max(10, int(Nsamp**0.5)/5)
+        bins = [np.linspace(m, M, Nbins+1) for m, M in range]
 
     ### iterate over columns, building 2D KDEs as needed
     for row in xrange(Ncol):
@@ -126,12 +152,15 @@ def kde_corner(
             if include[row] and include[col]: ### plot data for this pair
                 # 1D marginal posteriors
                 if row==col:
+                    if verbose:
+                        print('row=col='+labels[col])
+
                     truth[col] = True
 
                     kde = utils.logkde(
                         vects[col],
-                        utils.reflect(data[:,truth], ranges[truth]) if reflect else data[:,truth],
-                        bandwidths[col],
+                        utils.reflect(data[:,truth], range[truth]) if reflect else data[:,truth],
+                        variances[col],
                     )
                     kde = np.exp(kde - np.max(kde))
 
@@ -139,9 +168,12 @@ def kde_corner(
                     ax.plot(vects[col], kde, color=color)
 
                     if hist1D:
-                        ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True)
+                        ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
 
                 else:
+                    if verbose:
+                        print('row=%s ; col=%s'%(labels[row], labels[col]))
+
                     # marginalized KDE
                     truth[row] = True
                     truth[col] = True
@@ -149,16 +181,15 @@ def kde_corner(
                     ax.scatter(
                         data[:,col],
                         data[:,row],
-                        marker='.',
-                        s=1,
-                        alpha=min(1, 500./Nsamp), ### FIXME: change alpha to reflect weight
-                        color=color,
+                        marker='o',
+                        s=2,
+                        color=scatter_color,
                     )
 
                     kde = utils.logkde(
                         utils.vects2flatgrid(vects[col], vects[row]),
-                        utils.reflect(data[:,truth], ranges[truth]) if reflect else data[:,truth],
-                        bandwidths[truth],
+                        utils.reflect(data[:,truth], range[truth]) if reflect else data[:,truth],
+                        variances[truth],
                     )
                     thrs = np.exp(logkde2levels(kde, levels))
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
@@ -169,10 +200,10 @@ def kde_corner(
             # decorate
             ax.grid(True, which='both')
 
-            ax.set_xlim(ranges[col])
+            ax.set_xlim(range[col])
 #            plt.setp(ax.get_xticklabels(), rotation=45)
             if row!=col:
-                ax.set_ylim(ranges[row])
+                ax.set_ylim(range[row])
 #                plt.setp(ax.get_yticklabels(), rotation=45)
 
             if row!=(Ncol-1):

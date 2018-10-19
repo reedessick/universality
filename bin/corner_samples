@@ -86,6 +86,7 @@ for i, col in enumerate(columns):
 
 if opts.whiten:
     data, means, stds = utils.whiten(data, verbose=opts.verbose)
+    ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
     truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
 
 if opts.weight_column!=None:

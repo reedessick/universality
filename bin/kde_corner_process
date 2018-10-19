@@ -52,13 +52,17 @@ parser.add_option('--color', default=plot.DEFAULT_COLOR1, type='string',
     help='DEFAULT='+plot.DEFAULT_COLOR1)
 parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
-parser.add_option('', '--bandwidth', nargs=3, default=[], type='string',
+parser.add_option('', '--bandwidth', nargs=3, default=[], type='string', action='append',
     help='the bandwidths used for each column specified at each reference value. e.g.: "col ${ref_val} ${bandwidth}". \
 We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
 
+parser.add_option('--level', default=[], type=float, action='append',
+    help='confidence levels for the contour plots. Can be repeated.')
+parser.add_option('--hist1D', default=False, action='store_true',
+    help='include raw histrograms in 1D marginal panels')
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
 
@@ -79,6 +83,9 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+if not opts.level:
+    opts.level = plot.DEFAULT_LEVELS
 
 opts.verbose |= opts.Verbose
 
@@ -160,6 +167,9 @@ fig = plot.kde_corner(
     num_points=opts.num_points,
     color=opts.color,
     reflect=opts.reflect,
+    verbose=opst.Verbose,
+    hist1D=opts.hist1D,
+    levels=opts.level,
 )
 
 if opts.include_neff:
