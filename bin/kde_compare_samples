@@ -14,6 +14,7 @@ from optparse import OptionParser
 ### non-standard libraries
 from universality import utils
 from universality import stats
+from universality import plot
 
 #-------------------------------------------------
 
@@ -48,7 +49,7 @@ parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action=
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
-parser.add_option('', '--purne', default=False, action='store_true',
+parser.add_option('', '--prune', default=False, action='store_true',
     help='throw away samples outside of the specified range')
 
 ### options about what to compute
@@ -58,25 +59,23 @@ parser.add_option('--dlogL', default=False, action='store_true')
 parser.add_option('--dtheta', default=False, action='store_true')
 
 opts, args = parser.parse_args()
-assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
-inpath = args[0]
-columns = args[1:]
-Ncol = len(columns)
+assert len(args)>3, 'please supply at least 4 input argument\n%s'%__usage__
+inpath1, inpath2 = args[:2]
+label1, inpath1 = inpath1.split(',')
+label2, inpath2 = inpath2.split(',')
+columns = args[2:]
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
 
-opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
-opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
-
-bandwidthdict = dict((col, float(val)) for val in opts.bandwidth)
+bandwidthdict = dict((col, float(val)) for col, val in opts.bandwidth)
 variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
 
 #-------------------------------------------------
 
 ### read in data from csv
 if opts.verbose:
-    print('reading samples from: '+in1path)
-data1, columns = utils.load(in1path, columns, logcolumns=opts.logcolumn)
+    print('reading samples from: '+inpath1)
+data1, columns = utils.load(inpath1, columns, logcolumns=opts.logcolumn)
 
 ranges1 = []
 for i, col in enumerate(columns):
@@ -87,8 +86,8 @@ for i, col in enumerate(columns):
 
 if opts.weight1_column!=None:
     if opts.verbose:
-        print('reading in non-trivial weights from: '+in1path)
-    weights1, _ = utils.load(in1path, [opts.weight1_column])
+        print('reading in non-trivial weights from: '+inpath1)
+    weights1, _ = utils.load(inpath1, [opts.weight1_column])
     weights1 = weights1.reshape((len(weights1)))
 
     if opts.weight1_column_is_log:
@@ -101,8 +100,8 @@ else:
 
 ### read in data from csv
 if opts.verbose:
-    print('reading samples from: '+in2path)
-data2, columns = utils.load(in2path, columns, logcolumns=opts.logcolumn)
+    print('reading samples from: '+inpath2)
+data2, columns = utils.load(inpath2, columns, logcolumns=opts.logcolumn)
 
 ranges2 = []
 for i, col in enumerate(columns):
@@ -113,8 +112,8 @@ for i, col in enumerate(columns):
 
 if opts.weight2_column!=None:
     if opts.verbose:
-        print('reading in non-trivial weights from: '+in2path)
-    weights2, _ = utils.load(in2path, [opts.weight2_column])
+        print('reading in non-trivial weights from: '+inpath2)
+    weights2, _ = utils.load(inpath2, [opts.weight2_column])
     weights2 = weights2.reshape((len(weights2)))
 
     if opts.weight2_column_is_log:
@@ -166,10 +165,10 @@ if opts.sym_dkl:
     print('sym Dkl(1,2) = %.6e'%stats.sym_kldiv(vects, logkde1, logkde2))
 
 if opts.dlogL:
-    print('dlogL1(argmax2) = %.6e'%utils.logkde([stats.argmax(vects, logkde2)], data1, variances, weights=weights1) - np.max(logkde1))
-    print('dlogL2(argmax1) = %.6e'%utils.logkde([stats.argmax(vects, logkde1)], data2, variances, weights=weights2) - np.max(logkde2))
+    print('dlogL1(argmax2) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde2)]), data1, variances, weights=weights1) - np.max(logkde1)))
+    print('dlogL2(argmax1) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde1)]), data2, variances, weights=weights2) - np.max(logkde2)))
 
 if opts.dtheta:
-    dtheta = stats.argmax(vects, logkde1) - stats.argmax(vects, logkde2)
+    dtheta = stats.logkde2argmax(vects, logkde1) - stats.logkde2argmax(vects, logkde2)
     print('dtheta = %s'%dtheta)
     print('|dtheta| = %.6e'%np.sum(dtheta**2)**0.5)

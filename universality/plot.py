@@ -244,7 +244,7 @@ def curve_corner(
         labels=None,
         range=None,
         truths=None,
-        color=DEFAULT_COLOR1,
+        color=None, ### let matplotlib pick this for you automatically
         alpha=1.0,
         linestyle=DEFAULT_LINESTYLE,
         linewidth=DEFAULT_LINEWIDTH,
@@ -299,7 +299,10 @@ def curve_corner(
                 print('row=%s ; col=%s'%(labels[row], labels[col]))
 
             # plot the curve in data
-            ax.plot(data[:,col], data[:,row], color=color, linestyle=linestyle, alpha=alpha, linewidth=linewidth)
+            if color is not None:
+                ax.plot(data[:,col], data[:,row], color=color, linestyle=linestyle, alpha=alpha, linewidth=linewidth)
+            else:
+                ax.plot(data[:,col], data[:,row], linestyle=linestyle, alpha=alpha, linewidth=linewidth)
 
             # decorate
             ax.grid(True, which='both')

@@ -14,6 +14,7 @@ from optparse import OptionParser
 ### non-standard libraries
 from universality import utils
 from universality import stats
+from universality import plot
 
 #-------------------------------------------------
 
@@ -49,7 +50,7 @@ parser.add_option('', '--prune', default=False, action='store_true',
 ### options about what to compute
 parser.add_option('--confidence-region', default=[], type='float', action='append',
     help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
-parser.add_option('--entropy', defualt=False, action='store_true')
+parser.add_option('--entropy', default=False, action='store_true')
 parser.add_option('--information', default=False, action='store_true')
 
 parser.add_option('--argmax', default=False, action='store_true')
@@ -69,7 +70,7 @@ rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in 
 opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
 opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
 
-bandwidthdict = dict((col, float(val)) for val in opts.bandwidth)
+bandwidthdict = dict((col, float(val)) for col, val in opts.bandwidth)
 variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
 
 #-------------------------------------------------
@@ -85,10 +86,6 @@ for i, col in enumerate(columns):
         ranges.append(rangesdict[col])
     else:
         ranges.append((np.min(data[:,i]), np.max(data[:,i])))
-
-if opts.whiten:
-    data, means, stds = utils.whiten(data, verbose=opts.verbose)
-    truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
 
 if opts.weight_column!=None:
     if opts.verbose:
@@ -126,23 +123,24 @@ if opts.verbose:
     print('computing statistics')
 
 if opts.confidence_region:
-    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region):
+    opts.confidence_region.sort()
+    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region)):
         print('Volume(CR=%.3f) = %.6e'%(level, vol))
 
 if opts.entropy:
-    print('H = %.6e'%stats.entropy(vects, logkde))
+    print('H = %.6e'%stats.logkde2entropy(vects, logkde))
 
 if opts.information:
-    print('I = %.6e'%stats.information(vects, logkde))
+    print('I = %.6e'%stats.logkde2information(vects, logkde))
 
 if opts.argmax:
-    print('argmax = %s'%(stats.argmax(vects, logkde))
+    print('argmax = %s'%(stats.logkde2argmax(vects, logkde)))
 
 if opts.dlogL:
     maxlogL = np.max(logkde)
     for point in opts.dlogL:
-        print('dlogL(%s) = %.6e'%(point, utils.logkde([point], data, variances, weights=weights) - maxlogL))
+        print('dlogL(%s) = %.6e'%(point, utils.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
 
 if opts.dtheta:
     for point in opts.dtheta:
-        print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde))
+        print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde)))

@@ -41,8 +41,7 @@ def logkde2cr(vects, logkde, levels):
     vol = vects2vol(vects)
 
     ### finde confidence levels and associated sizes
-    kde = np.exp(logkde-np.max(logkde))
-    return [vol*np.sum(kde>=thr) for thr in kde2levels(kde, levels)]
+    return [vol*np.sum(logkde>=thr) for thr in logkde2levels(logkde, levels)]
 
 def logkde2entropy(vects, logkde):
     """
@@ -140,7 +139,7 @@ def _interpn(point, vects, logkde):
         np.sum(logkde/distance)/np.sum(1./distance)
 '''
 
-def argmax(vects, logkde):
+def logkde2argmax(vects, logkde):
     """
     returns the argmax of the kde
     """

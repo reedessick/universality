@@ -52,7 +52,7 @@ parser.add_option('--reference', default=[], type='string', action='append',
     help='path to a reference CSV that will be plotted on top of the corner plot. Can be repeated to specify multiple reference curves. \
 The columns must be the same as those supplied in the input arguments. \
 DEFAULT=[]')
-parser.add_option('--reference-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
+parser.add_option('--reference-color', default=None, type='string')
 
 parser.add_option('', '--color1', default=plot.DEFAULT_COLOR1, type='string',
     help='DEFAULT='+plot.DEFAULT_COLOR1)
