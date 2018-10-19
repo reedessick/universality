@@ -46,8 +46,8 @@ WSPACE = 0.05
 
 #------------------------
 
-MAIN_AXES_POSITION = [0.15, 0.46, 0.8, 0.8]
-RESIDUAL_AXES_POSITION = [0.15, 0.15, 0.8, 0.3]
+MAIN_AXES_POSITION = [0.10, 0.31, 0.85, 0.64]
+RESIDUAL_AXES_POSITION = [0.10, 0.10, 0.85, 0.2]
 
 #-------------------------------------------------
 
@@ -251,6 +251,7 @@ def curve_corner(
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
+        verbose=False,
     ):
     """
     plot curves defined in data on the corner plot
@@ -258,12 +259,6 @@ def curve_corner(
     """
     ### check data formats
     Nsamp, Ncol = data.shape
-
-    if bandwidths is None:
-        bandwidths = [DEFAULT_BANDWIDTH]*Ncol
-    else:
-        assert len(bandwidths)==Ncol, 'must have the same number of columns in data and bandwidths'
-    variances = np.array(bandwidths)**2
 
     if labels is None:
         labels = [str(i) for i in xrange(Ncol)]

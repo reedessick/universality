@@ -38,7 +38,7 @@ parser.add_option('', '--num-points', default=101, type='int',
     help='the number of interpolation points used when plotting')
 
 parser.add_option('', '--logcolumn', default=[], type='string', action='append',
-    help='convert the values read in for this column to natural log. \
+    help='plot the corresponding column on a log scale. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
@@ -61,6 +61,8 @@ parser.add_option('', '--alpha', default=0.25, type='float',
 
 parser.add_option('', '--ymin', default=None, type='float')
 parser.add_option('', '--ymax', default=None, type='float')
+parser.add_option('', '--res-ymin', default=None, type='float')
+parser.add_option('', '--res-ymax', default=None, type='float')
 
 parser.add_option('--x-label', default=None, type='string',
     help='override column name as the label')
@@ -72,7 +74,10 @@ parser.add_option('--reference', default=[], type='string', action='append',
 The columns must be the same as those supplied in the input arguments. \
 DEFAULT=[]')
 parser.add_option('--residuals', default=False, action='store_true',
-    help='if True, plot the residuals between the median of the process and the reference curves.')
+    help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
+parser.add_option('--ratios', default=False, action='store_true',
+    help='if supplied, plot the ratio of the values instead of the difference (--residuals). Cannot be supplied simulaneously with --residuals')
+
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
 
@@ -84,6 +89,9 @@ assert len(args)==5, 'please supply exactly 5 input argument\n%s'%__usage__
 inpath, ycolumn, xcolumn, xmin, xmax = args
 xmax = float(xmax)
 xmin = float(xmin)
+
+if opts.residuals and opts.ratios:
+    raise ValueError('please only supply either --residuals or --ratios')
 
 if opts.tag:
     opts.tag = "_"+opts.tag
@@ -106,8 +114,6 @@ opts.verbose |= opts.Verbose
 if opts.verbose:
     print('reading samples from: '+inpath)
 data, _ = utils.load(inpath, [opts.eos_column])
-data = data[:,0]
-N = len(data)
 
 if opts.weight_column!=None:
     if opts.verbose:
@@ -120,7 +126,13 @@ if opts.weight_column!=None:
     weights /= np.sum(weights)
 
 else:
+    N = len(data)
     weights = np.ones(N, dtype='float')/N
+
+### prune samples to get rid of vanishing weights
+data, weights = utils.prune(data, [(-np.infty, +np.infty)], weights=weights)
+data = data[:,0]
+N = len(data)
 
 #-----------------------
 
@@ -154,7 +166,7 @@ if opts.reference:
     for path in opts.reference:
         if opts.verbose:
             print('reading reference curve from: '+path)
-        reference.append(utils.load(path, [xcolumn, ycolumn]))
+        reference.append(utils.load(path, [xcolumn, ycolumn])[0]) ### just grab the data, not the column names
 
 #------------------------
 
@@ -162,7 +174,7 @@ if opts.verbose:
     print('plotting')
 
 fig = plot.plt.figure()
-if opts.residual:
+if opts.residuals or opts.ratios:
     ax = fig.add_axes(plot.MAIN_AXES_POSITION)
     ax_res = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
 else:
@@ -170,37 +182,67 @@ else:
 
 for i in xrange(len(opts.quantile)): ### fill between pairs of quantiles
     ax.fill_between(x_test, y[2*i,:], y[2*i+1,:], alpha=opts.alpha, color='k')
-    if opts.residual:
-        ax_res.fill_between(x_test, y[2*i,:]-ymedian, y[2*i+1,:]-ymedian, alpha=opts.alpha, color='k')
+    if opts.residuals:
+        ax_res.fill_between(x_test, y[2*i,:]-y_median, y[2*i+1,:]-y_median, alpha=opts.alpha, color='k')
+    elif opts.ratios:
+        ax_res.fill_between(x_test, y[2*i,:]/y_median, y[2*i+1,:]/y_median, alpha=opts.alpha, color='k')
 
 ax.plot(x_test, y_median, color='k', alpha=1.0) ### plot the median
-if opts.residual:
+if opts.residuals:
     ax_res.plot(x_test, np.zeros_like(x_test), color='k', alpha=1.0)
-    
-for x, y in reference:
+elif opts.ratios:
+    ax_res.plot(x_test, np.ones_like(x_test), color='k', alpha=1.0)
+
+for curve in reference:
+    x = curve[:,0]
+    y = curve[:,1]
     color = ax.plot(x, y)[0].get_color()
-    if opts.residual:
+    if opts.residuals:
         ax_res.plot(x, y-np.interp(x, x_test, y_median), color=color)
+    elif opts.ratios:
+        ax_res.plot(x, y/np.interp(x, x_test, y_median), color=color)
 
 if xcolumn in opts.logcolumn:
     ax.set_xscale('log')
 
 if ycolumn in opts.logcolumn:
     ax.set_yscale('log')
+    if opts.ratios:
+        ax_res.set_yscale('log')
 
 ax.grid(True, which='both')
+if opts.residuals or opts.ratios:
+    ax_res.grid(True, which='both')
 
 ax.set_xlim(xmin=xmin, xmax=xmax)
+if opts.residuals or opts.ratios:
+    ax_res.set_xscale(ax.get_xscale())
+    ax_res.set_xlim(ax.get_xlim())
+
 if opts.ymin!=None:
     ax.set_ylim(ymin=opts.ymin)
 if opts.ymax!=None:
     ax.set_ylim(ymax=opts.ymax)
 
+if opts.residuals or opts.ratios:
+    if opts.res_ymin!=None:
+        ax_res.set_ylim(ymin=opts.res_ymin)
+    if opts.res_ymax!=None:
+        ax_res.set_ylim(ymax=opts.res_ymax)
+
 if opts.include_neff:
     ax.set_title("$N_\mathrm{eff} = %.1f$"%utils.neff(weights))
 
-ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
 ax.set_ylabel(opts.y_label if opts.y_label is not None else ycolumn)
+if opts.residuals or opts.ratios:
+    plot.plt.setp(ax.get_xticklabels(), visible=False)
+    ax_res.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
+    if opts.residuals:
+        ax_res.set_ylabel('%s - median'%(opts.y_label if opts.y_label is not None else ycolumn))
+    if opts.ratios:
+        ax_res.set_ylabel('%s/median'%(opts.y_label if opts.y_label is not None else ycolumn))
+else:
+    ax_res.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
 
 figname = os.path.join(opts.output_dir, 'plot_process%s.png'%opts.tag)
 if opts.verbose:
