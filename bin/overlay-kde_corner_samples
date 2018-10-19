@@ -60,6 +60,8 @@ parser.add_option('', '--bandwidth', nargs=2, default=[], type='string',
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 parser.add_option('', '--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
+parser.add_option('', '--prune', default=False, action='store_true',
+    help='throw away samples that live outside the specified ranges')
 
 parser.add_option('--level', default=[], type=float, action='append',
     help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
@@ -128,6 +130,9 @@ else:
     N = len(data1)
     weights1 = np.ones(N, dtype='float')/N
 
+if opts.prune:### throw away data that's outside the bounds
+    data1, weights1 = utils.prune(data1, ranges1, weights=weights1)
+
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+in2path)
@@ -153,6 +158,9 @@ if opts.weight2_column!=None:
 else:
     N = len(data2)
     weights2 = np.ones(N, dtype='float')/N
+
+if opts.prune:### throw away data that's outside the bounds
+    data2, weights2 = utils.prune(data2, ranges2, weights=weights2)
 
 #------------------------
 

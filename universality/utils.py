@@ -141,6 +141,20 @@ def neff(weights):
     weights /= np.sum(weights)
     return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
 
+def prune(data, bounds, weights=None):
+    """
+    downselect data to only contain samples that lie within bounds
+    """
+    Nsamp, Ndim = data.shape
+    truth = np.ones(Nsamp, dtype=bool)
+    for i, (m, M) in enumerate(bounds):
+        truth *= (m<=data[:,i])*(data[:,i]<=M)
+
+    if weights is not None:
+        return data[truth], weights[truth]
+    else:
+        return data[truth]
+
 def reflect(data, bounds):
     """
     expect
