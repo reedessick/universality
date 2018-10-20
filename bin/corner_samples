@@ -116,7 +116,7 @@ fig = plot.corner(
 )
 
 if opts.include_neff:
-    fig.suptitle('$N_\mathrm{eff} = %.1f'%utils.neff(weights))
+    fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
 
 figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)
 if opts.verbose:
