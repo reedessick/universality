@@ -236,11 +236,17 @@ def kde_corner(
             # add Truth annotations
             if truths[col] is not None:
                 if rotate and (row==(Ncol-1)) and (row==col):
-                    ax.plot(ax.get_xlim(), [truths[col]]*2, color=truth_color)
+                    xlim = ax.get_xlim()
+                    ax.plot(xlim, [truths[col]]*2, color=truth_color)
+                    ax.set_xlim(xlim)
                 else:
-                    ax.plot([truths[col]]*2, ax.get_ylim(), color=truth_color)
+                    ylim = ax.get_ylim()
+                    ax.plot([truths[col]]*2, ylim, color=truth_color)
+                    ax.set_ylim(ylim)
             if (row!=col) and (truths[row] is not None):
-                ax.plot(ax.get_xlim(), [truths[row]]*2, color=truth_color)
+                xlim = ax.get_xlim()
+                ax.plot(xlim, [truths[row]]*2, color=truth_color)
+                ax.set_xlim(xlim)
 
             if (row!=(Ncol-1)):
                 plt.setp(ax.get_xticklabels(), visible=False)
@@ -334,9 +340,13 @@ def curve_corner(
 
             # add Truth annotations
             if truths[col] is not None:
-                ax.plot([truths[col]]*2, ax.get_ylim(), color=truth_color)
+                ylim = ax.get_ylim()
+                ax.plot([truths[col]]*2, ylim, color=truth_color)
+                ax.set_ylim(ylim)
             if (row!=col) and (truths[row] is not None):
-                ax.plot(ax.get_xlim(), [truths[row]]*2, color=truth_color)
+                xlim = ax.get_xlim()
+                ax.plot(xlim, [truths[row]]*2, color=truth_color)
+                ax.set_xlim(xlim)
 
             if row!=(Ncol-1):
                 plt.setp(ax.get_xticklabels(), visible=False)
