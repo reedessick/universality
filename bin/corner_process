@@ -32,6 +32,7 @@ DEFAULT=[]')
 parser.add_option('', '--column-truth', nargs=3, default=[], type='string', action='append',
     help='include this as an injected value for this column at the specified reference value. e.g: \'xcol ${ref_val} ${inj_val}\'. \
 DEFAULT=[]')
+parser.add_option('', '--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
 
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
@@ -136,6 +137,7 @@ fig = plot.corner(
     ans,
     labels=labels,
     truths=truths,
+    truth_color=opts.truth_color,
     weights=weights,
 )
 

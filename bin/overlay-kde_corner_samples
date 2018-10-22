@@ -32,6 +32,7 @@ DEFAULT=[]')
 parser.add_option('', '--column-truth', nargs=2, default=[], type='string', action='append',
     help='include this as an injected value for this column. e.g: \'xcol 5\'. \
 DEFAULT=[]')
+parser.add_option('', '--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
 
 parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
     help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
@@ -75,7 +76,12 @@ parser.add_option('--hist1D', default=False, action='store_true',
     help='include raw histrograms in 1D marginal panels')
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
+parser.add_option('--no-scatter', default=False, action='store_true')
+parser.add_option('--rotate', default=False, action='store_true',
+    help='rotate the last 1D histogram')
 
+parser.add_option('--figwidth', default=plot.DEFAULT_FIGWIDTH, type='float')
+parser.add_option('--figheight', default=plot.DEFAULT_FIGHEIGHT, type='float')
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -188,12 +194,17 @@ fig = plot.kde_corner(
     range=ranges1,
     weights=weights1,
     color=opts.color1,
-    truths=truths, ### only plot this once, so it isn't included in the next call
+    truths=truths,
+    truth_color=opts.truth_color,
     num_points=opts.num_points,
     reflect=opts.reflect,
     verbose=opts.Verbose,
     hist1D=opts.hist1D,
     levels=opts.level,
+    scatter=not opts.no_scatter,
+    rotate=opts.rotate,
+    figwidth=opts.figwidth,
+    figheight=opts.figheight,
 )
 
 if opts.verbose:
@@ -205,12 +216,16 @@ plot.kde_corner(
     range=ranges2,
     weights=weights2,
     color=opts.color2,
+    truths=truths,
+    truth_color=opts.truth_color,
     num_points=opts.num_points,
     reflect=opts.reflect,
     fig=fig,
     verbose=opts.Verbose,
     hist1D=opts.hist1D,
     levels=opts.level,
+    scatter=not opts.no_scatter,
+    rotate=opts.rotate,
 )
 
 if opts.verbose and ref:

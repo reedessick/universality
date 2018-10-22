@@ -32,6 +32,7 @@ DEFAULT=[]')
 parser.add_option('', '--column-truth', nargs=3, default=[], type='string', action='append',
     help='include this as an injected value for this column at the specified reference value. e.g: \'xcol ${ref_val} ${inj_val}\'. \
 DEFAULT=[]')
+parser.add_option('', '--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
 
 parser.add_option('', '--weight1-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
@@ -79,7 +80,12 @@ parser.add_option('--hist1D', default=False, action='store_true',
     help='include raw histrograms in 1D marginal panels')
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples')
+parser.add_option('--no-scatter', default=False, action='store_true')
+parser.add_option('--rotate', default=False, action='store_true',
+    help='rotate the last 1D histogram')
 
+parser.add_option('--figwidth', default=plot.DEFAULT_FIGWIDTH, type='float')
+parser.add_option('--figheight', default=plot.DEFAULT_FIGHEIGHT, type='float')
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
@@ -212,26 +218,35 @@ fig = plot.kde_corner(
     labels=labels,
     weights=weights1,
     color=opts.color1,
-    truths=truths, ### only plot this once, so it isn't included in the next call
+    truths=truths,
+    truth_color=opts.truth_color,
     num_points=opts.num_points,
     reflect=opts.reflect,
     verbose=opts.Verbose,
     hist1D=opts.hist1D,
     levels=opts.level,
+    scatter=not opts.no_scatter,
+    rotate=opts.rotate,
+    figwidth=opts.figwidth,
+    figheight=opts.figheight,
 )
 
-fig = plot.kde_corner(
+plot.kde_corner(
     ans2,
     bandwidths=bandwidths,
     labels=labels,
     weights=weights2,
     color=opts.color2,
+    truths=truths,
+    truth_color=opts.truth_color,
     num_points=opts.num_points,
     reflect=opts.reflect,
     fig=fig,
     verbose=opts.Verbose,
     hist1D=opts.hist1D,
     levels=opts.level,
+    scatter=not opts.no_scatter,
+    rotate=opts.rotate,
 )
 
 if opts.include_neff:

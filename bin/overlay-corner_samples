@@ -31,6 +31,7 @@ DEFAULT+[]')
 parser.add_option('', '--column-truth', nargs=2, default=[], type='string', action='append',
     help='include this as an injected value for this column. e.g: \'xcol 5\'. \
 DEFAULT=[]')
+parser.add_option('', '--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
 
 parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
     help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
@@ -142,6 +143,7 @@ fig = plot.corner(
     labels=labels,
     range=ranges1,
     truths=truths,
+    truth_color=opts.truth_color,
     weights=weights1,
     color=opts.color1,
 )
@@ -153,6 +155,7 @@ plot.corner(
     labels=labels,
     range=ranges2,
     truths=truths,
+    truth_color=opts.truth_color,
     weights=weights2,
     color=opts.color2,
     fig=fig,

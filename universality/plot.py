@@ -73,6 +73,8 @@ def kde_corner(
         truth_color=DEFAULT_TRUTH_COLOR,
         linewidth=DEFAULT_LINEWIDTH,
         linestyle=DEFAULT_LINESTYLE,
+        scatter=False,
+        rotate=True,
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
@@ -176,10 +178,14 @@ def kde_corner(
                     kde = np.exp(kde - np.max(kde))
 
                     kde /= np.sum(kde)*dvects[col]
-                    ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle)
-
-                    if hist1D:
-                        ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                    if rotate and row==(Ncol-1): ### rotate the last histogram
+                        ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle)
+                        if hist1D:
+                            ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                    else:
+                        ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle)
+                        if hist1D:
+                            ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
 
                 else:
                     if verbose:
@@ -189,13 +195,14 @@ def kde_corner(
                     truth[row] = True
                     truth[col] = True
 
-                    ax.scatter(
-                        data[:,col],
-                        data[:,row],
-                        marker='o',
-                        s=2,
-                        color=scatter_color,
-                    )
+                    if scatter:
+                        ax.scatter(
+                            data[:,col],
+                            data[:,row],
+                            marker='o',
+                            s=2,
+                            color=scatter_color,
+                        )
 
                     d, w = utils.reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
@@ -214,22 +221,34 @@ def kde_corner(
             # decorate
             ax.grid(grid, which='both')
 
-            ax.set_xlim(range[col])
-#            plt.setp(ax.get_xticklabels(), rotation=45)
             if row!=col:
                 ax.set_ylim(range[row])
 #                plt.setp(ax.get_yticklabels(), rotation=45)
+                ax.set_xlim(range[col])
+#                plt.setp(ax.get_xticklabels(), rotation=45)
+            elif rotate and row==(Ncol-1):
+                ax.set_ylim(range[row])            
+#                plt.setp(ax.get_xticklabels(), rotation=45)
+            else:
+                ax.set_xlim(range[col])
+#                plt.setp(ax.get_xticklabels(), rotation=45)
 
             # add Truth annotations
             if truths[col] is not None:
-                ax.plot([truths[col]]*2, ax.get_ylim(), color=truth_color)
+                if rotate and (row==(Ncol-1)) and (row==col):
+                    ax.plot(ax.get_xlim(), [truths[col]]*2, color=truth_color)
+                else:
+                    ax.plot([truths[col]]*2, ax.get_ylim(), color=truth_color)
             if (row!=col) and (truths[row] is not None):
                 ax.plot(ax.get_xlim(), [truths[row]]*2, color=truth_color)
 
-            if row!=(Ncol-1):
+            if (row!=(Ncol-1)):
                 plt.setp(ax.get_xticklabels(), visible=False)
             else:
-                ax.set_xlabel('%s'%labels[col])
+                if (row==col) and rotate:
+                    plt.setp(ax.get_xticklabels(), visible=False)
+                else:
+                    ax.set_xlabel('%s'%labels[col])
 
             if col!=0 or row==0: #!=0
                 plt.setp(ax.get_yticklabels(), visible=False)
