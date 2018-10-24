@@ -156,10 +156,12 @@ def kde_corner(
     scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(color)
     mw, Mw = np.min(weights), np.max(weights)
     if np.all(weights==Mw):
-        scatter_color[:,3] = min(1., 1000./Nsamp) ### equal weights
+        scatter_color[:,3] = max(min(1., 750./Nsamp), 0.001) ### equal weights
     else:
-        scatter_color[:,3] = 5*weights/np.max(weights)
+        scatter_color[:,3] = weights/np.max(weights)
+        scatter_color[:,3] *= 750./utils.neff(weights)
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
+        scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
 
     ### set up bins for 1D marginal histograms, if requested
     if hist1D:
@@ -194,12 +196,19 @@ def kde_corner(
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle)
+                        xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                            xmax = max(xmax, np.max(n)*1.05)
+                        ax.set_xlim(xmin=0, xmax=xmax)
+
                     else:
                         ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle)
+                        ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                            ymax = max(ymax, np.max(n)*1.05)
+                        ax.set_ylim(ymin=0, ymax=ymax)
 
                 else:
                     if verbose:
