@@ -81,25 +81,6 @@ parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 
 opts, args = parser.parse_args()
-
-assert len(opts.reference_value), 'please supply at least one --reference-value\n%s'%__usage__
-opts.reference_value.sort()
-
-assert len(args)>2, 'please supply at least 3 input argument\n%s'%__usage__
-inpath, reference = args[:2]
-columns = args[2:]
-
-if opts.tag:
-    opts.tag = "_"+opts.tag
-
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
-parser.add_option('--figwidth', default=plot.DEFAULT_FIGWIDTH, type='float')
-parser.add_option('--figheight', default=plot.DEFAULT_FIGHEIGHT, type='float')
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
-
-opts, args = parser.parse_args()
 assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
 inpath = args[0]
 columns = args[1:]
