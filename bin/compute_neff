@@ -26,6 +26,7 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('--weight-column', default=None, type='string')
 parser.add_option('--weight-column-is-log', default=False, action='store_true')
 
@@ -54,7 +55,7 @@ for inpath in args:
             print(WARNING%inpath)
         continue ### just skip crap that doesn't exist...
 
-    data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+    data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples)
 
     ranges = []
     for i, col in enumerate(columns):
@@ -64,7 +65,7 @@ for inpath in args:
             ranges.append((np.min(data[:,i]), np.max(data[:,i])))
 
     if opts.weight_column!=None:
-        weights, _ = utils.load(inpath, [opts.weight_column])
+        weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
         weights = weights.reshape((len(weights)))
   
         if opts.weight_column_is_log:

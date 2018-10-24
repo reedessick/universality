@@ -38,6 +38,7 @@ parser.add_option('', '--range', nargs=3, default=[], action='append', type='str
 Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 
+parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
@@ -81,7 +82,7 @@ truths = [truthdict.get(col, None) for col in columns]
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples)
 
 ranges = []
 for i, col in enumerate(columns):
@@ -98,7 +99,7 @@ if opts.whiten:
 if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+inpath)
-    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
     weights = weights.reshape((len(weights)))
 
     if opts.weight_column_is_log:

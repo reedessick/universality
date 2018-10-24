@@ -34,6 +34,7 @@ parser.add_option('', '--column-truth', nargs=3, default=[], type='string', acti
 DEFAULT=[]')
 parser.add_option('', '--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
 
+parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
@@ -85,14 +86,14 @@ for col, ref, val in opts.column_truth:
 
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, _ = utils.load(inpath, [opts.eos_column])
+data, _ = utils.load(inpath, [opts.eos_column], max_num_samples=opts.max_num_samples)
 data = data[:,0]
 N = len(data)
 
 if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+inpath)
-    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
     weights = weights.reshape((len(weights)))
 
     if opts.weight_column_is_log:

@@ -32,10 +32,7 @@ parser.add_option('-b', '--bandwidth', default=[], type='float', action='append'
 User can investigate multiple bandwidths by repeating this option. \
 DEFAULT=[]')
 
-parser.add_option('', '--downsample', default=None, type='int',
-    help='randomly downsample data so it only includes --downsample samples. \
-Note, downselection is done **after whitening** so that we always whiten with the same transformation. \
-DEFAULT is to use all available samples.')
+parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 
 parser.add_option('', '--num-points', default=101, type='int',
     help='the number of points used on each dimension of the hyper-cube used to estimate the KDE when plotting the results. \
@@ -72,7 +69,7 @@ opts.verbose |= opts.Verbose
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
+data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples)
 Nsamp = len(data)
 
 if opts.verbose:
@@ -88,25 +85,17 @@ if opts.verbose:
 # whiten data so a single bandwidth makes more sense
 data, means, stds = utils.whiten(data, verbose=opts.verbose)
 
-if opts.downsample!=None:
-    if opts.verbose:
-        print('downsampling to %d samples'%opts.downsample)
-    data, truth = utils.downsample(data, opts.downsample)
-
 #------------------------
 
 ### load in weights
 if opts.weight_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+inpath)
-    weights, _ = utils.load(inpath, [opts.weight_column])
+    weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
     weights = weights.flatten()
 
     if opts.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))
-
-    if opts.downsample:
-        weights = weights[truth]
 
     weights /= np.sum(weights)
 

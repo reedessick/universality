@@ -21,6 +21,7 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
+parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
@@ -33,7 +34,7 @@ inpath, weightcolumn = args
 ### read in source samples
 if opts.verbose:
     print('reading samples from: '+srcpath)
-weights, _ = utils.load(inpath, [weightcolumn])
+weights, _ = utils.load(inpath, [weightcolumn], max_num_samples=opts.max_num_samples)
 weights.reshape((len(weights)))
 
 if opts.weight_column_is_log:

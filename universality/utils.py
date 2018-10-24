@@ -11,6 +11,7 @@ c = (299792458*100) # speed of light in (cm/s)
 c2 = c**2
 
 DEFAULT_BANDWIDTH = 0.1
+DEFAULT_MAX_NUM_SAMPLES = np.infty
 
 #-------------------------------------------------
 # basic utilities for simulating samples
@@ -36,7 +37,7 @@ def draw(mean, std, size=1, bounds=None):
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------
 
-def load(inpath, columns=[], logcolumns=[]):
+def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
 
     # check that all requested columns are actually in the data
@@ -44,6 +45,9 @@ def load(inpath, columns=[], logcolumns=[]):
         check_columns(data.dtype.fields.keys(), columns)
     else:
         columns = data.dtype.fields.keys()
+
+    if len(data) > max_num_samples: ### downsample if requested
+         data = data[:max_num_samples]
 
     # downselect data to what we actually want
     return \

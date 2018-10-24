@@ -39,11 +39,13 @@ parser.add_option('', '--range', nargs=3, default=[], action='append', type='str
 Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 
+parser.add_option('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight1-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight1-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
+parser.add_option('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight2-column', default=None, type='string',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
@@ -133,7 +135,7 @@ for path in opts.reference:
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+in1path)
-data1, columns = utils.load(in1path, columns, logcolumns=opts.logcolumn)
+data1, columns = utils.load(in1path, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples1)
 
 ranges1 = []
 for i, col in enumerate(columns):
@@ -145,7 +147,7 @@ for i, col in enumerate(columns):
 if opts.weight1_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+in1path)
-    weights1, _ = utils.load(in1path, [opts.weight1_column])
+    weights1, _ = utils.load(in1path, [opts.weight1_column], max_num_samples=opts.max_num_samples1)
     weights1 = weights1.reshape((len(weights1)))
 
     if opts.weight1_column_is_log:
@@ -162,7 +164,7 @@ if opts.prune:### throw away data that's outside the bounds
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+in2path)
-data2, columns = utils.load(in2path, columns, logcolumns=opts.logcolumn)
+data2, columns = utils.load(in2path, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples1)
 
 ranges2 = []
 for i, col in enumerate(columns):
@@ -174,7 +176,7 @@ for i, col in enumerate(columns):
 if opts.weight2_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+in2path)
-    weights2, _ = utils.load(in2path, [opts.weight2_column])
+    weights2, _ = utils.load(in2path, [opts.weight2_column], max_num_samples=opts.max_num_samples1)
     weights2 = weights2.reshape((len(weights2)))
 
     if opts.weight2_column_is_log:
