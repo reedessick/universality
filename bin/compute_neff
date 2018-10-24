@@ -24,6 +24,8 @@ WARNING = "WARNING: %s does not exist!"
 
 parser = OptionParser(usage=__usage__, description=__doc__)
 
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
 parser.add_option('--weight-column', default=None, type='string')
 parser.add_option('--weight-column-is-log', default=False, action='store_true')
 
@@ -48,7 +50,8 @@ columns = rangesdict.keys()
 print(HEAD)
 for inpath in args:
     if not os.path.exists(inpath):
-        print(WARNING%inpath)
+        if opts.verbose:
+            print(WARNING%inpath)
         continue ### just skip crap that doesn't exist...
 
     data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
