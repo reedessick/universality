@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
-__usage__ = "compute_neff [--options] weight_column samples.csv [samples.csv ...]"
+__usage__ = "compute_neff [--options] samples.csv [samples.csv ...]"
 __doc__ = "a quick little script to compute the effective number of samples"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
+
+import os
+import numpy as np
 
 from optparse import OptionParser
 
@@ -13,10 +16,21 @@ from universality import utils
 
 #-------------------------------------------------
 
+HEAD = 'total number | effective number | path'
+ROW = '%12d | %16d | %s'
+WARNING = "WARNING: %s does not exist!"
+
+#-------------------------------------------------
+
 parser = OptionParser(usage=__usage__, description=__doc__)
 
+parser.add_option('--weight-column', default=None, type='string')
 parser.add_option('--weight-column-is-log', default=False, action='store_true')
 
+parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
 parser.add_option('--range', nargs=3, default=[], action='append', type='string',
     help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
 Can specify ranges for multiple columns by repeating this option. \
@@ -24,27 +38,41 @@ DEFAULT will use the minimum and maximum observed sample points.')
 parser.add_option('--prune', default=False, action='store_true')
 
 opts, args = parser.parse_args()
-assert len(args)>=2, 'please supply at least 2 input arguments\n%s'%__usage__
-weight_column = args[0]
-inpaths = args[1:]
+assert len(args), 'please supply at least 1 input argument\n%s'%__usage__
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
-columns = rangesdict.keys()+[weight_column]
-rangesdict[weight_column] = (0, 1)
+columns = rangesdict.keys()
 
 #-------------------------------------------------
 
-print('total number | effective number | path')
-template = '%12d | %16d | %s'
-for inpath in inpaths:
+print(HEAD)
+for inpath in args:
+    if not os.path.exists(inpath):
+        print(WARNING%inpath)
+        continue ### just skip crap that doesn't exist...
+
     data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn)
 
-    weights = data[:,-1]
-    if opts.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
+    ranges = []
+    for i, col in enumerate(columns):
+        if rangesdict.has_key(col):
+            ranges.append(rangesdict[col])
+        else:
+            ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+
+    if opts.weight_column!=None:
+        weights, _ = utils.load(inpath, [opts.weight_column])
+        weights = weights.reshape((len(weights)))
+  
+        if opts.weight_column_is_log:
+            weights = np.exp(weights-np.max(weights))
+        weights /= np.sum(weights)
+
+    else:
+        N = len(data)
+        weights = np.ones(N, dtype='float')/N
 
     if opts.prune:### throw away data that's outside the bounds
         data, weights = utils.prune(data, ranges, weights=weights)
 
-    print(template%(len(data), utils.neff(weights), inpath))
+    print(ROW%(len(weights), utils.neff(weights), inpath))
