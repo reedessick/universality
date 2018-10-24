@@ -50,6 +50,8 @@ parser.add_option('--include-neff', default=False, action='store_true',
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
+parser.add_option('--figtype', default=[], type='string', action='append')
+parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
 
 opts, args = parser.parse_args()
 assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
@@ -62,6 +64,9 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+if not opts.figtype:
+    opts.figtype = plot.DEFAULT_FIGTYPES
 
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
 
@@ -120,8 +125,5 @@ fig = plot.corner(
 if opts.include_neff:
     fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
 
-figname = os.path.join(opts.output_dir, 'corner_samples%s.png'%opts.tag)
-if opts.verbose:
-    print('saving: '+figname)
-fig.savefig(figname)
+plot.save('corner_samples%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
 plot.plt.close(fig)

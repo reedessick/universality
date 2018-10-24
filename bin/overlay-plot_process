@@ -101,6 +101,8 @@ parser.add_option('--include-neff', default=False, action='store_true',
 
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
+parser.add_option('--figtype', default=[], type='string', action='append')
+parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
 
 opts, args = parser.parse_args()
 assert len(args)==6, 'please supply at least 6 input argument\n%s'%__usage__
@@ -118,6 +120,9 @@ if opts.tag:
 
 if not os.path.exists(opts.output_dir):
     os.makedirs(opts.output_dir)
+
+if not opts.figtype:
+    opts.figtype = plot.DEFAULT_FIGTYPES
 
 if not opts.quantile:
     opts.quantile = [0.1]
@@ -330,8 +335,5 @@ if opts.residuals or opts.ratios:
 else:
     ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
 
-figname = os.path.join(opts.output_dir, 'overlay-plot_process%s.png'%opts.tag)
-if opts.verbose:
-    print('saving: '+figname)
-fig.savefig(figname)
+plot.save('overlay-plot_process%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
 plot.plt.close(fig)

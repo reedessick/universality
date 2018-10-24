@@ -48,6 +48,8 @@ parser.add_option('', '--max-y', default=None, type='float',
 #--- output formatting
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
+parser.add_option('--figtype', default=[], type='string', action='append')
+parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
 
 opts, args = parser.parse_args()
 assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
@@ -60,6 +62,9 @@ if not os.path.exists(opts.output_dir):
 
 if opts.tag:
     opts.tag = "_"+opts.tag
+
+if not opts.figtype:
+    opts.figtype = plot.DEFAULT_FIGTYPES
 
 #-------------------------------------------------
 
@@ -176,8 +181,5 @@ if opts.max_y!=None:
 #ax.legend(loc='best')
 
 ### save
-figname = os.path.join(opts.output_dir, 'plot_foo-%s-%s%s.png'%tuple(labels+[opts.tag]))
-if opts.verbose:
-    print('saving: '+figname)
-fig.savefig(figname)
+plot.save('plot_foo-%s-%s%s'%tuple(labels+[opts.tag]), fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
 plot.plt.close(fig)

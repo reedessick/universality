@@ -3,6 +3,8 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
 
 import matplotlib
@@ -34,6 +36,10 @@ DEFAULT_TRUTH_COLOR = 'b'
 DEFAULT_LINEWIDTH = 1.
 DEFAULT_LINESTYLE = 'solid'
 
+DEFAULT_FIGTYPES = ['png']
+DEFAULT_DPI = 100
+DEFAULT_DIRECTORY = '.'
+
 #------------------------
 
 CORNER_LEFT = 0.8
@@ -50,6 +56,14 @@ MAIN_AXES_POSITION = [0.10, 0.31, 0.85, 0.64]
 RESIDUAL_AXES_POSITION = [0.10, 0.10, 0.85, 0.2]
 
 #-------------------------------------------------
+
+def save(basename, fig, figtypes=DEFAULT_FIGTYPES, directory=DEFAULT_DIRECTORY, verbose=False, **kwargs):
+    template = os.path.join(directory, basename+'.%s')
+    for figtype in figtypes:
+        figname = template%figtype
+        if verbose:
+            print('saving: '+figname)
+        fig.savefig(figname,  **kwargs)
 
 def corner(*args, **kwargs):
     if _corner is None:
