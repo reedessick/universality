@@ -83,6 +83,8 @@ parser.add_option('--ratios', default=False, action='store_true',
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
 
+parser.add_option('--figwidth', default=plot.DEFAULT_FIGWIDTH, type='float')
+parser.add_option('--figheight', default=plot.DEFAULT_FIGHEIGHT, type='float')
 parser.add_option('-o', '--output-dir', default='.', type='string')
 parser.add_option('-t', '--tag', default='', type='string')
 parser.add_option('--figtype', default=[], type='string', action='append')
@@ -180,7 +182,7 @@ if opts.reference:
 if opts.verbose:
     print('plotting')
 
-fig = plot.plt.figure()
+fig = plot.plt.figure(figsize=(opts.figwidth, opts.figheight))
 if opts.residuals or opts.ratios:
     ax = fig.add_axes(plot.MAIN_AXES_POSITION)
     ax_res = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
