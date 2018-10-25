@@ -48,8 +48,13 @@ parser.add_option('', '--prune', default=False, action='store_true',
     help='throw away samples that fall outside ranges')
 
 ### options about what to compute
-parser.add_option('--confidence-region', default=[], type='float', action='append',
+parser.add_option('--one-dim-confidence-region', default=[], type='float', action='append',
+    help='compute the boundaries of the 1D confidence regions for each column corresponding to this confidence. Can be repeated.')
+parser.add_option('--one-dim-confidence-region-format4tex', default=False, action='store_true')
+
+parser.add_option('--confidence-region-size', default=[], type='float', action='append',
     help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
+
 parser.add_option('--entropy', default=False, action='store_true')
 parser.add_option('--information', default=False, action='store_true')
 
@@ -57,6 +62,8 @@ parser.add_option('--argmax', default=False, action='store_true')
 parser.add_option('--dlogL', default=[], type='string', action='append',
     help='comma separated list of the parameter values used within dlogL. Can be repeated.')
 parser.add_option('--dtheta', default=[], type='string', action='append',
+    help='comma separated list of the parameter values used within dtheta. Can be repeated.')
+parser.add_option('--confidence-level', default=[], type='string', action='append',
     help='comma separated list of the parameter values used within dtheta. Can be repeated.')
 
 opts, args = parser.parse_args()
@@ -69,6 +76,7 @@ rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in 
 
 opts.dlogL = [[float(_) for _ in v.split(',')] for v in opts.dlogL]
 opts.dtheta = [[float(_) for _ in v.split(',')] for v in opts.dtheta]
+opts.confidence_level = [[float(_) for _ in v.split(',')] for v in opts.confidence_level]
 
 bandwidthdict = dict((col, float(val)) for col, val in opts.bandwidth)
 variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
@@ -103,44 +111,71 @@ else:
 
 #------------------------
 
-if opts.verbose:
-    print('computing kde')
-ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
 vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
 
 if opts.prune:
     data, weights = utils.prune(data, ranges, weights=weights)
 if opts.reflect:
     data, weights = utils.reflect(data, ranges, weights=weights)
-logkde = utils.logkde(
-    utils.vects2flatgrid(*vects),
-    data,
-    variances,
-    weights=weights,
-)
+
+#------------------------
 
 if opts.verbose:
-    print('computing statistics')
+    print('computing 1D statistics')
 
-if opts.confidence_region:
-    opts.confidence_region.sort()
-    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region)):
-        print('Volume(CR=%.3f) = %.6e'%(level, vol))
+if opts.one_dim_confidence_region:
+    opts.one_dim_confidence_region.sort()
+    for i, col in enumerate(columns):
+        _logkde = utils.logkde(vects[i], data[:,i], variances[i], weights=weights)
+        argmax = vects[i][_logkde.argmax()]
+        print('%s argmax : %.3e'%(col, argmax))
+        for level, (low, high) in zip(opts.one_dim_confidence_region, stats.logkde2crbounds(vects[i], _logkde, opts.one_dim_confidence_region)):
+            if opts.one_dim_confidence_region_format4tex:
+                print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+            else:
+                print('    @%.3f kde region: [%.3e, %.3e]'%(level, low, high))
 
-if opts.entropy:
-    print('H = %.6e'%stats.logkde2entropy(vects, logkde))
+#------------------------
 
-if opts.information:
-    print('I = %.6e'%stats.logkde2information(vects, logkde))
+if opts.confidence_region_size or opts.entropy or opts.information or opts.argmax or opts.dlogL or opts.dtheta or opts.confidence_level:
 
-if opts.argmax:
-    print('argmax = %s'%(stats.logkde2argmax(vects, logkde)))
+    if opts.verbose:
+        print('computing %dD kde'%Ncol)
 
-if opts.dlogL:
-    maxlogL = np.max(logkde)
-    for point in opts.dlogL:
-        print('dlogL(%s) = %.6e'%(point, utils.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
+    logkde = utils.logkde(
+        utils.vects2flatgrid(*vects),
+        data,
+        variances,
+        weights=weights,
+    )
 
-if opts.dtheta:
-    for point in opts.dtheta:
-        print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde)))
+    if opts.verbose:
+        print('computing statistics')
+
+    if opts.confidence_region_size:
+        opts.confidence_region_size.sort()
+        for level, vol in zip(opts.confidence_region_size, stats.logkde2crsize(vects, logkde, opts.confidence_region_size)):
+            print('Volume(CR=%.3f) = %.6e'%(level, vol))
+    
+    if opts.entropy:
+        print('H = %.6e'%stats.logkde2entropy(vects, logkde))
+
+    if opts.information:
+        print('I = %.6e'%stats.logkde2information(vects, logkde))
+
+    if opts.argmax:
+        print('argmax = %s'%(stats.logkde2argmax(vects, logkde)))
+
+    if opts.dlogL:
+        maxlogL = np.max(logkde)
+        for point in opts.dlogL:
+            print('dlogL(%s) = %.6e'%(point, utils.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
+
+    if opts.dtheta:
+        for point in opts.dtheta:
+            print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde)))
+
+    if opts.confidence_level:
+        for point in opts.confidence_level:
+            thr = utils.logkde(np.array([point]), data, variances, weights=weights)
+            print('confidence level(%s) = %.6e'%(point, 1.*np.sum(logkde>=thr)/len(logkde)))

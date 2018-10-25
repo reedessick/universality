@@ -33,7 +33,33 @@ def vects2vol(vects):
     """
     return np.prod([vect[1]-vect[0] for vect in vects])
 
-def logkde2cr(vects, logkde, levels):
+def logkde2crbounds(vect, logkde, levels):
+    """
+    only works with 1D kde
+    returns the bounds on the smallest region that contain the specified confidence
+    """
+    assert vect.ndim==1 and logkde.ndim==1, 'logkde2cr only works with 1-dimensional vectors!'
+
+    bounds = []
+    inds = np.arange(len(vect))
+    for thr in logkde2levels(logkde, levels):
+        these = inds[logkde>=thr]
+
+        if these[0]==0:
+            low = vect[0]
+        else:
+            low = np.interp(thr, logkde[these[0]-1:these[0]+1], vect[these[0]-1:these[0]+1])
+
+        if these[-1]==inds[-1]:
+            high = vect[-1]
+        else:
+            high = np.interp(thr, logkde[these[-1]:these[-1]+2], vect[these[-1]:these[-1]+2])
+
+        bounds.append((low, high))
+
+    return bounds
+    
+def logkde2crsize(vects, logkde, levels):
     """
     compute the volumes of confidence regions associated with levels
     """

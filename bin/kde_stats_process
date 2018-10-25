@@ -56,7 +56,9 @@ parser.add_option('', '--prune', default=False, action='store_true',
     help='throw away samples that fall outside ranges')
 
 ### options about what to compute
-parser.add_option('--confidence-region', default=[], type='float', action='append',
+parser.add_option('--one-dim-confidence-region', default=[], type='float', action='append',
+    help='compute the boundaries of the 1D confidence regions for each column corresponding to this confidence. Can be repeated.')
+parser.add_option('--confidence-region-size', default=[], type='float', action='append',
     help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
 parser.add_option('--entropy', default=False, action='store_true')
 parser.add_option('--information', default=False, action='store_true')
@@ -126,6 +128,8 @@ for i, eos in enumerate(data):
 
 #------------------------
 
+raise NotImplementedError('a log of what is below is probably buggy')
+
 if verbose:
     print('computing kde')
 ranges = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
@@ -148,9 +152,14 @@ logkde = utils.logkde(
 
 if verbose:
     print('computing statistics')
-if opts.confidence_region:
-    opts.confidence_region.sort()
-    for level, vol in zip(opts.confidence_region, stats.logkde2cr(vects, logkde, opts.confidence_region)):
+
+if opts.one_dim_confidence_region:
+    opts.one_dim_conficence_region.sort()
+    raise NotImplementedError
+
+if opts.confidence_region_size:
+    opts.confidence_region_size.sort()
+    for level, vol in zip(opts.confidence_region_size, stats.logkde2crsize(vects, logkde, opts.confidence_region_size)):
         print('Volume(CR=%.3f) = %.6e'%(level, vol))
 
 if opts.entropy:
