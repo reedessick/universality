@@ -82,7 +82,7 @@ for i, column in enumerate(columns): ### whiten the target data with the same tr
 #-------------------------------------------------
 
 if opts.verbose:
-    print('computing weighted KDE at samples from %s based on samples from %s'%(tgtpath, srcpath))
+    print('computing weighted KDE at %d samples from %s based on %d samples from %s'%(len(tgtsamples), tgtpath, len(srcdata), srcpath))
 logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*opts.bandwidth**2, weights=weights)
 
 if opts.verbose:
