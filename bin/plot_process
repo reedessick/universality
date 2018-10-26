@@ -123,7 +123,7 @@ opts.verbose |= opts.Verbose
 
 if opts.verbose:
     print('reading samples from: '+inpath)
-data, _ = utils.load(inpath, [opts.eos_column], , max_num_samples=opts.max_num_samples)
+data, _ = utils.load(inpath, [opts.eos_column], max_num_samples=opts.max_num_samples)
 
 if opts.weight_column!=None:
     if opts.verbose:
