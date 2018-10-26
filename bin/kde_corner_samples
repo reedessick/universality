@@ -197,7 +197,7 @@ for r in ref:
     )
 
 if opts.include_neff:
-    fig.suptitle('$N_\mathrm{eff} = %.1f$'%utils.neff(weights))
+    fig.text(0.75, 0.75, '$N_\mathrm{eff} = %.1f$'%utils.neff(weights), ha='center', va='center')
 
 plot.save('kde_corner_samples%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
 plot.plt.close(fig)
