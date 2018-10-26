@@ -164,7 +164,7 @@ if opts.prune:### throw away data that's outside the bounds
 ### read in data from csv
 if opts.verbose:
     print('reading samples from: '+in2path)
-data2, columns = utils.load(in2path, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples1)
+data2, columns = utils.load(in2path, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples2)
 
 ranges2 = []
 for i, col in enumerate(columns):
@@ -176,7 +176,7 @@ for i, col in enumerate(columns):
 if opts.weight2_column!=None:
     if opts.verbose:
         print('reading in non-trivial weights from: '+in2path)
-    weights2, _ = utils.load(in2path, [opts.weight2_column], max_num_samples=opts.max_num_samples1)
+    weights2, _ = utils.load(in2path, [opts.weight2_column], max_num_samples=opts.max_num_samples2)
     weights2 = weights2.reshape((len(weights2)))
 
     if opts.weight2_column_is_log:
