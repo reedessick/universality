@@ -9,6 +9,8 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
+from collections import defaultdict
+
 from optparse import OptionParser
 
 ### non-standard libraries
@@ -76,6 +78,10 @@ The columns must be the same as those supplied in the input arguments. \
 DEFAULT=[]')
 parser.add_option('--reference-color', default=None, type='string')
 
+parser.add_option('--signpost', nargs=2, default=[], type='string', action='append',
+    help='add markers (vertical/horizontal lines) to denote specific values. e.g.: "baryon_density 2.7e14". Can be repeated')
+parser.add_option('--signpost-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
+
 parser.add_option('--residuals', default=False, action='store_true',
     help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
 parser.add_option('--ratios', default=False, action='store_true',
@@ -116,6 +122,10 @@ opts.quantile.sort()
 quantiles = []
 for q in opts.quantile:
     quantiles += [q, (1-q)]
+
+signposts = defaultdict(list)
+for key, value in opts.signpost:
+    signposts[key].append(float(value))
 
 opts.verbose |= opts.Verbose
 
@@ -183,6 +193,7 @@ if opts.reference:
 if opts.verbose:
     print('plotting')
 
+# set up figure object
 fig = plot.plt.figure(figsize=(opts.figwidth, opts.figheight))
 if opts.residuals or opts.ratios:
     ax = fig.add_axes(plot.MAIN_AXES_POSITION)
@@ -190,19 +201,30 @@ if opts.residuals or opts.ratios:
 else:
     ax = fig.gca()
 
+if opts.residuals or opts.ratios:
+    if len(reference)==1: ### use the one reference curve a the baseline
+        y_reference = np.interp(x_test, reference[0][:,0], reference[0][:,1])
+        y_reference_label = 'reference'
+    else:
+        y_reference = y_median
+        y_reference_label = 'median'
+
+# add quantiles
 for i in xrange(len(opts.quantile)): ### fill between pairs of quantiles
     ax.fill_between(x_test, y[2*i,:], y[2*i+1,:], alpha=opts.alpha, color='k')
     if opts.residuals:
-        ax_res.fill_between(x_test, y[2*i,:]-y_median, y[2*i+1,:]-y_median, alpha=opts.alpha, color='k')
+        ax_res.fill_between(x_test, y[2*i,:]-y_reference, y[2*i+1,:]-y_reference, alpha=opts.alpha, color='k')
     elif opts.ratios:
-        ax_res.fill_between(x_test, y[2*i,:]/y_median, y[2*i+1,:]/y_median, alpha=opts.alpha, color='k')
+        ax_res.fill_between(x_test, y[2*i,:]/y_reference, y[2*i+1,:]/y_reference, alpha=opts.alpha, color='k')
 
+# add median
 ax.plot(x_test, y_median, color='k', alpha=1.0) ### plot the median
 if opts.residuals:
-    ax_res.plot(x_test, np.zeros_like(x_test), color='k', alpha=1.0)
+    ax_res.plot(x_test, y_median-y_reference, color='k', alpha=1.0)
 elif opts.ratios:
-    ax_res.plot(x_test, np.ones_like(x_test), color='k', alpha=1.0)
+    ax_res.plot(x_test, y_median/y_reference, color='k', alpha=1.0)
 
+# add reference curves
 for curve in reference:
     x = curve[:,0]
     y = curve[:,1]
@@ -210,11 +232,13 @@ for curve in reference:
         color = ax.plot(x, y, color=opts.reference_color)[0].get_color()
     else:
         color = ax.plot(x, y)[0].get_color()
-    if opts.residuals:
-        ax_res.plot(x, y-np.interp(x, x_test, y_median), color=color)
-    elif opts.ratios:
-        ax_res.plot(x, y/np.interp(x, x_test, y_median), color=color)
 
+    if opts.residuals:
+        ax_res.plot(x_test, np.interp(x_test, x, y)-y_reference, color=color)
+    elif opts.ratios:
+        ax_res.plot(x_test, np.interp(x_test, x, y)/y_reference, color=color)
+
+# scaling, etc
 if xcolumn in opts.logcolumn:
     ax.set_xscale('log')
 
@@ -227,6 +251,7 @@ ax.grid(True, which='both')
 if opts.residuals or opts.ratios:
     ax_res.grid(True, which='both')
 
+# set limits
 ax.set_xlim(xmin=xmin, xmax=xmax)
 if opts.residuals or opts.ratios:
     ax_res.set_xscale(ax.get_xscale())
@@ -243,6 +268,34 @@ if opts.residuals or opts.ratios:
     if opts.res_ymax!=None:
         ax_res.set_ylim(ymax=opts.res_ymax)
 
+# add signposts
+ylim = ax.get_ylim()
+for value in signposts[xcolumn]:
+    ax.plot([value]*2, ylim, color=opts.signpost_color)
+ax.set_ylim(ylim)
+
+xlim = ax.get_xlim()
+for value in signposts[ycolumn]:
+    ax.plot(xlim, [value]*2, color=opts.signpost_color)
+ax.set_xlim(xlim)
+
+if opts.residuals or opts.ratios:
+    ylim = ax_res.get_ylim()
+    for value in signposts[xcolumn]:
+        ax_res.plot([value]*2, ylim, color=opts.signpost_color)
+    ax_res.set_ylim(ylim)
+
+    xlim = ax_res.get_xlim()
+    for value in signposts[ycolumn]:
+        x = np.linspace(xlim[0], xlim[1], opts.num_points)
+        if opts.residuals:
+            y = value-np.ones_like(y-median)
+        else: 
+            y = value/np.ones_like(y_median)
+        ax_res.plot(x, y, color=opts.signpost_color)
+    ax_res.set_xlim(xlim)
+
+# add labels
 if opts.include_neff:
     ax.set_title("$N_\mathrm{eff} = %.1f$"%utils.neff(weights))
 
@@ -251,11 +304,12 @@ if opts.residuals or opts.ratios:
     plot.plt.setp(ax.get_xticklabels(), visible=False)
     ax_res.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
     if opts.residuals:
-        ax_res.set_ylabel('%s - median'%(opts.y_label if opts.y_label is not None else ycolumn))
+        ax_res.set_ylabel('%s - %s'%(opts.y_label if opts.y_label is not None else ycolumn, y_reference_label))
     if opts.ratios:
-        ax_res.set_ylabel('%s/median'%(opts.y_label if opts.y_label is not None else ycolumn))
+        ax_res.set_ylabel('%s/%s'%(opts.y_label if opts.y_label is not None else ycolumn, y_reference_label))
 else:
-    ax_res.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
+    ax.set_xlabel(opts.x_label if opts.x_label is not None else xcolumn)
 
+# save
 plot.save('plot_process%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
 plot.plt.close(fig)
