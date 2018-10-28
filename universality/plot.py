@@ -70,6 +70,20 @@ def corner(*args, **kwargs):
         raise ImportError('could not import corner')
     return _corner(*args, **kwargs)
 
+def weights2color(weights, basecolor):
+    Nsamp = len(weights)
+    scatter_color = np.empty((Nsamp, 4), dtype=float)
+    scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(basecolor)
+    mw, Mw = np.min(weights), np.max(weights)
+    if np.all(weights==Mw):
+        scatter_color[:,3] = max(min(1., 750./Nsamp), 0.001) ### equal weights
+    else:
+        scatter_color[:,3] = weights/np.max(weights)
+        scatter_color[:,3] *= 750./utils.neff(weights)
+        scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
+        scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
+    return scatter_color
+
 def kde_corner(
         data,
         bandwidths=None,
@@ -152,16 +166,7 @@ def kde_corner(
     dvects = [v[1]-v[0] for v in vects]
 
     ### set colors for scatter points
-    scatter_color = np.empty((Nsamp, 4), dtype=float)
-    scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(color)
-    mw, Mw = np.min(weights), np.max(weights)
-    if np.all(weights==Mw):
-        scatter_color[:,3] = max(min(1., 750./Nsamp), 0.001) ### equal weights
-    else:
-        scatter_color[:,3] = weights/np.max(weights)
-        scatter_color[:,3] *= 750./utils.neff(weights)
-        scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
-        scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
+    scatter_color = weights2color(weights, color)
 
     ### set up bins for 1D marginal histograms, if requested
     if hist1D:
@@ -235,10 +240,10 @@ def kde_corner(
                         variances[truth],
                         weights=w,
                     )
-                    thrs = np.exp(logkde2levels(kde, levels))
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
+                    thrs = np.exp(logkde2levels(np.log(kde), levels))
                     ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.5, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate

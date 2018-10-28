@@ -19,18 +19,6 @@ from universality import plot
 
 #-------------------------------------------------
 
-def quantile(x, quantiles, weights=None):
-    if weights is None:
-        return np.percentile(x, np.array(quantiles)*100)
-
-    else:
-        order = x.argsort()
-        x = x[order]
-        csum = np.cumsum(weights[order])
-        return np.array([x[[csum<=q]][-1] for q in quantiles])
-
-#-------------------------------------------------
-
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
@@ -46,9 +34,9 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos-column', default='eos', type='string')
 parser.add_option('', '--eos-dir', default='.', type='string')
-parser.add_option('', '--eos-basename', default='draw_foo-%d.csv', type='string',
+parser.add_option('', '--eos-basename', default='draw_foo_%d.csv', type='string',
     help='a string into which the EOS number can be substituted when building filenames. \
-DEFAULT=draw_foo-%d.csv')
+DEFAULT=draw_foo_%d.csv')
 
 parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight-column', default=None, type='string',
@@ -86,6 +74,27 @@ parser.add_option('--residuals', default=False, action='store_true',
     help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
 parser.add_option('--ratios', default=False, action='store_true',
     help='if supplied, plot the ratio of the values instead of the difference (--residuals). Cannot be supplied simulaneously with --residuals')
+
+parser.add_option('--central-contours', nargs=2, type='string', default=None,
+    help='add KDE contours for the central parameters corresponding to this column. Specify this option as a pair of column names: a mapping from the column in the bns file to the matching column in the EoS CSV (used to look up all central values from the EOS). e.g.: rhoc1 baryon_density')
+parser.add_option('--central-contours-prefactor', default=1., type=float,
+    help='multiply the value read from bns file by this number before interpolating data from EOS file. Useful for unit conversion.\
+DEFAULT=1.')
+parser.add_option('', '--bns-dir', default='.', type='string')
+parser.add_option('', '--bns-basename', default='bns_%d.csv', type='string',
+    help='a string into which the EOS number can be substituted when building filenames. \
+DEFAULT=bns_%d.csv')
+parser.add_option('', '--central-contours-level', default=[], type='float', action='append',
+    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+parser.add_option('', '--central-contours-color', default=plot.DEFAULT_TRUTH_COLOR, type='string')
+parser.add_option('', '--central-contours-num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
+    help='the number of points for the KDE grid')
+parser.add_option('', '--central-contours-no-scatter', default=False, action='store_true',
+    help='turn off the scatter of central values')
+parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action='append',
+    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+parser.add_option('', '--central-contours-reflect', default=False, action='store_true')
 
 parser.add_option('--include-neff', default=False, action='store_true',
     help='include an estimate of the effective number of samples as a title')
@@ -127,6 +136,14 @@ signposts = defaultdict(list)
 for key, value in opts.signpost:
     signposts[key].append(float(value))
 
+bandwidthdict = dict((col, float(b)) for col, b in opts.bandwidth)
+variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in [xcolumn, ycolumn]])**2
+
+if not opts.central_contours_level:
+    opts.central_contours_level = plot.DEFAULT_LEVELS
+else:
+    opts.central_contours_level.sort()
+
 opts.verbose |= opts.Verbose
 
 #-------------------------------------------------
@@ -163,21 +180,45 @@ if xcolumn in opts.logcolumn:
 else:
     x_test = np.linspace(xmin, xmax, opts.num_points)
 
+if opts.central_contours:
+    x_cent = np.empty(N, dtype='float')
+    y_cent = np.empty(N, dtype='float')
+    bnscolumn, eoscolumn = opts.central_contours
+    bns_temp = os.path.join(opts.bns_dir, opts.bns_basename)
+
 y_test = np.empty((N, opts.num_points), dtype='float')
+eos_temp = os.path.join(opts.eos_dir, opts.eos_basename)
 for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-    path = os.path.join(opts.eos_dir, opts.eos_basename%eos)
-    if opts.Verbose:
-        print('    '+path)
-    d, c = utils.load(path, [xcolumn, ycolumn])
+    if opts.central_contours:
+        path = bns_temp%eos
+        if opts.Verbose:
+            print('    '+path)
+        with open(path, 'r') as obj: ### hacky, but solves the problem at hand...
+            cols = obj.readline().strip().split(',')
+            cent = float(obj.readline().strip().split(',')[cols.index(bnscolumn)])*opts.central_contours_prefactor
+
+        path = eos_temp%eos
+        if opts.Verbose:
+            print('    '+path)
+        d, c = utils.load(path, [xcolumn, ycolumn, eoscolumn])
+
+        x_cent[i] = np.interp(cent, d[:,2], d[:,0]) ### interpolate to find the relevant values for our plot
+        y_cent[i] = np.interp(cent, d[:,2], d[:,1])
+
+    else:
+        path = eos_temp%eos
+        if opts.Verbose:
+            print('    '+path)
+        d, c = utils.load(path, [xcolumn, ycolumn])
 
     y_test[i] = np.interp(x_test, d[:,0], d[:,1])
-
+ 
 ### compute the quantiles
 y = np.empty((len(quantiles), opts.num_points), dtype='float')
 y_median = np.empty_like(x_test, dtype='float')
 for i in xrange(opts.num_points):
-    y[:,i] = quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
-    y_median[i] = quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
+    y[:,i] = utils.quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
+    y_median[i] = utils.quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
 
 #------------------------
 
@@ -241,11 +282,15 @@ for curve in reference:
 # scaling, etc
 if xcolumn in opts.logcolumn:
     ax.set_xscale('log')
+    if opts.central_contours:
+        x_cent = np.log10(x_cent)
 
 if ycolumn in opts.logcolumn:
     ax.set_yscale('log')
     if opts.ratios:
         ax_res.set_yscale('log')
+    if opts.central_contours:
+        y_cent = np.log10(y_cent)
 
 ax.grid(True, which='both')
 if opts.residuals or opts.ratios:
@@ -267,6 +312,69 @@ if opts.residuals or opts.ratios:
         ax_res.set_ylim(ymin=opts.res_ymin)
     if opts.res_ymax!=None:
         ax_res.set_ylim(ymax=opts.res_ymax)
+
+# add central contours
+if opts.central_contours:
+    m, M = utils.data2range(x_cent)
+    if xcolumn in opts.logcolumn:
+        xbounds = (max(np.log10(xmin), m), min(np.log10(xmax), M))
+    else:
+        xbounds = (max(xmin, m), min(xmax, M))
+
+    ymin, ymax = ax.get_ylim()
+    m, M = utils.data2range(y_cent)
+    if ycolumn in opts.logcolumn:
+        ybounds = (max(np.log10(ymin), m), min(np.log10(ymax), M))
+    else:
+        ybounds = (max(ymin, m), min(ymax, M))
+
+    data_cent = np.array(zip(x_cent, y_cent))
+    bounds = [xbounds, ybounds]
+    data_cent, weights_cent = utils.prune(data_cent, bounds, weights=weights)
+    if opts.central_contours_reflect:
+        data_cent, weights_cent = utils.reflect(data_cent, bounds, weights=weights_cent)
+    x_cent = data_cent[:,0]
+    y_cent = data_cent[:,1]
+
+    xvect = np.linspace(xbounds[0], xbounds[1], opts.central_contours_num_points)
+    dxvect = xvect[1]-xvect[0]
+    yvect = np.linspace(ybounds[0], ybounds[1], opts.central_contours_num_points)
+    dyvect = yvect[1]-yvect[0]
+
+    kde = utils.logkde(
+        utils.vects2flatgrid(xvect, yvect),
+        data_cent,
+        variances,
+        weights=weights_cent,
+    )
+    kde = np.exp(kde-np.max(kde)).reshape((opts.central_contours_num_points, opts.central_contours_num_points))
+    kde /= np.sum(kde)*dxvect*dyvect # normalize kde
+
+    thrs = np.exp(plot.logkde2levels(np.log(kde), opts.central_contours_level))
+
+    if xcolumn in opts.logcolumn:
+        xvect = 10**xvect
+        x_cent = 10**x_cent
+    if ycolumn in opts.logcolumn:
+        yvect = 10**yvect
+        y_cent = 10**y_cent
+
+    ax.contour(xvect, yvect, kde.transpose(), colors=opts.central_contours_color, alpha=0.5, levels=thrs)
+    if not opts.central_contours_no_scatter:
+        scatter_color=plot.weights2color(weights_cent, opts.central_contours_color)
+        ax.scatter(x_cent, y_cent, marker='o', s=2, color=scatter_color)
+
+    if opts.residuals or opts.ratios:
+        xvect, yvect = np.meshgrid(xvect, yvect, indexing='ij')
+        if opts.residuals:
+            ax_res.contour(xvect, yvect-np.interp(xvect, x_test, y_reference), kde, colors=opts.central_contours_color, alpha=0.5, levels=thrs)
+            if not opts.central_contours_no_scatter:
+                ax_res.scatter(x_cent, y_cent-np.interp(x_cent, x_test, y_reference), marker='o', s=2, color=scatter_color)
+
+        elif opts.ratios:
+            ax_res.contour(xvect, yvect/np.interp(xvect, x_test, y_reference), kde, colors=opts.central_contours_color, alpha=0.5, levels=thrs)
+            if not opts.central_contours_no_scatter:
+                ax_res.scatter(x_cent, y_cent/np.interp(x_cent, x_test, y_reference), marker='o', s=2, color=scatter_color)
 
 # add signposts
 ylim = ax.get_ylim()

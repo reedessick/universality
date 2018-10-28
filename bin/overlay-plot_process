@@ -19,18 +19,6 @@ from universality import plot
 
 #-------------------------------------------------
 
-def quantile(x, quantiles, weights=None):
-    if weights is None:
-        return np.percentile(x, np.array(quantiles)*100)
-
-    else:
-        order = x.argsort()
-        x = x[order]
-        csum = np.cumsum(weights[order])
-        return np.array([x[[csum<=q]][-1] for q in quantiles])
-
-#-------------------------------------------------
-
 parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
@@ -46,15 +34,15 @@ DEFAULT=[]')
 
 parser.add_option('', '--eos1-column', default='eos', type='string')
 parser.add_option('', '--eos1-dir', default='.', type='string')
-parser.add_option('', '--eos1-basename', default='draw_foo-%d.csv', type='string',
+parser.add_option('', '--eos1-basename', default='draw_foo_%d.csv', type='string',
     help='a string into which the EOS number can be substituted when building filenames. \
-DEFAULT=draw_foo-%d.csv')
+DEFAULT=draw_foo_%d.csv')
 
 parser.add_option('', '--eos2-column', default='eos', type='string')
 parser.add_option('', '--eos2-dir', default='.', type='string')
-parser.add_option('', '--eos2-basename', default='draw_foo-%d.csv', type='string',
+parser.add_option('', '--eos2-basename', default='draw_foo_%d.csv', type='string',
     help='a string into which the EOS number can be substituted when building filenames. \
-DEFAULT=draw_foo-%d.csv')
+DEFAULT=draw_foo_%d.csv')
 
 parser.add_option('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
 parser.add_option('', '--weight1-column', default=None, type='string',
@@ -220,8 +208,8 @@ for i, (eos, weight) in enumerate(zip(data1, weights1)): ### iterate over sample
 y1 = np.empty((len(quantiles), opts.num_points), dtype='float')
 y1_median = np.empty_like(x_test, dtype='float')
 for i in xrange(opts.num_points):
-    y1[:,i] = quantile(y_test[:,i], quantiles, weights=weights1)     ### compute quantiles
-    y1_median[i] = quantile(y_test[:,i], [0.5], weights=weights1)[0] ### compute median
+    y1[:,i] = utils.quantile(y_test[:,i], quantiles, weights=weights1)     ### compute quantiles
+    y1_median[i] = utils.quantile(y_test[:,i], [0.5], weights=weights1)[0] ### compute median
 
 #---
 
@@ -240,8 +228,8 @@ for i, (eos, weight) in enumerate(zip(data2, weights2)): ### iterate over sample
 y2 = np.empty((len(quantiles), opts.num_points), dtype='float')
 y2_median = np.empty_like(x_test, dtype='float')
 for i in xrange(opts.num_points):
-    y2[:,i] = quantile(y_test[:,i], quantiles, weights=weights2)     ### compute quantiles
-    y2_median[i] = quantile(y_test[:,i], [0.5], weights=weights2)[0] ### compute median
+    y2[:,i] = utils.quantile(y_test[:,i], quantiles, weights=weights2)     ### compute quantiles
+    y2_median[i] = utils.quantile(y_test[:,i], [0.5], weights=weights2)[0] ### compute median
 
 #-------------------------------------------------
 
