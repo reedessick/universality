@@ -17,7 +17,7 @@ from universality import utils
 #-------------------------------------------------
 
 HEAD = 'total number | effective number | path'
-ROW = '%12d | %16d | %s'
+ROW = '%12d | %16.3f | %s'
 WARNING = "WARNING: %s does not exist!"
 
 #-------------------------------------------------
