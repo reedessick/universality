@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that estimates the bayes factor by comparing evidences based on the samples within inpath.csv. Assumes the same likelihood was used to weigh both sets of samples"
+__author__ = "reed.essick@ligo.org"
+__usage__ = "estimate_evidence [--options] inpath1.csv weight1_column inpath2.csv weight2_column"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from optparse import OptionParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = OptionParser(usage=__usage__, description=__doc__)
+
+parser.add_option('-v', '--verbose', default=False, action='store_true')
+
+parser.add_option('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
+parser.add_option('', '--weight1-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_option('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
+parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+opts, args = parser.parse_args()
+assert len(args)==4, 'please supply exactly 4 input arguments\n%s'%__usage__
+inpath1, weight1_column, inpath2, weight2_column = args
+
+#-------------------------------------------------
+
+### read in source samples
+if opts.verbose:
+    print('reading samples from: '+inpath1)
+weights1 = utils.load(inpath1, [weight2_column], max_num_samples=opts.max_num_samples1)[0][:,0]
+N1 = len(weights1)
+weights1.reshape(N1)
+
+if opts.weight1_column_is_log:
+    weights1 = np.exp(weights1)
+
+if opts.verbose:
+    print('N1    = %5d'%N1)
+    print('N1eff = %9.3f'%utils.neff(weights1/np.sum(weights1)))
+
+if opts.verbose:
+    print('reading samples from: '+inpath1)
+weights2 = utils.load(inpath2, [weight2_column], max_num_samples=opts.max_num_samples2)[0][:,0]
+N2 = len(weights2)
+weights2.reshape(N2)
+
+if opts.weight2_column_is_log:
+    weights2 = np.exp(weights2)
+
+if opts.verbose:
+    print('N2    = %5d'%N2)
+    print('N2eff = %9.3f'%utils.neff(weights2/np.sum(weights2)))
+
+
+#------------------------
+
+Z1 = np.mean(weights1)
+V1 = np.var(weights1)/N1
+
+Z2 = np.mean(weights2)
+V2 = np.var(weights2)/N2
+
+B = Z1/Z2
+V = (1./Z2)**2 * V1 + (Z1/Z2**2) * V2
+
+print('  B = +%.6e +/- %.6e'%(B, V**0.5))
