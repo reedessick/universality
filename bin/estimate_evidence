@@ -33,14 +33,24 @@ inpath, weightcolumn = args
 
 ### read in source samples
 if opts.verbose:
-    print('reading samples from: '+srcpath)
-weights, _ = utils.load(inpath, [weightcolumn], max_num_samples=opts.max_num_samples)
-weights.reshape((len(weights)))
+    print('reading samples from: '+inpath)
+weights = utils.load(inpath, [weightcolumn], max_num_samples=opts.max_num_samples)[0][:,0]
+N = len(weights)
+sqrtN = N**0.5
+weights.reshape(N)
 
 if opts.weight_column_is_log:
-    weights = np.exp(weights) ### NOTE: we don't do anything funky here because we need to preserve the overall normalization
+    logweights = weights
+    weights = np.exp(weights)
+
+else:
+    logweights = np.log(weights)
+
+if opts.verbose:
+    print('N    = %6d'%N)
+    print('Neff = %9.3f'%utils.neff(weights/np.sum(weights)))
 
 #------------------------
 
-### estimate evidence as the average of the weight over your sample size
-print('evidence = %.6e +/- %.6e'%(np.mean(weights), np.std(weights)))
+print('  Z = +%.6e +/- %.6e'%(np.mean(weights), np.std(weights)/sqrtN))
+print('lnZ = %.6e +/- %.6e'%(np.mean(logweights), np.std(logweights)/sqrtN))
