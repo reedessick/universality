@@ -50,7 +50,7 @@ if opts.verbose:
     print('N1eff = %9.3f'%utils.neff(weights1/np.sum(weights1)))
 
 if opts.verbose:
-    print('reading samples from: '+inpath1)
+    print('reading samples from: '+inpath2)
 weights2 = utils.load(inpath2, [weight2_column], max_num_samples=opts.max_num_samples2)[0][:,0]
 N2 = len(weights2)
 weights2.reshape(N2)
