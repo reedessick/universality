@@ -484,6 +484,8 @@ for label in names:
     yvect = np.linspace(ybounds[0], ybounds[1], args.central_contours_num_points)
     dyvect = yvect[1]-yvect[0]
 
+    if args.Verbose:
+        print("computing central kde for "+label)
     kde = utils.logkde(
         utils.vects2flatgrid(xvect, yvect),
         data_cent,
