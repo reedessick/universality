@@ -1,0 +1,292 @@
+#!/usr/bin/env python
+
+__doc__ = "a corner plot based on fancy KDEs to make them prettier"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('columns', nargs='*', type=str,
+    help='columns to plot')
+rgroup.add_argument('-s', '--samples', required=True, nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--samples label path/to/samples.csv"')
+
+parser.add_argument('--reference', default=[], nargs=2, type=str, action='append',
+    help='e.g.: "--reference name path". path to a reference CSV that will be plotted on top of the corner plot. Can be repeated to specify multiple reference curves. \
+The columns must be the same as those supplied in the input arguments. \
+DEFAULT=[]')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append',
+    help='label max-num-samples pairs')
+sgroup.add_argument('-w', '--weight-column', nargs=2, default=None, type=str, action='append',
+    help='label column pairs. if provided, thie numerical values from this column will be used as weights in the KDE')
+sgroup.add_argument('-W', '--weight-column-is-log', nargs=1, default=[], type=str,
+    help='the label for samples for which this is true')
+
+# column arguments
+cgroup = parser.add_argument_group('column-specific arguments')
+cgroup.add_argument('-l', '--logcolumn', default=[], type=str, action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+cgroup.add_argument('-L', '--column-label', nargs=2, default=[], type=str, action='append',
+    help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
+DEFAULT=[]')
+cgroup.add_argument('-T', '--column-truth', nargs=2, default=[], type=str, action='append',
+    help='include this as an injected value for this column. e.g: \'--column-truth xcol 5\'. \
+DEFAULT=[]')
+
+cgroup.add_argument('-r', '--column-range', nargs=3, default=[], action='append', type=str,
+    help='specify the ranges used in corner.corner (eg.: "--column-range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+
+cgroup.add_argument('-b', '--column-bandwidth', nargs=2, default=[], type=str, action='append',
+    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+
+# workflow options
+wgroup = parser.add_argument_group('workflow options')
+wgroup.add_argument('--whiten', default=False, action='store_true',
+    help='if specified, bandwidths will be interpreted as the whitened bandwidths.')
+wgroup.add_argument('--num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
+    help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
+wgroup.add_argument('--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+wgroup.add_argument('--prune', default=False, action='store_true',
+    help='throw away samples that live outside the specified ranges')
+
+# plotting options
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
+    help='e.g. "--color label c"')
+pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
+pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
+    help='e.g.: "--reference-color name b"')
+
+pgroup.add_argument('--level', default=[], type=float, action='append',
+    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+
+pgroup.add_argument('--hist1D', default=False, action='store_true',
+    help='include raw histrograms in 1D marginal panels')
+pgroup.add_argument('--no-scatter', default=False, action='store_true')
+pgroup.add_argument('--rotate', default=False, action='store_true',
+    help='rotate the last 1D histogram')
+
+pgroup.add_argument('--legend', default=False, action='store_true')
+pgroup.add_argument('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
+
+pgroup.add_argument('--reference-legend', default=False, action='store_true')
+
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+
+# ouptut options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+
+### finish parsing
+
+# required arguments
+Ncol = len(args.columns)
+assert Ncol, 'please supply at least one column'
+
+names = [label for label, path in args.samples]
+reference_names = [label for label, path in args.reference]
+
+# workflow arguments
+if args.whiten and (len(names)>1):
+    raise RuntimeError('cannot whiten data with more than one sample set!')
+
+# verbosity arguments
+args.verbose |= args.Verbose
+
+# samples arguments
+max_num_samples = dict((label, np.infty) for label in names)
+for label, num in args.max_num_samples:
+    assert label in names, 'specifying --max-num-sample for unknown sample set: '+label
+    max_num_samples[label] = num
+
+for label in args.weight_column_is_log:
+    assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
+weight_columns = dict((label, (None, False)) for label in names)
+for label, column in args.weight_column:
+    assert label in names, 'specifying --weight-column for unknown sample set: '+label
+    weight_columns[label] = (column, label in args.weight_column_is_log)
+
+# column arguments
+rangesdict = dict()
+for column, _min, _max in args.column_range:
+    assert column in args.columns, 'specifying --column-range for unknown column: '+column
+    rangesdict[column] = (float(_min), float(_max))
+
+bandwidthdict = dict()
+for column, b in args.column_bandwidth:
+    assert column in args.columns, 'specifying --column-bandwidth for unknown column: '+column
+    bandwidthdict[column] = float(b)
+bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns]
+
+labeldict = dict()
+for column, label in args.column_label:
+    assert column in args.columns, 'specifying --column-label for unknown column: '+column
+    labeldict[column] = label
+labels = [labeldict.get(col, '$'+col+'$') for col in args.columns]
+
+truthdict = dict()
+for column, value in args.column_truth:
+    assert column in args.columns, 'specifying --column-truth for unknown column: '+column
+    truthdict[column] = float(value)
+truths = [truthdict.get(col, None) for col in args.columns]
+
+# plotting options
+colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
+for label, color in args.color:
+    assert label in names, 'specifying --color for uknown sample set: '+label
+    colors[label] = color
+
+reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in names)
+for label, color in args.reference_color:
+    assert label in reference_names, 'specifying --reference-color for unknown reference set: '+label
+    reference_colors[label] = color
+
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
+
+# ouptut options
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+#-------------------------------------------------
+
+fig = None
+global_ranges = [(np.infty, -np.infty) for _ in range(Ncol)]
+
+### read in data from csv and plot
+for ind, (label, path) in enumerate(args.samples):
+    if args.verbose:
+        print('reading samples for %s from: %s'%(label, path))
+    data, columns = utils.load(path, args.columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+
+    ranges = []
+    for i, col in enumerate(args.columns):
+        if rangesdict.has_key(col):
+            ranges.append(rangesdict[col])
+        else:
+            ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+        global_ranges[i] = (min(ranges[i][0], global_ranges[i][0]), max(ranges[i][1], global_ranges[i][1]))
+
+    if args.whiten:
+        data, means, stds = utils.whiten(data, verbose=args.verbose)
+        ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
+        truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
+        ref = [np.array([(r[:,i]-m)/s for i, (m, s) in enumerate(zip(means, stds))]) for r in refs]
+
+    weight_column, is_log = weight_columns[label]
+    if weight_column is not None:
+        if args.verbose:
+            print('reading in non-trivial weights from: '+path)
+        weights, _ = utils.load(path, [weight_column], max_num_samples=max_num_samples[label])
+        weights = weights.reshape((len(weights)))
+
+        if is_log:
+            weights = np.exp(weights-np.max(weights))
+        weights /= np.sum(weights)
+
+    else:
+        N = len(data)
+        weights = np.ones(N, dtype='float')/N
+
+    if args.prune:### throw away data that's outside the bounds
+        data, weights = utils.prune(data, ranges, weights=weights)
+
+    #--------------------
+
+    if args.verbose:
+        print('plotting')
+    fig = plot.kde_corner(
+        data,
+        bandwidths=bandwidths,
+        truths=truths,
+        truth_color=args.truth_color,
+        labels=labels,
+        range=ranges,
+        weights=weights,
+        num_points=args.num_points,
+        color=colors[label],
+        reflect=args.reflect,
+        verbose=args.Verbose,
+        hist1D=args.hist1D,
+        levels=args.level,
+        scatter=not args.no_scatter,
+        rotate=args.rotate,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        fig=fig,
+    )
+
+    if args.legend:
+        legend = label
+        if args.include_neff:
+            legend = legend+": $N_\mathrm{eff} = %.1f$"%utils.neff(weights)
+        fig.text(0.60, 0.90-ind*0.05, legend, color=colors[label], ha='left', va='top')
+
+### plot reference curves
+for i, (label, path) in enumerate(args.reference):
+    if args.verbose:
+        print('reading reference curve from: '+path)
+    data, _ = utils.load(path, args.columns, logcolumns=args.logcolumn)
+
+    if args.verbose:
+       print('plotting')
+
+    plot.curve_corner(
+        data,
+        labels=labels,
+        range=global_ranges,
+        color=reference_colors[label],
+        verbose=args.Verbose,
+        rotate=args.rotate,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        fig=fig,
+    )
+
+    if args.reference_legend:
+        fig.text(0.75, 0.90-i*0.05, label, color=reference_colors[label], ha='left', va='top')
+
+### save
+plot.save('kde-corner-samples%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+plot.plt.close(fig)
