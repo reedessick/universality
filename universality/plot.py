@@ -101,6 +101,7 @@ def kde_corner(
         truth_color=DEFAULT_TRUTH_COLOR,
         linewidth=DEFAULT_LINEWIDTH,
         linestyle=DEFAULT_LINESTYLE,
+        filled=False,
         scatter=False,
         rotate=True,
         fig=None,
@@ -243,7 +244,9 @@ def kde_corner(
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-                    thrs = np.exp(logkde2levels(np.log(kde), levels))
+                    thrs = sorted(np.exp(logkde2levels(np.log(kde), levels)), reverse=True)
+                    if filled:
+                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.25, levels=thrs)
                     ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.5, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate

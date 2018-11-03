@@ -100,6 +100,9 @@ pgroup.add_argument('--include-neff', default=False, action='store_true',
 
 pgroup.add_argument('--reference-legend', default=False, action='store_true')
 
+pgroup.add_argument('--filled', default=False, action='store_true',
+    help='fill in the contours plotted in corner plots')
+
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
@@ -250,6 +253,7 @@ for ind, (label, path) in enumerate(args.samples):
         verbose=args.Verbose,
         hist1D=args.hist1D,
         levels=args.level,
+        filled=args.filled,
         scatter=not args.no_scatter,
         rotate=args.rotate,
         figwidth=args.figwidth,
