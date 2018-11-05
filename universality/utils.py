@@ -245,7 +245,7 @@ def logkde(samples, data, variances, weights=None):
         z = np.empty(Ndata, dtype=float)
         for i in xrange(Nsamp):
             sample = samples[i]
-            z[:] = np.sum(np.sum((data-sample)**2 * twov, axis=1))       ### shape: (Ndata, Ndim) -> (Ndata)
+            z[:] = np.sum((data-sample)**2 * twov, axis=1)       ### shape: (Ndata, Ndim) -> (Ndata)
 
             ### do this backflip to preserve accuracy
             m = np.max(z)
