@@ -6,7 +6,11 @@ __author__ = "reed.essick@ligo.org"
 from collections import defaultdict
 import numpy as np
 
+import multiprocessing as mp
+
 #-------------------------------------------------
+
+DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
 
 c = (299792458*100) # speed of light in (cm/s)
 c2 = c**2
@@ -215,7 +219,7 @@ def reflect(data, bounds, weights=None):
     else:
         return d
 
-def logkde(samples, data, variances, weights=None):
+def logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples
 
@@ -224,97 +228,156 @@ def logkde(samples, data, variances, weights=None):
     returns log(kde(samples))
     """
     shape = samples.shape
-    if len(shape) in [1, 2]:
-
-        if len(shape)==1:
-            Nsamp = shape[0]
-            Ndim = 1
-            samples = samples.reshape((Nsamp,1))
-            data = data.reshape((len(data),1))
-           
-        else:
-            Nsamp, Ndim = samples.shape
-
-        Ndata = len(data)
-        if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
-            weights = np.ones(Ndata, dtype='float')/Ndata
-
-        logkdes = np.empty(Nsamp, dtype='float')
-        twov = -0.5/variances
-
-        z = np.empty(Ndata, dtype=float)
-        for i in xrange(Nsamp):
-            sample = samples[i]
-            z[:] = np.sum((data-sample)**2 * twov, axis=1)       ### shape: (Ndata, Ndim) -> (Ndata)
-
-            ### do this backflip to preserve accuracy
-            m = np.max(z)
-            logkdes[i] = np.log(np.sum(weights*np.exp(z-m))) + m 
-
-        ### subtract off common factors
-        logkdes += -0.5*Ndim*np.log(2*np.pi) - 0.5*np.sum(np.log(variances))
-
-    else:
+    if len(shape) not in [1, 2]:
         raise ValueError, 'bad shape for samples'
+
+    if len(shape)==1:
+        Nsamp = shape[0]
+        samples = samples.reshape((Nsamp,1))
+        data = data.reshape((len(data),1))
+    else:
+        Nsamp, Ndim = samples.shape
+
+    if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
+        Ndata = len(data)
+        weights = np.ones(Ndata, dtype='float')/Ndata
+
+    logkdes = np.empty(Nsamp, dtype=float)
+    if num_proc == 1: ### do everything on this one core
+        logkdes[:] = _logkde_worker(samples, data, variances, weights)
+
+    else: ### parallelize
+        # partition work amongst the requested number of cores
+        sets = _define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logkde_worker, args=(samples[truth], data, variances, weights), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            logkdes[truth] = conni.recv()
 
     return logkdes
 
-def grad_logkde(samples, data, variances, weights=None):
+def _define_sets(Nsamp, num_proc):
+    sets = [np.zeros(Nsamp, dtype=bool) for i in xrange(num_proc)]
+    for i in xrange(Nsamp):
+        sets[i%num_proc][i] = True
+    return sets
+
+def _logkde_worker(samples, data, variances, weights, conn=None):
+    Nsamp, Ndim = samples.shape
+    Ndata = len(data)
+
+    logkdes = np.empty(Nsamp, dtype='float')
+    twov = -0.5/variances
+
+    z = np.empty(Ndata, dtype=float)
+    for i in xrange(Nsamp):
+        sample = samples[i]
+        z[:] = np.sum((data-sample)**2 * twov, axis=1)       ### shape: (Ndata, Ndim) -> (Ndata)
+
+        ### do this backflip to preserve accuracy
+        m = np.max(z)
+        logkdes[i] = np.log(np.sum(weights*np.exp(z-m))) + m    
+
+    logkdes += -0.5*Ndim*np.log(2*np.pi) - 0.5*np.sum(np.log(variances))
+
+    if conn is not None:
+        conn.send(logkdes)
+
+    return logkdes
+
+def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     Nsamp, Ndim = samples.shape
     returns the gradient of the logLikelihood based on (data, variances, weights) at each sample (shape=Nsamp, Ndim)
     """
     shape = samples.shape
     grad_logkdes = np.empty(shape, dtype=float)
-    if len(shape) in [1, 2]:
+    if len(shape) not in [1, 2]:
+        raise ValueError, 'bad shape for samples'
 
-        if len(shape)==1:
-            Nsamp = shape[0]
-            Ndim = 1
-            samples = samples.reshape((Nsamp,1))
-            data = data.reshape((len(data),1))
-
-        else:
-            Nsamp, Ndim = samples.shape
-
-        Ndata = len(data)
-        if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
-            weights = np.ones(Ndata, dtype='float')/Ndata
-
-        grad_logkdes = np.empty(Nsamp, dtype='float')
-        twov = -0.5/variances
-        z = np.empty(Ndata, dtype=float)
-        for i in xrange(Nsamp):
-            sample = samples[i]
-            z[:] = np.sum((data-sample)**2 * twov, axis=1)  ### shape: (Ndata, Ndim) -> (Ndata)
-
-            ### do this backflip to preserve accuracy
-            m = np.max(z)
-            z = weights[truth]*np.exp(z-m)
-            y = np.sum(z)
-            x = np.sum(z*(-zi/variances).transpose(), axis=1)
-
-            if y==0:
-               if np.all(x==0):
-                    grad_logL[i,:] = 0 ### this is the appropriate limit here
-               else:
-                    raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
-            else:
-                grad_logL[i,:] = twov + x/y
+    if len(shape)==1:
+        Nsamp = shape[0]
+        Ndim = 1
+        samples = samples.reshape((Nsamp,1))
+        data = data.reshape((len(data),1))
 
     else:
-        raise ValueError, 'bad shape for samples'
+        Nsamp, Ndim = samples.shape
+
+    Ndata = len(data)
+    if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
+        weights = np.ones(Ndata, dtype='float')/Ndata
+
+    if num_proc==1:
+        grad_logkdes[:,:] = _grad_log_kde_worker(samples, data, variances, weights)
+
+    else:
+        # divide the work
+        sets = _define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_grad_logkde_worker, args=(samples[truth], data, variances, weights), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            grad_logkdes[truth] = conni.recv()
 
     return grad_logkdes
 
-def logvarkde(samples, data, variances, weights=None):
+def _grad_logkde_worker(samples, data, variances, weights, conn=None):
+    Nsamp, Ndim = samples.shape
+    Ndata = len(data)
+
+    grad_logkdes = np.empty(Nsamp, dtype='float')
+    twov = -0.5/variances
+    z = np.empty(Ndata, dtype=float)
+    for i in xrange(Nsamp):
+        sample = samples[i]
+        z[:] = np.sum((data-sample)**2 * twov, axis=1)  ### shape: (Ndata, Ndim) -> (Ndata)
+
+        ### do this backflip to preserve accuracy
+        m = np.max(z)
+        z = weights[truth]*np.exp(z-m)
+        y = np.sum(z)
+        x = np.sum(z*(-zi/variances).transpose(), axis=1)
+
+        if y==0:
+           if np.all(x==0):
+                grad_logL[i,:] = 0 ### this is the appropriate limit here
+           else:
+                raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
+        else:
+            grad_logL[i,:] = twov + x/y
+
+    if conn is not None:
+        conn.send(grad_logL)
+    return grad_logkdes
+
+def logvarkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     a wrapper around computing bootstrapped estimates of the variance of the kde
     delegates to logcovkde
     """
-    return logcovkde((samples, samples), data, variances, weights=weights)
+    return logcovkde((samples, samples), data, variances, weights=weights, num_proc=num_proc)
 
-def logcovkde(samples1, samples2, data, variances, weights=None):
+def logcovkde(samples1, samples2, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     a wrapper around computing bootstrapped estimates of the covariance of the kde (btwn points defined in samples1, samples2)
 
@@ -341,9 +404,39 @@ def logcovkde(samples1, samples2, data, variances, weights=None):
 
     # compute first moments
     samples = np.array(set(list(samples1)+list(samples2)))
-    logfirst = dict(zip(samples, logkde(samples, data, variances, weights=weights)))
+    logfirst = dict(zip(samples, logkde(samples, data, variances, weights=weights, num_proc=num_proc)))
 
     # compute second moments
+    logseconds = np.empty((Nsamp, 2), dtype=float)
+    if num_proc==1: # do everything on this core
+        logseconds[:,:] = _logsecond_worker(samples1, samples2, data, variances, weights)
+
+    else: # parallelize
+        # divide the work
+        sets = _define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logsecond_worker, args=(samples1[truth], samples2[truth], data, variances, weights, logfirst), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            logsecond[truth,:] = conni.recv()
+
+    ### manipulate the moments to get the variance
+    logcovkdes = logsecond + np.log(1 - np.exp(logsecond[:,1]-logsecond[:,0]))
+    return logcovkdes, np.array([logfirst[sample] for sample in samples1]), np.array([logfirst[sample] for sample in samples2])
+
+def _logsecond_worker(samples1, samples2, data, variances, weights, logfirst, conn=None):
+    Nsamp, Ndim = samples1.shape
+    Ndata = len(data)
+
     logsecond = np.empty((Nsamp, 2), dtype=float)
     twov = -0.5/variances
 
@@ -368,9 +461,9 @@ def logcovkde(samples1, samples2, data, variances, weights=None):
     logsecond[:,0] += -Ndim*np.log(2*np.pi) - np.sum(np.log(variances))
     logsecond[:,1] -= np.log(Ndata)
 
-    ### manipulate the moments to get the variance
-    logcovkdes = logsecond + np.log(1 - np.exp(logsecond[:,1]-logsecond[:,0]))
-    return logcovkdes, np.array([logfirst[sample] for sample in samples1]), np.array([logfirst[sample] for sample in samples2])
+    if conn is not None:
+        conn.send(logsecond)
+    return logsecond
 
 def logleave1outLikelihood(data, variances, weights=None):
     """
