@@ -24,7 +24,7 @@ from .stats import logkde2levels
 
 #-------------------------------------------------
 
-DEFAULT_LEVELS=[0.1, 0.5, 0.9]
+DEFAULT_LEVELS=[0.5, 0.9]
 DEFAULT_NUM_POINTS = 25
 DEFAULT_BANDWIDTH = utils.DEFAULT_BANDWIDTH
 DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 12
