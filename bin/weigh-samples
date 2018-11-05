@@ -77,7 +77,7 @@ else:
 
 ### read in target samples
 if args.verbose:
-    print("reading in target samples from: "+source.target)
+    print("reading in target samples from: "+args.target)
 tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
 utils.check_columns(tgtcolumns, args.columns) ### make sure we have the columns we need to
 
@@ -88,14 +88,14 @@ for i, column in enumerate(columns): ### whiten the target data with the same tr
 #-------------------------------------------------
 
 if args.verbose:
-    print('computing weighted KDE at %d samples from %s based on %d samples from %s'%(len(tgtsamples), args.target, len(srcdata), args.source))
+    print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%(len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
 logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*args.bandwidth**2, weights=weights, num_proc=args.num_proc)
 
 if args.verbose:
     print('writing results into: '+args.output)
 
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
-with open(outpath, 'w') as file_obj:
+with open(args.output, 'w') as file_obj:
     print >> file_obj, ','.join(tgtcolumns+['logweights'])
     for sample, logweight in zip(tgtdata, logkde):
         print >> file_obj, template%tuple(list(sample)+[logweight])
