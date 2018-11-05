@@ -299,7 +299,7 @@ w_cent = dict()
 ### iterate and plot
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
-        print('reading samples for %s from: %s'%(eos_columns[label], path))
+        print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
     data, _ = utils.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
 
     weight_column, is_log = weight_columns[label]
