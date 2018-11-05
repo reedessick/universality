@@ -3,6 +3,7 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+from collections import defaultdict
 import numpy as np
 
 #-------------------------------------------------
@@ -225,17 +226,17 @@ def logkde(samples, data, variances, weights=None):
         else:
             Nsamp, Ndim = samples.shape
 
+        Ndata = len(data)
         if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
-            Ndata = len(data)
             weights = np.ones(Ndata, dtype='float')/Ndata
 
         logkdes = np.empty(Nsamp, dtype='float')
         twov = -0.5/variances
+
+        z = np.empty(Ndata, dtype=float)
         for i in xrange(Nsamp):
             sample = samples[i]
-
-            zi = (data-sample)**2 * twov ### shape: (Ndata, Ndim)
-            z = np.sum(zi, axis=1)       ### shape: (Ndata)
+            z[:] = np.sum(np.sum((data-sample)**2 * twov, axis=1))       ### shape: (Ndata, Ndim) -> (Ndata)
 
             ### do this backflip to preserve accuracy
             m = np.max(z)
@@ -267,17 +268,16 @@ def grad_logkde(samples, data, variances, weights=None):
         else:
             Nsamp, Ndim = samples.shape
 
+        Ndata = len(data)
         if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
-            Ndata = len(data)
             weights = np.ones(Ndata, dtype='float')/Ndata
 
         grad_logkdes = np.empty(Nsamp, dtype='float')
         twov = -0.5/variances
+        z = np.empty(Ndata, dtype=float)
         for i in xrange(Nsamp):
             sample = samples[i]
-
-            zi = (data-sample)**2 * twov ### shape: (Ndata, Ndim)
-            z = np.sum(zi, axis=1)       ### shape: (Ndata)
+            z[:] = np.sum((data-sample)**2 * twov, axis=1)  ### shape: (Ndata, Ndim) -> (Ndata)
 
             ### do this backflip to preserve accuracy
             m = np.max(z)
@@ -301,14 +301,61 @@ def grad_logkde(samples, data, variances, weights=None):
 def logvarkde(samples, data, variances, weights=None):
     """
     a wrapper around computing bootstrapped estimates of the variance of the kde
+    delegates to logcovkde
     """
-    raise NotImplementedError
+    return logcovkde((samples, samples), data, variances, weights=weights)
 
-def logcovkde((samples1, samples2), data, variances, weights=None):
+def logcovkde(samples1, samples2, data, variances, weights=None):
     """
     a wrapper around computing bootstrapped estimates of the covariance of the kde (btwn points defined in samples1, samples2)
+
+    return logcovkde(samples1, samples2), logkdes(samples1), logkdes(samples2)
     """
-    raise NotImplementedError
+    assert samples1.shape==samples2.shape, 'samples1 and samples2 must have the same shape!'
+
+    Nsamp = len(samples1)
+    if samples1.ndim not in [1, 2]:
+        raise ValueError('bad shape for samples1')
+    elif samples1.ndim==1:
+        Ndim = 1
+        samples1 = samples1.reshape(Nsamp,1)
+        samples2 = samples2.reshape(Nsamp,1)
+        data = data.reshape((len(data),1))
+    else:
+        Nsamp, Ndim = samples1.shape
+
+    Ndata = len(data)
+    if np.any(weights==None):
+        weights = np.ones(Ndata, dtype=float)/Ndata
+
+    # compute first moments
+    samples = np.array(set(list(samples1)+list(samples2)))
+    logfirst = dict(zip(samples, logkde(samples, data, variances, weights=weights)))
+
+    # compute second moments
+    logsecond = np.empty((Nsamp, 2), dtype=float)
+    twov = -0.5/variances
+
+    z = np.empty(Ndata, dtype=float)
+    for i in xrange(Nsamp):
+        sample1 = samples1[i]
+        sample2 = samples2[i]
+
+        ### compute first moments
+        z[:] = np.sum((data-sample1)**2 * twov, axis=1) + np.sum((data-sample2)**2 * twov, axis=1) ### shape: (Ndata)
+
+        ### do this backflip to preserve accuracy
+        m = np.max(z)
+        logsecond[i,0] = np.log(np.sum(weights*np.exp(z-m))) + m
+
+        logsecond[i,1] = -(logfirst[sample1]+logfirst[sample2]) ### the first-moment terms
+
+    ### subtract off common factors
+    logsecond[:,0] += -Ndim*np.log(2*np.pi) - np.sum(np.log(variances))
+
+    ### manipulate the moments to get the variance
+    logcovkdes = logsecond + np.log(1 - np.exp(logsecond[:,1]-logsecond[:,0]))
+    return logcovkdes, np.array([logfirst[sample] for sample in samples1]), np.array([logfirst[sample] for sample in samples2])
 
 def logleave1outLikelihood(data, variances, weights=None):
     """
