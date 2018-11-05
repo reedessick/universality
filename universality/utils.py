@@ -153,7 +153,7 @@ def quantile(x, quantiles, weights=None):
 def nkde(weights):
     """the number of samples that determine the scaling of the variance of our KDE estimates"""
     weights /= np.sum(weights)
-    return 1./np.sum(weigths**2)
+    return 1./np.sum(weights**2)
 
 def neff(weights):
     """the effective number of samples based on a set of weights"""
