@@ -135,7 +135,7 @@ args.verbose |= args.Verbose
 max_num_samples = dict((label, np.infty) for label in names)
 for label, num in args.max_num_samples:
     assert label in names, 'specifying --max-num-sample for unknown sample set: '+label
-    max_num_samples[label] = num
+    max_num_samples[label] = int(num)
 
 for label in args.weight_column_is_log:
     assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
