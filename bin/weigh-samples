@@ -10,58 +10,64 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('source', type=str)
+parser.add_argument('target', type=str)
+parser.add_argument('output', type=str)
+parser.add_argument('columns', nargs='*', type=str)
 
-parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
-parser.add_option('', '--weight-column', default=None, type='string',
+parser.add_argument('--weight-column', default=None, type=str,
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
-parser.add_option('', '--invert-weight-column', default=False, type='string',
+parser.add_argument('--invert-weight-column', default=False, type=str,
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
 
-parser.add_option('-b', '--bandwidth', default=0.03, type='float',
+parser.add_argument('-b', '--bandwidth', default=0.03, type=float,
     help='the bandwidth (standard deviation) used within the Gaussian KDE over whitened data. \
 DEFAULT=0.03')
 
-opts, args = parser.parse_args()
-assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
-srcpath, tgtpath, outpath = args[:3]
-columns = args[3:]
-Ncol = len(columns)
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='number of processes for parallelized computation of logkde. \
+DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
+
+args = parser.parse_args()
+Ncol = len(args.columns)
 
 #-------------------------------------------------
 
 ### read in source samples
-if opts.verbose:
-    print('reading source samples from: '+srcpath)
-srcdata, columns = utils.load(srcpath, columns, logcolumns=opts.logcolumn)
-srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=opts.verbose) ### whiten data
+if args.verbose:
+    print('reading source samples from: '+args.source)
+srcdata, columns = utils.load(args.source, args.columns, logcolumns=args.logcolumn)
+srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=args.verbose) ### whiten data
 
-if opts.weight_column!=None:
-    if opts.verbose:
-        print('reading in non-trivial weights from: '+srcpath)
-    weights, _ = utils.load(srcpath, [opts.weight_column])
+if args.weight_column!=None:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.source)
+    weights, _ = utils.load(args.source, [args.weight_column])
     weights = weights.flatten()
 
-    if opts.weight_column_is_log:
+    if args.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))
     weights /= np.sum(weights)
 
-    if opts.invert_weight_column:
+    if args.invert_weight_column:
         weights = 1./weights
 
 else:
@@ -70,10 +76,10 @@ else:
 #------------------------
 
 ### read in target samples
-if opts.verbose:
-    print("reading in target samples from: "+tgtpath)
-tgtdata, tgtcolumns = utils.load(tgtpath, logcolumns=opts.logcolumn) ### load in all the columns!
-utils.check_columns(tgtcolumns, columns) ### make sure we have the columns we need to
+if args.verbose:
+    print("reading in target samples from: "+source.target)
+tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
+utils.check_columns(tgtcolumns, args.columns) ### make sure we have the columns we need to
 
 tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
 for i, column in enumerate(columns): ### whiten the target data with the same transformation used for source data
@@ -81,14 +87,15 @@ for i, column in enumerate(columns): ### whiten the target data with the same tr
 
 #-------------------------------------------------
 
-if opts.verbose:
-    print('computing weighted KDE at %d samples from %s based on %d samples from %s'%(len(tgtsamples), tgtpath, len(srcdata), srcpath))
-logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*opts.bandwidth**2, weights=weights)
+if args.verbose:
+    print('computing weighted KDE at %d samples from %s based on %d samples from %s'%(len(tgtsamples), args.target, len(srcdata), args.source))
+logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*args.bandwidth**2, weights=weights, num_proc=args.num_proc)
 
-if opts.verbose:
-    print('writing results into: '+outpath)
+if args.verbose:
+    print('writing results into: '+args.output)
 
+template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(outpath, 'w') as file_obj:
     print >> file_obj, ','.join(tgtcolumns+['logweights'])
     for sample, logweight in zip(tgtdata, logkde):
-        print >> file_obj, ','.join('%9e'%_ for _ in list(sample)+[logweight])
+        print >> file_obj, template%tuple(list(sample)+[logweight])
