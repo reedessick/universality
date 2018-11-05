@@ -150,6 +150,11 @@ def quantile(x, quantiles, weights=None):
         csum = np.cumsum(weights[order])
         return np.array([x[[csum<=q]][-1] for q in quantiles])
 
+def nkde(weights):
+    """the number of samples that determine the scaling of the variance of our KDE estimates"""
+    weights /= np.sum(weights)
+    return 1./np.sum(weigths**2)
+
 def neff(weights):
     """the effective number of samples based on a set of weights"""
     truth = weights > 0
@@ -213,6 +218,10 @@ def reflect(data, bounds, weights=None):
 def logkde(samples, data, variances, weights=None):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples
+
+    estimates kde as sum_i[weight_i * K(sample, data_i)]
+
+    returns log(kde(samples))
     """
     shape = samples.shape
     if len(shape) in [1, 2]:
@@ -309,6 +318,8 @@ def logcovkde(samples1, samples2, data, variances, weights=None):
     """
     a wrapper around computing bootstrapped estimates of the covariance of the kde (btwn points defined in samples1, samples2)
 
+    estimates covariance as sum_i[ weight_i**2 * K(sample1, data_i) * K(sample2, data_i) ] - (1/Ndata)*sum_i[weight_i * K(sample1, data_i)]*sum_j[weight_j * K(sample2, data_j)]
+
     return logcovkde(samples1, samples2), logkdes(samples1), logkdes(samples2)
     """
     assert samples1.shape==samples2.shape, 'samples1 and samples2 must have the same shape!'
@@ -337,6 +348,7 @@ def logcovkde(samples1, samples2, data, variances, weights=None):
     twov = -0.5/variances
 
     z = np.empty(Ndata, dtype=float)
+    w2 = weights**2
     for i in xrange(Nsamp):
         sample1 = samples1[i]
         sample2 = samples2[i]
@@ -346,12 +358,15 @@ def logcovkde(samples1, samples2, data, variances, weights=None):
 
         ### do this backflip to preserve accuracy
         m = np.max(z)
-        logsecond[i,0] = np.log(np.sum(weights*np.exp(z-m))) + m
+        logsecond[i,0] = np.log(np.sum(w2*np.exp(z-m))) + m ### it is important that the weights are squared because we treat the samples as drawn from some prior and
+                                                            ### therefore the weights are random variables that need to be included within the average
+                                                            ### just like we have multiple factors of the kernel
 
-        logsecond[i,1] = -(logfirst[sample1]+logfirst[sample2]) ### the first-moment terms
+        logsecond[i,1] = logfirst[sample1]+logfirst[sample2] ### the first-moment terms
 
     ### subtract off common factors
     logsecond[:,0] += -Ndim*np.log(2*np.pi) - np.sum(np.log(variances))
+    logsecond[:,1] -= np.log(Ndata)
 
     ### manipulate the moments to get the variance
     logcovkdes = logsecond + np.log(1 - np.exp(logsecond[:,1]-logsecond[:,0]))
