@@ -20,7 +20,7 @@ except ImportError:
 
 ### non-standard libraries
 from . import utils
-from .stats import logkde2levels
+from .stats import (logkde2levels, neff)
 
 #-------------------------------------------------
 
@@ -79,7 +79,7 @@ def weights2color(weights, basecolor):
         scatter_color[:,3] = max(min(1., 750./Nsamp), 0.001) ### equal weights
     else:
         scatter_color[:,3] = weights/np.max(weights)
-        scatter_color[:,3] *= 750./utils.neff(weights)
+        scatter_color[:,3] *= 750./neff(weights)
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
         scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
     return scatter_color

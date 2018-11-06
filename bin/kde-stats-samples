@@ -1,0 +1,204 @@
+#!/usr/bin/env python
+
+__doc__ = "generate statistics based on the KDE over these samples"
+__usage__ = "kde_stats_samples [--options] samples.csv column1 [column2 column3...]"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import stats
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('samples', type=str)
+parser.add_argument('columns', nargs='*', type=str)
+
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--weight-column', default=None, type=str,
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+sgroup.add_argument('--weight-column-is-log', default=False, action='store_true',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+cgroup = parser.add_argument_group('column-specific arguments')
+cgroup.add_argument('--logcolumn', default=[], type=str, action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+cgroup.add_argument('--column-range', nargs=3, default=[], action='append', type=str,
+    help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+cgroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
+    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+
+wgroup = parser.add_argument_group('workflow options')
+wgroup.add_argument('--num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
+    help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
+wgroup.add_argument('--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+wgroup.add_argument('--prune', default=False, action='store_true',
+    help='throw away samples that fall outside ranges')
+
+ogroup = parser.add_argument_group('options about what to compute')
+ogroup.add_argument('--one-dim-confidence-region-samples', default=[], type=float, action='append',
+    help='compute the boundaries of the 1D confidence regions using only weighted samples (no KDE) for each column corresponding to this confidence. Can be repeated.')
+ogroup.add_argument('--one-dim-confidence-region', default=[], type=float, action='append',
+    help='compute the boundaries of the 1D confidence regions for each column corresponding to this confidence. Can be repeated.')
+ogroup.add_argument('--one-dim-confidence-region-format4tex', default=False, action='store_true')
+
+ogroup.add_argument('--confidence-region-size', default=[], type=float, action='append',
+    help='compute the confidence region volume for this confidence level [0.0, 1.0]. Can be repeated.')
+
+ogroup.add_argument('--entropy', default=False, action='store_true')
+ogroup.add_argument('--information', default=False, action='store_true')
+
+ogroup.add_argument('--argmax', default=False, action='store_true')
+ogroup.add_argument('--dlogL', default=[], type=str, action='append',
+    help='comma separated list of the parameter values used within dlogL. Can be repeated.')
+ogroup.add_argument('--dtheta', default=[], type=str, action='append',
+    help='comma separated list of the parameter values used within dtheta. Can be repeated.')
+ogroup.add_argument('--confidence-level', default=[], type=str, action='append',
+    help='comma separated list of the parameter values used within dtheta. Can be repeated.')
+
+args = parser.parse_args()
+Ncol = len(args.columns)
+
+# finish parsing
+rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in args.column_range)
+
+args.dlogL = [[float(_) for _ in v.split(',')] for v in args.dlogL]
+args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
+args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
+
+bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
+variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
+
+#-------------------------------------------------
+
+### read in data from csv
+if args.verbose:
+    print('reading samples from: '+args.samples)
+data, columns = utils.load(args.samples, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+
+ranges = []
+for i, col in enumerate(columns):
+    if rangesdict.has_key(col):
+        ranges.append(rangesdict[col])
+    else:
+        ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+
+if args.weight_column!=None:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.source)
+    weights, _ = utils.load(inpath, [args.weight_column], max_num_samples=args.max_num_samples)
+    weights = weights.reshape((len(weights)))
+
+    if args.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype='float')/N
+
+#------------------------
+
+vects = [np.linspace(m, M, args.num_points) for m, M in ranges]
+
+if args.prune:
+    data, weights = utils.prune(data, ranges, weights=weights)
+
+#------------------------
+
+if args.one_dim_confidence_region_samples:
+    args.one_dim_confidence_region_samples.sort()
+    for i, col in enumerate(columns):
+        argmax = data[weights.argmax()]
+        print('%s argmax : %.3e'%(col, argmax))
+        for level, (low, high) in zip(args.one_dim_confidence_region_samples, stats.samples2crbounds(data[i], args.one_dim_confidence_region_saples, weights=weights)):
+            if args.one_dim_confidence_region_format4tex:
+                print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+            else:
+                print('    @%.3f kde region: [%.3e, %.3e]'%(level, low, high))
+
+#------------------------
+
+if args.reflect:
+    data, weights = utils.reflect(data, ranges, weights=weights)
+
+#------------------------
+
+if args.verbose:
+    print('computing 1D statistics')
+
+if args.one_dim_confidence_region:
+    args.one_dim_confidence_region.sort()
+    for i, col in enumerate(columns):
+        _logkde = utils.logkde(vects[i], data[:,i], variances[i], weights=weights)
+        argmax = vects[i][_logkde.argmax()]
+        print('%s argmax : %.3e'%(col, argmax))
+        for level, (low, high) in zip(args.one_dim_confidence_region, stats.logkde2crbounds(vects[i], _logkde, args.one_dim_confidence_region)):
+            if args.one_dim_confidence_region_format4tex:
+                print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+            else:
+                print('    @%.3f kde region: [%.3e, %.3e]'%(level, low, high))
+
+#------------------------
+
+if args.confidence_region_size or args.entropy or args.information or args.argmax or args.dlogL or args.dtheta or args.confidence_level:
+
+    if args.verbose:
+        print('computing %dD kde'%Ncol)
+
+    logkde = utils.logkde(
+        utils.vects2flatgrid(*vects),
+        data,
+        variances,
+        weights=weights,
+    )
+
+    if args.verbose:
+        print('computing statistics')
+
+    if args.confidence_region_size:
+        args.confidence_region_size.sort()
+        for level, vol in zip(args.confidence_region_size, stats.logkde2crsize(vects, logkde, args.confidence_region_size)):
+            print('Volume(CR=%.3f) = %.6e'%(level, vol))
+    
+    if args.entropy:
+        print('H = %.6e'%stats.logkde2entropy(vects, logkde))
+
+    if args.information:
+        print('I = %.6e'%stats.logkde2information(vects, logkde))
+
+    if args.argmax:
+        print('argmax = %s'%(stats.logkde2argmax(vects, logkde)))
+
+    if args.dlogL:
+        maxlogL = np.max(logkde)
+        for point in args.dlogL:
+            print('dlogL(%s) = %.6e'%(point, utils.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
+
+    if args.dtheta:
+        for point in args.dtheta:
+            print('dtheta(%s) = %.6e'%(point, stats.dtheta(point, vects, logkde)))
+
+    if args.confidence_level:
+        for point in args.confidence_level:
+            thr = utils.logkde(np.array([point]), data, variances, weights=weights)
+            print('confidence level(%s) = %.6e'%(point, 1.*np.sum(logkde>=thr)/len(logkde)))

@@ -14,6 +14,7 @@ from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import stats
 
 #-------------------------------------------------
 
@@ -47,7 +48,7 @@ if opts.weight1_column_is_log:
 
 if opts.verbose:
     print('N1    = %5d'%N1)
-    print('N1eff = %9.3f'%utils.neff(weights1/np.sum(weights1)))
+    print('N1eff = %9.3f'%stats.neff(weights1/np.sum(weights1)))
 
 if opts.verbose:
     print('reading samples from: '+inpath2)
@@ -60,7 +61,7 @@ if opts.weight2_column_is_log:
 
 if opts.verbose:
     print('N2    = %5d'%N2)
-    print('N2eff = %9.3f'%utils.neff(weights2/np.sum(weights2)))
+    print('N2eff = %9.3f'%stats.neff(weights2/np.sum(weights2)))
 
 
 #------------------------

@@ -144,27 +144,6 @@ def data2range(data, pad=0.1):
 def vects2flatgrid(*vects):
     return np.transpose([_.flatten() for _ in np.meshgrid(*vects, indexing='ij')])
 
-def quantile(x, quantiles, weights=None):
-    if weights is None:
-        return np.percentile(x, np.array(quantiles)*100)
-
-    else:
-        order = x.argsort()
-        x = x[order]
-        csum = np.cumsum(weights[order])
-        return np.array([x[[csum<=q]][-1] for q in quantiles])
-
-def nkde(weights):
-    """the number of samples that determine the scaling of the variance of our KDE estimates"""
-    weights /= np.sum(weights)
-    return 1./np.sum(weights**2)
-
-def neff(weights):
-    """the effective number of samples based on a set of weights"""
-    truth = weights > 0
-    weights /= np.sum(weights)
-    return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
-
 def prune(data, bounds, weights=None):
     """
     downselect data to only contain samples that lie within bounds

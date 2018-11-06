@@ -7,6 +7,27 @@ import numpy as np
 
 #-------------------------------------------------
 
+def quantile(x, quantiles, weights=None):
+    if weights is None:
+        return np.percentile(x, np.array(quantiles)*100)
+
+    else:
+        order = x.argsort()
+        x = x[order]
+        csum = np.cumsum(weights[order])
+        return np.array([x[[csum<=q]][-1] for q in quantiles])
+
+def nkde(weights):
+    """the number of samples that determine the scaling of the variance of our KDE estimates"""
+    weights /= np.sum(weights)
+    return 1./np.sum(weights**2)
+
+def neff(weights):
+    """the effective number of samples based on a set of weights"""
+    truth = weights > 0
+    weights /= np.sum(weights)
+    return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
+
 def logkde2levels(logkde, levels):
     logkde = logkde.flatten()
     kde = np.exp(logkde-np.max(logkde))
@@ -32,6 +53,31 @@ def vects2vol(vects):
     find approximate volume element
     """
     return np.prod([vect[1]-vect[0] for vect in vects])
+
+def samples2crbounds(data, levels, weights=None):
+    """
+    expects 1D data and returns the smallest confidence region that contains a certain amount of the cumulative weight
+    returns a single confidence region
+    """
+    N = len(data)
+    if weights is None:
+        weights = np.ones(N, dtype=float)/N
+
+    order = data.argsort()
+    data = data[order]
+    weights = weights[order]
+
+    truth = np.zeros(N, dtype=bool)
+    bounds = []
+    i = 0
+    weights_order = weights.argsort()
+    for level in levels:
+        while (np.sum(weights[truth]) < level) and (i < N):
+            truth[weights_order[i]] = True # iterate through weights, adding more samples until we reach this confidence level
+            i += 1
+        bounds.append( (data[truth][0], data[truth][-1]) ) ### now that we have at least as much weight as we wanted, we dig out the bounds from the samples
+
+    return bounds
 
 def logkde2crbounds(vect, logkde, levels):
     """

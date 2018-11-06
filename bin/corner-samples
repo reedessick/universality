@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 ### non-standard libraries
 from universality import utils
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -208,7 +209,7 @@ for ind, (label, path) in enumerate(args.samples):
     if args.legend:
         legend = label
         if args.include_neff:
-            legend = legend+": $N_\mathrm{eff} = %.1f$"%utils.neff(weights)
+            legend = legend+": $N_\mathrm{eff} = %.1f$"%stats.neff(weights)
         fig.text(0.60, 0.90-ind*0.05, legend, color=colors[label], ha='left', va='top')
 
 ### save

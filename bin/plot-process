@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 ### non-standard libraries
 from universality import utils
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -365,8 +366,8 @@ for ind, (label, path) in enumerate(args.samples):
 
     ### compute the quantiles
     for i in xrange(args.num_points):
-        y[ind,:,i] = utils.quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
-        y_median[ind,i] = utils.quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
+        y[ind,:,i] = stats.quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
+        y_median[ind,i] = stats.quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
 
 
 ### load in reference curves

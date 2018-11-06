@@ -13,6 +13,7 @@ from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import stats
 
 #-------------------------------------------------
 
@@ -79,4 +80,4 @@ for inpath in args:
     if opts.prune:### throw away data that's outside the bounds
         data, weights = utils.prune(data, ranges, weights=weights)
 
-    print(ROW%(len(weights), utils.neff(weights), utils.nkde(weights), inpath))
+    print(ROW%(len(weights), stats.neff(weights), stats.nkde(weights), inpath))
