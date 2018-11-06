@@ -86,7 +86,7 @@ args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
 args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
 
 bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
+variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns])**2
 
 #-------------------------------------------------
 
@@ -104,8 +104,8 @@ for i, col in enumerate(columns):
 
 if args.weight_column!=None:
     if args.verbose:
-        print('reading in non-trivial weights from: '+args.source)
-    weights, _ = utils.load(inpath, [args.weight_column], max_num_samples=args.max_num_samples)
+        print('reading in non-trivial weights from: '+args.samples)
+    weights, _ = utils.load(args.samples, [args.weight_column], max_num_samples=args.max_num_samples)
     weights = weights.reshape((len(weights)))
 
     if args.weight_column_is_log:
@@ -127,10 +127,9 @@ if args.prune:
 
 if args.one_dim_confidence_region_samples:
     args.one_dim_confidence_region_samples.sort()
-    for i, col in enumerate(columns):
-        argmax = data[weights.argmax()]
-        print('%s argmax : %.3e'%(col, argmax))
-        for level, (low, high) in zip(args.one_dim_confidence_region_samples, stats.samples2crbounds(data[i], args.one_dim_confidence_region_saples, weights=weights)):
+    for i, (col, argmax) in enumerate(zip(columns, data[weights.argmax()])):
+        print('%s argmax : %.3e (min=%.3e, max=%.3e)'%(col, argmax, np.min(data[:,i]), np.max(data[:,i])))
+        for level, (low, high) in zip(args.one_dim_confidence_region_samples, stats.samples2crbounds(data[:,i], args.one_dim_confidence_region_samples, weights=weights)):
             if args.one_dim_confidence_region_format4tex:
                 print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
             else:

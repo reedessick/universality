@@ -57,25 +57,40 @@ def vects2vol(vects):
 def samples2crbounds(data, levels, weights=None):
     """
     expects 1D data and returns the smallest confidence region that contains a certain amount of the cumulative weight
-    returns a single confidence region
+    returns a contiguous confidence region for level
+    does this by trying all possible regions (defined by data's sampling) that have at least as much cumulative weight as each level and selecting the smallest
     """
     N = len(data)
+    stop = N-1
     if weights is None:
         weights = np.ones(N, dtype=float)/N
 
     order = data.argsort()
     data = data[order]
     weights = weights[order]
+    cweights = np.cumsum(weights)/np.sum(weights)
 
-    truth = np.zeros(N, dtype=bool)
+    # perform a direct search over confidence bands, looking for the smallest one at each level
     bounds = []
-    i = 0
-    weights_order = weights.argsort()
     for level in levels:
-        while (np.sum(weights[truth]) < level) and (i < N):
-            truth[weights_order[i]] = True # iterate through weights, adding more samples until we reach this confidence level
-            i += 1
-        bounds.append( (data[truth][0], data[truth][-1]) ) ### now that we have at least as much weight as we wanted, we dig out the bounds from the samples
+        i = 0
+        j = 0
+        best = None
+        best_size = np.infty
+        while (i < stop):
+            while (j < stop) and (cweights[j]-cweights[i] < level): ### make the region big enough to get the confidence we want
+                j += 1
+
+            if cweights[j] - cweights[i] < level: ### too small!
+                break
+
+            size = data[j]-data[i]
+            if size < best_size:
+                best_size = size
+                best = (data[i], data[j])
+            i += 1 # increment starting point and then repeat
+
+        bounds.append( best )
 
     return bounds
 
