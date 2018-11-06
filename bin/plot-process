@@ -298,6 +298,10 @@ y_cent = dict()
 w_cent = dict()
 
 ### iterate and plot
+if args.legend and args.include_neff:
+    neff = []
+    nkde = []
+
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
@@ -322,6 +326,10 @@ for ind, (label, path) in enumerate(args.samples):
     data, weights = utils.prune(data, [(-np.infty, +np.infty)], weights=weights)
     data = data[:,0]
     N = len(data)
+
+    if args.legend and args.include_neff:
+        neff.append(stats.neff(weights))
+        nkde.append(stats.nkde(weights))
 
     #--------------------
 
@@ -368,7 +376,6 @@ for ind, (label, path) in enumerate(args.samples):
     for i in xrange(args.num_points):
         y[ind,:,i] = stats.quantile(y_test[:,i], quantiles, weights=weights)     ### compute quantiles
         y_median[ind,i] = stats.quantile(y_test[:,i], [0.5], weights=weights)[0] ### compute median
-
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -419,6 +426,24 @@ for ind, label in enumerate(names):
             ax_res.plot(x_test, np.interp(x_test, x, y)/y_reference, color=reference_colors[ref_label])
 
 ### decorate
+
+# add legend
+if args.legend:
+    if Nsamples==1:
+        placement = [0.5]
+    else:
+        placement = np.linspace(plot.MAIN_AXES_POSITION[0], plot.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], Nsamples) 
+    for i, (placement, label) in enumerate(zip(placement, names)):
+        legend = label
+        if args.include_neff:
+            legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(neff[i], nkde[i])
+        if placement < 0.5:
+            ha='left'
+        elif placement==0.5:
+            ha='center'
+        else:
+            ha='right'
+        fig.text(placement, plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3], legend, color=colors[label], ha=ha, va='bottom')
 
 # scaling, etc
 if args.xcolumn in args.logcolumn:
@@ -549,14 +574,6 @@ if args.residuals or args.ratios:
             y = value/np.ones_like(y_reference)
         ax_res.plot(x, y, color=args.signpost_color)
     ax_res.set_xlim(xlim)
-
-# add legends
-if args.legend:
-
-    raise NotImplementedError('need to figure out how to add legends to these plots')
-
-    if args.include_neff:
-        raise NotImplementedError('need to include Neff estimates in legend somehow...')
 
 # set labels
 ax.set_ylabel(labels[args.ycolumn])
