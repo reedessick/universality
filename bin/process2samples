@@ -42,8 +42,6 @@ sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
 sgroup.add_argument('--weight-column', default=None, type=str,
     help='if provided, thie numerical values from this column will be used as weights')
-sgroup.add_argument('--weight-column-is-log', default=False, action='store_true',
-    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -55,7 +53,7 @@ lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
 args = parser.parse_args()
 
 ### finish parsing
-Ncol = len(columns)
+Ncol = len(args.columns)
 Nref = len(args.reference_value)
 args.reference_value.sort()
 
@@ -78,25 +76,22 @@ if args.weight_column is not None:
     weights, _ = utils.load(args.inpath, [args.weight_column], max_num_samples=args.max_num_samples)
     weights = weights.reshape((len(weights)))
 
-    if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
-
-else:
-    weights = np.ones(N, dtype='float')/N
-
 #------------------------
 
 if args.verbose:
     print('extacting data at reference values')
-ans = np.empty((N, Nref*Ncol), dtype=float)
+
+if args.weight_column is not None:
+    ans = np.empty((N, Nref*Ncol+1), dtype=float)
+    ans[:,-1] = weights
+
+else:
+    ans = np.empty((N, Nref*Ncol), dtype=float)
 
 loadcolumns = [args.reference]+args.columns
 refind = loadcolumns.index(args.reference)
 path_template = os.path.join(args.eos_dir, args.eos_basename)
-col_template = '%s(%s=%s)'
 
-outcols = []
 for i, eos in enumerate(data):
     path = path_template%eos
     if args.Verbose:
@@ -104,8 +99,14 @@ for i, eos in enumerate(data):
     d, c = utils.load(path, loadcolumns)
 
     for j, column in enumerate(c[1:]):
-        outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
         ans[i,j*Nref:(j+1)*Nref] = np.interp(args.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
+
+col_template = '%s(%s=%s)'
+outcols = []
+for col in args.columns:
+    outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
+if args.weight_column is not None:
+    outcols.append(args.weight_column)
 
 #------------------------
 
