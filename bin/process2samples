@@ -103,7 +103,7 @@ for i, eos in enumerate(data):
 
 col_template = '%s(%s=%s)'
 outcols = []
-for col in args.columns:
+for column in args.columns:
     outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
 if args.weight_column is not None:
     outcols.append(args.weight_column)
