@@ -2,7 +2,7 @@
 
 __doc__ = "a script that estimates the evidence based on the samples within inpath.csv"
 __author__ = "reed.essick@ligo.org"
-__usage__ = "estimate_evidence [--options] inpath.csv weightcolumn"
+__usage__ = "estimate-evidence [--options] inpath.csv weightcolumn"
 
 #-------------------------------------------------
 
