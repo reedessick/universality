@@ -14,6 +14,7 @@ from optparse import OptionParser
 
 ### non-standard libraries
 from universality import utils
+from universality import stats
 
 #-------------------------------------------------
 
@@ -44,7 +45,7 @@ if opts.weight_column_is_log:
 
 if opts.verbose:
     print('N    = %5d'%N)
-    print('Neff = %9.3f'%utils.neff(weights/np.sum(weights)))
+    print('Neff = %9.3f'%stats.neff(weights/np.sum(weights)))
 
 #------------------------
 
