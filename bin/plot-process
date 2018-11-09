@@ -284,7 +284,7 @@ if args.residuals or args.ratios:
     ax = fig.add_axes(plot.MAIN_AXES_POSITION)
     ax_res = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
 else:
-    ax = fig.gca()
+    ax = fig.add_axes(plot.AXES_POSITION)
 
 if args.xcolumn in args.logcolumn:
     x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
@@ -585,7 +585,7 @@ if args.residuals or args.ratios:
     if args.ratios:
         ax_res.set_ylabel('%s/%s'%(labels[args.ycolumn], y_reference_label))
 else:
-    ax.set_xlabel(labels[xcolumn])
+    ax.set_xlabel(labels[args.xcolumn])
 
 # save
 plot.save('plot-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
