@@ -11,12 +11,15 @@ from scipy import optimize
 
 #-------------------------------------------------
 
-__default_num__ = 101
-__default_num_walkers__ = 50
-__default_method__ = 'BFGS'
-__default_tol__ = None
+DEFAULT_NUM_WALKERS = 50
 
-__samples_dtype__ = [('sigma','float'), ('l','float'), ('sigma_obs','float'), ('logLike','float')]
+DEFAULT_NUM_MCMC = 101
+DEFAULT_NUM_STRIP = 0
+
+DFEAULT_METHOD = 'BFGS'
+DEFAULT_TOL = None
+
+SAMPLES_DTYPE = [('sigma','float'), ('l','float'), ('sigma_obs','float'), ('logLike','float')]
 
 #-------------------------------------------------
 ### methods useful for a basic squared-exponential kernel
@@ -112,9 +115,9 @@ def logLike_grid(
         (min_sigma, max_sigma),
         (min_l, max_l),
         (min_sigma_obs, max_sigma_obs),
-        num_sigma=__default_num__,
-        num_l=__default_num__,
-        num_sigma_obs=__default_num__,
+        num_sigma=gp.DEFAULT_NUM,
+        num_l=gp.DEFAULT_NUM,
+        num_sigma_obs=gp.DEFAULT_NUM,
         sigma_prior='log',
         sigma_obs_prior='log',
         l_prior='lin',
@@ -156,7 +159,7 @@ def logLike_grid(
     ### iterate over grid points and copmute logLike for each
     return np.array(
         [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
-        dtype=__samples_dtype__,
+        dtype=SAMPLES_DTYPE,
     )
 
 def logLike_mcmc(
@@ -165,8 +168,8 @@ def logLike_mcmc(
         (min_sigma, max_sigma),
         (min_l, max_l),
         (min_sigma_obs, max_sigma_obs),
-        num_samples=__default_num__,
-        num_walkers=__default_num_walkers__,
+        num_samples=gp.DEFAULT_NUM,
+        num_walkers=DEFAULT_NUM_WALKERS,
         sigma_prior='log',
         sigma_obs_prior='log',
         l_prior='lin',
@@ -219,7 +222,7 @@ def logLike_mcmc(
 
     return np.array(
         [(sigma[i,j], l[i,j], sigma_obs[i,j], lnprob[i,j]) for j in xrange(num_samples) for i in xrange(num_walkers)],
-        dtype=__samples_dtype__,
+        dtype=SAMPLES_DTYPE,
     )
 
 def logLike_maxL(
@@ -228,8 +231,8 @@ def logLike_maxL(
         (min_sigma, max_sigma),
         (min_l, max_l),
         (min_sigma_obs, max_sigma_obs),
-        method=__default_method__,
-        tol=__default_tol__,
+        method=DFEAULT_METHOD,
+        tol=DEFAULT_TOL,
         degree=1,
     ):
     '''
@@ -269,5 +272,5 @@ def logLike_maxL(
     sigma, l, sigma_obs = res.x
     return np.array(
         [(sigma, l, sigma_obs, -foo(res.x))],
-        dtype=__samples_dtype__,
+        dtype=SAMPLES_DTYPE,
     )

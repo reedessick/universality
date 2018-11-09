@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "gpr_foo [--options] x_column y_column x_test.csv eos.csv [eos.csv eos.csv ...]"
 __doc__ = "a script that compute the conditioned Gaussian process given the set of observed data"
 __author__ = "reed.essick@ligo.org"
 
@@ -10,7 +9,7 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -18,143 +17,150 @@ from universality import gaussianprocess as gp
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+### required argumnets
+rgroup = parser.add_argument_group('required options')
+rgroup.add_argument('xcolumn', type=str)
+rgroup.add_argument('ycolumn', type=str)
+rgroup.add_argument('xtestpath', type=str, help='path to file containing x_test points')
+rgroup.add_argument('eospaths', nargs="*", type=str)
 
-#--- data pre-conditioning
-parser.add_option('', '--log-x', default=False, action='store_true',
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### data pre-conditioning
+pgroup = parser.add_argument_group('pre-conditioning options')
+pgroup.add_argument('--log-x', default=False, action='store_true',
     help='fit using log(x_column) instead of x_column')
-parser.add_option('', '--log-y', default=False, action='store_true',
+pgroup.add_argument('--log-y', default=False, action='store_true',
     help='fit using log(y_column) instead of y_column')
 
-parser.add_option('', '--poly-degree', default=1, type='int',
+pgroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
     help='the order of the polynomial fit used to model data before feeding to GP subroutines. \
 This essentially serves as the "mean" of the fit about which the GP models variations. \
-DEFAULT=1')
+DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
 
-parser.add_option('', '--min-x', default=-np.infty, type='float',
+pgroup.add_argument('--min-x', default=-np.infty, type=float,
     help='only use data above this value. \
 DEFAULT=-inf')
-parser.add_option('', '--max-x', default=+np.infty, type='float',
+pgroup.add_argument('--max-x', default=+np.infty, type=float,
     help='only use data below this value. \
 DEFAULT=+inf')
 
-parser.add_option('', '--min-y', default=-np.infty, type='float',
+pgroup.add_argument('--min-y', default=-np.infty, type=float,
     help='only use data above this value. \
 DEFAUL=+inf')
-parser.add_option('', '--max-y', default=+np.infty, type='float',
+pgroup.add_argument('--max-y', default=+np.infty, type=float,
     help='only use data below this value. \
 DEFAUL=+inf')
 
-#--- sampling logic
+### sampling logic
+ggroup = parser.add_argument_group('Gaussian Process options')
+
 ### FIXME: 
 ###   want to figure out a way to fairly resample the data so that each EOS is equally weighted in the resulting process?
 ###   If one EOS has more entries in it's table than another, we should not weight it more!
-parser.add_option('', '--resample-input', default=False, action='store_true',
-    help='NOT IMPLEMENTED')
+#parser.add_argument('--resample-input', default=False, action='store_true',
+#    help='NOT IMPLEMENTED')
 
-#--- Gaussian Process hyper-parameters
-parser.add_option('', '--sigma', default=gp.__default_sigma__, type='float',
+# Gaussian Process hyper-parameters
+ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_sigma__)
-parser.add_option('', '--l', default=gp.__default_l__, type='float',
+DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
+ggroup.add_argument('-l', '--length_scale', dest='l', default=gp.DEFAULT_L, type=float,
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_l__)
-parser.add_option('', '--sigma_obs', default=gp.__default_sigma__, type='float',
+DEFAULT=%.3e'%gp.DEFAULT_L)
+ggroup.add_argument('-S', '--sigma_obs', default=gp.DEFAULT_SIGMA, type=float,
     help='hyperparameter for Gaussian Process. \
-DEFAULT=%.3e'%gp.__default_sigma__)
+DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
 
-#--- output formatting
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
+### output formatting
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
 
-opts, args = parser.parse_args()
-assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
-xcol, ycol = columns = args[:2]
-xtestpath = args[2]
-paths = args[3:]
+args = parser.parse_args()
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+if args.tag:
+    args.tag = "_"+args.tag
 
 #-------------------------------------------------
 
 ### read in data and add it to a cumulative (unordered) set
-if opts.verbose:
+if args.verbose:
     print('reading in eos data')
 Xobs = np.array([])
 Yobs = np.array([])
-for path in paths:
-    if opts.verbose:
+for path in args.eospaths:
+    if args.verbose:
         print('reading: '+path)
     data, _ = utils.load(path, columns)
     x = data[:,0]
     y = data[:,1]
 
-    ### FIXME: need to insert some logic here...
-    if opts.resample_input:
-        raise NotImplementedError, 'need to set up some logic to resample the input so each EOS has equal representation in the resulting GP (equal number of input data points'
+    ### FIXME: need to insert some resampling logic here...
 
-    truth = (opts.min_x<=x)*(x<=opts.max_x)*(opts.min_y<=y)*(y<=opts.max_y)
+    truth = (args.min_x<=x)*(x<=args.max_x)*(args.min_y<=y)*(y<=args.max_y)
     if np.any(truth):
         Xobs = np.concatenate((Xobs, x[truth]))
         Yobs = np.concatenate((Yobs, y[truth]))
     else:
-        if opts.verbose:
-            print('    no data found with x in [%.3e, %.3e] and y in [%.3e, %.3e]! skipping this eos'%(opts.min_x, opts.max_x, opts.min_y, opts.max_y))
+        if args.verbose:
+            print('    no data found with x in [%.3e, %.3e] and y in [%.3e, %.3e]! skipping this eos'%(args.min_x, args.max_x, args.min_y, args.max_y))
         continue ### skip this eos
 
 ### read in the evaluation points from x_test.csv
-if opts.verbose:
-    print('reading test points from: '+xtestpath)
-Xtest, _ = utils.load(xtestpath, [xcol])
+if args.verbose:
+    print('reading test points from: '+args.xtestpath)
+Xtest, _ = utils.load(args.xtestpath, [args.xcolumn])
 Xtest = Xtest[:,0]
 
 #-------------------------------------------------
 
 ### transform data as needed
-if opts.verbose:
+if args.verbose:
     print('precondidtioning data')
 
 # take logs of data if requested
 labels = []
-if opts.log_x:
+if args.log_x:
     Xobs = np.log(Xobs)
-    labels.append('log'+xcol)
+    labels.append('log'+args.xcolumn)
 else:
-    labels.append(xcol)
+    labels.append(args.xcolumn)
 
-if opts.log_y:
+if args.log_y:
     Yobs = np.log(Yobs)
-    labels.append('log'+ycol)
+    labels.append('log'+args.ycolumn)
 else:
-    labels.append(ycol)
+    labels.append(args.ycolumn)
 
-if opts.log_x:
+if args.log_x:
     Xtest = np.log(Xtest)
 
 # fit a polynomial to the data
-poly = np.polyfit(Xobs, Yobs, opts.poly_degree)
+poly = np.polyfit(Xobs, Yobs, args.poly_degree)
 Y_mean = np.zeros_like(Yobs, dtype='float')
 Y_test = np.zeros_like(Xtest, dtype='float')
-for i in xrange(opts.poly_degree+1):
+for i in xrange(args.poly_degree+1):
     Y_mean += poly[-1-i]*Xobs**i
     Y_test += poly[-1-i]*Xtest**i
 
 #-------------------------------------------------
 
 ### now, GPR the data!
-if opts.verbose:
+if args.verbose:
     print('computing conditioned process for %s as a function of %s'%tuple(labels[::-1]))
     print('using %d observed points and %d test points'%(len(Xobs), len(Xtest)))
-mean, cov = gp.gpr_f(Xtest, Yobs-Y_mean, Xobs, sigma2=opts.sigma**2, l2=opts.l**2, sigma2_obs=opts.sigma_obs**2)
+mean, cov = gp.gpr_f(Xtest, Yobs-Y_mean, Xobs, sigma2=args.sigma**2, l2=args.l**2, sigma2_obs=args.sigma_obs**2)
 mean += Y_test ### add back in the mean you've subtracted
 
-pklpath = os.path.join(opts.output_dir, 'gpr_foo-%s-%s%s.pkl'%tuple(labels+[opts.tag]))
-if opts.verbose:
+pklpath = os.path.join(args.output_dir, 'gpr_foo-%s-%s%s.pkl'%tuple(labels+[args.tag]))
+if args.verbose:
     print('writing process to: '+pklpath)
 gp.pkldump(pklpath, labels[0], labels[1], Xtest, mean, cov)

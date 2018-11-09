@@ -400,4 +400,207 @@ def curve_corner(
 
 #-------------------------------------------------
 
-### FIXME: move all the sanity-check plots from within executables to in here...
+def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs):
+    '''
+    a helper function for plotting regressions as a way to sanity check results
+    '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
+    fig = plt.figure()
+    foo = fig.add_axes([0.13, 0.30, 0.85, 0.65]) ### the actual data
+    res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
+
+    ### plot the regression
+    std *= 3 ### plot 3 sigma regions
+    foo.fill_between(x_tst, f_tst-std_tst, f_tst+std_tst, color='grey', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
+
+    ylim = foo.get_ylim()
+
+    res.fill_between(x_tst, -std_tst/f_tst, +std_tst/f_tst, color='grey', alpha=0.5)
+    res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
+
+    ### iterate through observed data and overlay
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+
+        s *= 3 ### plot 3-sigma region
+        foo.fill_between(x, f+s, f-s, alpha=0.1, color=color)
+
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        f = f[truth]
+        f_int = np.interp(x, x_tst, f_tst)
+        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        res.fill_between(x, f_int-f-s, f_int-f+s, alpha=0.1, color=color)
+
+    foo.set_ylim(ylim)
+
+    ### decorate
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    foo.set_ylim(ylim)
+
+    res.set_xlabel('$x$')
+    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    foo.set_ylabel('$f$')
+
+    return fig, (foo, res)
+
+def big_sanity_check(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, x_obs, f_obs):
+    '''
+    a basic set of plots for sanity-checking the regression
+    '''
+    xmin = np.min(x_tst)
+    xmax = np.max(x_tst)
+
+    zeros = np.zeros_like(x_tst, dtype='int')
+
+    ### compute dfdx_obs and phi_obs
+    dfdx_obs = []
+    phi_obs = []
+    for x, f in zip(x_obs, f_obs):
+
+        # numerically estimate df/dx
+        dfdx = gp.num_dfdx(x, f)
+        dfdx_obs.append(dfdx) # add to list
+
+        # compute phi = np.log(np.exp(f)/np.exp(x) * dfdx - 1)
+        phi_obs.append( np.log(np.exp(f)/np.exp(x)*dfdx - 1) )
+
+    ### set up figures and axes
+    fig = plt.figure(figsize=(18,6))
+
+    foo = plt.subplot(2,3,1) # the function itself
+    res = plt.subplot(2,3,4) # the residual between GPR and the function
+
+    doo = plt.subplot(2,3,2) # derivative of the function
+    des = plt.subplot(2,3,5) # residual in derivative of the function
+
+    phi = plt.subplot(2,3,3) # phi = log(df/dx - 1)
+    pes = plt.subplot(2,3,6) # residuals of phi
+
+    plt.subplots_adjust(
+        hspace=0.02,
+        wspace=0.2,
+        left=0.08,
+        right=0.99,
+        bottom=0.10,
+        top=0.90,
+    )
+
+    ### plot the regression
+    std_f *= 3 ### plot 3-sigma region
+    foo.fill_between(x_tst, f_tst-std_f, f_tst+std_f, color='grey', alpha=0.5)
+    foo.plot(x_tst, f_tst, color='k')
+
+#    res.fill_between(x_tst, -std_f/f_tst, +std_f/f_tst, color='grey', alpha=0.5)
+    res.fill_between(x_tst, -std_f, +std_f, color='grey', alpha=0.5)
+    res.plot(x_tst, zeros, color='k')
+
+    ylim = foo.get_ylim(), 2*np.array(res.get_ylim())
+
+    # iterate and overlay data
+    for x, f in zip(x_obs, f_obs):
+        color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        f = f[truth]
+        f_int = np.interp(x, x_tst, f_tst)
+#        res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        res.plot(x, f_int-f, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    foo.set_ylim(ylim[0])
+    res.set_ylim(ylim[1])
+
+    # decorate regression
+    plt.setp(foo.get_xticklabels(), visible=False)
+
+    for ax in [foo, res]:
+      ax.set_xlim(xmin=xmin, xmax=xmax)
+      ax.grid(True, which='both')
+
+    res.set_xlabel('$x$')
+#    res.set_ylabel(r'$(f_\ast-f)/f_\ast$')
+    res.set_ylabel(r'$f_\ast-f$')
+    foo.set_ylabel('$f$')
+
+    ### plot the regression of dfdx
+    std_dfdx *= 3 ### plot 3-sigma region
+    doo.fill_between(x_tst, dfdx_tst+std_dfdx, dfdx_tst-std_dfdx, color='grey', alpha=0.5)
+    doo.plot(x_tst, dfdx_tst, color='k')
+
+#    des.fill_between(x_tst, -std_dfdx/dfdx_tst, +std_dfdx/dfdx_tst, color='grey', alpha=0.5)
+    des.fill_between(x_tst, -std_dfdx, +std_dfdx, color='grey', alpha=0.5)
+    des.plot(x_tst, zeros, color='k')
+
+    ylim = doo.get_ylim(), 2*np.array(des.get_ylim())
+
+    # iterate and overlay data
+    for x, dfdx in zip(x_obs, dfdx_obs):
+        color = doo.plot(x, dfdx, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        dfdx = dfdx[truth]
+        f_int = np.interp(x, x_tst, dfdx_tst)
+#        des.plot(x, (f_int-dfdx)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        des.plot(x, f_int-dfdx, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    doo.set_ylim(ylim[0])
+    des.set_ylim(ylim[1])
+
+    # decorate regression of dfdx
+    plt.setp(doo.get_xticklabels(), visible=False)
+
+    for ax in [doo, des]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    des.set_xlabel('$x$')
+#    des.set_ylabel(r'$([df/dx]_\ast - [df/dx])/[df/dx]_\ast$')
+    des.set_ylabel(r'$[df/dx]_\ast - [df/dx]$')
+    doo.set_ylabel('df/dx')
+
+    ### plot the regression for phi
+    std_phi *= 3 ### plot 3-sigma region
+    phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
+    phi.plot(x_tst, mean_phi, color='k')
+
+#    pes.fill_between(x_tst, +std_phi/mean_phi, -std_phi/mean_phi, color='grey', alpha=0.5)
+    pes.fill_between(x_tst, +std_phi, -std_phi, color='grey', alpha=0.5)
+    pes.plot(x_tst, zeros, color='k')
+
+    ylim = phi.get_ylim(), 2*np.array(pes.get_ylim())
+
+    # iterate over data
+    for x, p in zip(x_obs, phi_obs):
+        color = phi.plot(x, p, '.-', alpha=0.5)[0].get_color()
+        truth = (xmin<=x)*(x<=xmax)
+        x = x[truth]
+        p = p[truth]
+        f_int = np.interp(x, x_tst, phi_tst)
+#        pes.plot(x, (f_int-p)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+        pes.plot(x, (f_int-p), '.-', color=color, alpha=0.5) ### plot the residual at the observed points
+
+    phi.set_ylim(ylim[0])
+    pes.set_ylim(ylim[1])
+
+    # decorate regression of phi
+    plt.setp(phi.get_xticklabels(), visible=False)
+
+    for ax in [phi, pes]:
+        ax.set_xlim(xmin=xmin, xmax=xmax)
+        ax.grid(True, which='both')
+
+    pes.set_xlabel('$x$')
+#    pes.set_ylabel(r'$(\phi_\ast - \phi)/\phi_\ast$')
+    pes.set_ylabel(r'$(\phi_\ast - \phi)$')
+    phi.set_ylabel('$\phi$')
+
+    ### return
+    return fig, (foo, res), (doo, des), (phi, pes)

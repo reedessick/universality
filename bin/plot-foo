@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "plot_foo [--options] x_column y_column gpr_foo.pkl eos.csv [eos.csv eos.csv ...]"
 __doc__ = "a script that plots the result of gpr_foo"
 __author__ = "reed.essick@ligo.org"
 
@@ -11,7 +10,7 @@ import pickle
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -20,51 +19,60 @@ from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+### required options
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('xcolumn', type=str)
+rgroup.add_argument('ycolumn', type=str)
+rgroup.add_argument('pklpath', type=str)
+rgroup.add_argument('eospaths', nargs='*', type=str)
 
-#--- data pre-conditioning
-parser.add_option('', '--log-x', default=False, action='store_true',
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### data pre-conditioning
+pgroup = parser.add_argument_group('pre-conditioning options')
+pgroup.add_argument('--log-x', default=False, action='store_true',
     help='fit using log(x_column) instead of x_column')
-parser.add_option('', '--log-y', default=False, action='store_true',
+pgroup.add_argument('--log-y', default=False, action='store_true',
     help='fit using log(y_column) instead of y_column')
 
-parser.add_option('', '--poly-degree', default=None, type='int',
+pgroup.add_argument('--poly-degree', default=None, type=int,
     help='the order of the polynomial fit used to model data before plotting. \
 This essentially serves as the "mean" of the fit about which the GP models variations. \
 DEFAULT=No fit applied')
 
-parser.add_option('', '--min-x', default=None, type='float',
+pgroup.add_argument('--min-x', default=None, type=float,
     help='only plot data above this value.')
-parser.add_option('', '--max-x', default=None, type='float',
+pgroup.add_argument('--max-x', default=None, type=float,
     help='only plot data below this value.')
 
-parser.add_option('', '--min-y', default=None, type='float',
+pgroup.add_argument('--min-y', default=None, type=float,
     help='only plot data above this value.')
-parser.add_option('', '--max-y', default=None, type='float',
+pgroup.add_argument('--max-y', default=None, type=float,
     help='only plot data below this value.')
 
-#--- output formatting
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
-parser.add_option('--figtype', default=[], type='string', action='append')
-parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
+### output formatting
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
-opts, args = parser.parse_args()
-assert len(args)>3, 'please supply at least 4 input arguments\n%s'%__usage__
-xcol, ycol = columns = args[:2]
-pklpath = args[2]
-paths = args[3:]
+args = parser.parse_args()
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+xcol, ycol = columns = args.xcolumn, args.ycolumn
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
-if not opts.figtype:
-    opts.figtype = plot.DEFAULT_FIGTYPES
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
 
 #-------------------------------------------------
 
@@ -75,9 +83,9 @@ ax = fig.gca()
 #------------------------
 
 ### read in process from pkl
-if opts.verbose:
-    print('reading process from: '+pklpath)
-with open(pklpath, 'r') as file_obj:
+if args.verbose:
+    print('reading process from: '+args.pklpath)
+with open(args.pklpath, 'r') as file_obj:
     labels = pickle.load(file_obj)
     Xtest = pickle.load(file_obj)
     mean = pickle.load(file_obj)
@@ -85,27 +93,27 @@ with open(pklpath, 'r') as file_obj:
     std = np.diag(cov)**0.5
 
 # sanity check data for consistency
-if opts.log_x:
+if args.log_x:
     assert labels[0] == 'log'+xcol
 else:
     assert labels[0] == xcol
 
-if opts.log_y:
+if args.log_y:
     assert labels[1] == 'log'+ycol
 else:
     assert labels[1] == ycol
 
 # precondition data if needed
-if opts.poly_degree!=None:
-    poly = np.polyfit(Xtest, mean, opts.poly_degree)
+if args.poly_degree!=None:
+    poly = np.polyfit(Xtest, mean, args.poly_degree)
     mean_fit = np.zeros_like(mean, dtype='float')
-    for i in xrange(opts.poly_degree+1):
+    for i in xrange(args.poly_degree+1):
         mean_fit += poly[-1-i]*Xtest**i
 else:
     mean_fit = np.zeros_like(mean)
 
 # actually plot the process
-if opts.verbose:
+if args.verbose:
     print('plotting process')
 ax.fill_between(Xtest, mean-std-mean_fit, mean+std-mean_fit, color='k', alpha=0.25)
 ax.plot(Xtest, mean-mean_fit, color='k')
@@ -113,44 +121,44 @@ ax.plot(Xtest, mean-mean_fit, color='k')
 #------------------------
 
 ### read in EOS data
-for path in paths:
-    if opts.verbose:
+for path in args.eospaths:
+    if args.verbose:
         print('reading: '+path)
     data, _ = utils.load(path, columns)
     x = data[:,0]
     y = data[:,1]
 
     truth = np.ones_like(x, dtype=bool)
-    if opts.min_x!=None:
-        truth *= opts.min_x<=x    
-    if opts.max_x!=None:
-        truth *= x<=opts.max_x
-    if opts.min_y!=None:
-        truth *= opts.min_y<=y
-    if opts.max_y!=None:
-        truth *= y<=opts.max_y
+    if args.min_x!=None:
+        truth *= args.min_x<=x    
+    if args.max_x!=None:
+        truth *= x<=args.max_x
+    if args.min_y!=None:
+        truth *= args.min_y<=y
+    if args.max_y!=None:
+        truth *= y<=args.max_y
 
     if np.any(truth):
         x = x[truth]
         y = y[truth]
     else:
-        if opts.verbose:
+        if args.verbose:
             print('    no data found within requested bounds! skipping this eos')
         continue ### skip this eos
 
     ### transform data as needed
-    if opts.verbose:
+    if args.verbose:
         print('precondidtioning data')
 
     # take logs of data if requested
-    if opts.log_x:
+    if args.log_x:
         x = np.log(x)
-    if opts.log_y:
+    if args.log_y:
         y = np.log(y)
 
-    if opts.poly_degree!=None:
+    if args.poly_degree!=None:
         y_fit = np.zeros_like(y, dtype='float')
-        for i in xrange(opts.poly_degree+1):
+        for i in xrange(args.poly_degree+1):
             y_fit += poly[-1-i]*x**i
     else:
         y_fit = np.zeros_like(y)
@@ -162,24 +170,24 @@ for path in paths:
 
 ### decorate 
 ax.set_xlabel(labels[0])
-if opts.poly_degree!=None:
-    ax.set_ylabel(labels[1]+' - poly(%d)'%opts.poly_degree)
+if args.poly_degree!=None:
+    ax.set_ylabel(labels[1]+' - poly(%d)'%args.poly_degree)
 else:
     ax.set_ylabel(labels[1])
 
 ax.grid(True, which='both')
 
-if opts.min_x!=None:
-    ax.set_xlim(xmin=np.log(opts.min_x) if opts.log_x else opts.min_x)
-if opts.max_x!=None:
-    ax.set_xlim(xmax=np.log(opts.max_x) if opts.log_x else opts.max_x)
-if opts.min_y!=None:
-    ax.set_ylim(ymin=np.log(opts.min_y) if opts.log_y else opts.min_y)
-if opts.max_y!=None:
-    ax.set_ylim(ymax=np.log(opts.max_y) if opts.log_y else opts.max_y)
+if args.min_x!=None:
+    ax.set_xlim(xmin=np.log(args.min_x) if args.log_x else args.min_x)
+if args.max_x!=None:
+    ax.set_xlim(xmax=np.log(args.max_x) if args.log_x else args.max_x)
+if args.min_y!=None:
+    ax.set_ylim(ymin=np.log(args.min_y) if args.log_y else args.min_y)
+if args.max_y!=None:
+    ax.set_ylim(ymax=np.log(args.max_y) if args.log_y else args.max_y)
 
 #ax.legend(loc='best')
 
 ### save
-plot.save('plot_foo-%s-%s%s'%tuple(labels+[opts.tag]), fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
+plot.save('plot_foo-%s-%s%s'%tuple(labels+[args.tag]), fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.plt.close(fig)

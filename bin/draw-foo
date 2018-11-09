@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "draw-foo [--option] process.pkl"
 __description__ = "draw realizations of the process stored in process.pkl and write them into separate CSV files"
 __author__ = "reed.essick@ligo.org"
 
@@ -12,7 +11,7 @@ import pickle
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import gaussianprocess as gp
@@ -20,36 +19,47 @@ from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+DEFAULT_NUM_DRAWS = 1
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+#-------------------------------------------------
 
-parser.add_option('-n', '--num-draws', default=1, type='int',
-    help='DEFAULT=1')
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-p', '--plot', default=False, action='store_true')
+### required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('pklpath', type=str)
 
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
-opts, args = parser.parse_args()
-assert len(args)==1, 'please supply exactly 1 input argument\n%s'%__usage__
-pklpath = args[0]
+### workflow options
+wgroup = parser.add_argument_group('workflow options')
+wgroup.add_argument('-n', '--num-draws', default=DEFAULT_NUM_DRAWS, type=int,
+    help='DEFAULT=%d'%DEFAULT_NUM_DRAWS)
+wgroup.add_argument('-p', '--plot', default=False, action='store_true')
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+### output options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+args = parser.parse_args()
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
 
 #-------------------------------------------------
 
 ### read in the process
-if opts.verbose:
-    print('reading process from: '+pklpath)
-xlabel, ylabel, x_tst, mean, cov = gp.pklload(pklpath)
+if args.verbose:
+    print('reading process from: '+args.pklpath)
+xlabel, ylabel, x_tst, mean, cov = gp.pklload(args.pklpath)
 
-if opts.plot:
+if args.plot:
     fig = plot.plt.figure()
     ax = fig.gca()
 
@@ -63,13 +73,13 @@ if opts.plot:
     ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
-path = os.path.join(opts.output_dir, 'draw-foo'+opts.tag+'-%06d.csv') # for generating filenames
-tmp = '\r[ %6d / '+'%6d ] '%(opts.num_draws)+' saving: '+path         # for reporting progress
+path = os.path.join(args.output_dir, 'draw-foo'+args.tag+'-%06d.csv') # for generating filenames
+tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: '+path         # for reporting progress
 header = '%s,%s'%(xlabel, ylabel)                                     # for writing file contents
 row = '%.9e,%.9e'
 
-for i in xrange(opts.num_draws):
-    if opts.verbose:
+for i in xrange(args.num_draws):
+    if args.verbose:
         sys.stdout.write(tmp%(i+1, i))
         sys.stdout.flush()
 
@@ -84,16 +94,16 @@ for i in xrange(opts.num_draws):
             print >> file_obj, row%sample
 
     # add to plot
-    if opts.plot:
-        ax.plot(x_tst, y_tst, color='b', alpha=min(0.25, 10./opts.num_draws))
+    if args.plot:
+        ax.plot(x_tst, y_tst, color='b', alpha=min(0.25, 10./args.num_draws))
 
-if opts.verbose:
+if args.verbose:
     sys.stdout.write('\n')
 
-if opts.plot:
+if args.plot:
     ax.set_xlim(np.min(x_tst), np.max(x_tst))
-    figname = os.path.join(opts.output_dir, 'draw-foo%s.png'%opts.tag)
-    if opts.verbose:
+    figname = os.path.join(args.output_dir, 'draw-foo%s.png'%args.tag)
+    if args.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
     plot.plt.close(fig)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = 'num_dedp [--options] eos.csv [out.csv]'
 __doc__ = 'use basic numerical differentiation to infer the values of the derivatives at the evaulation points'
 __author__ = 'reed.essick@ligo.org'
 
@@ -8,7 +7,7 @@ __author__ = 'reed.essick@ligo.org'
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -16,25 +15,24 @@ from universality import gaussianprocess as gp
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('eospath', type=str)
+parser.add_argument('outpath', type=str, default=None)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 opts, args = parser.parse_args()
-N = len(args)
-assert N in [1, 2], 'please supply either 1 or 2 input arguments\n%s'%__usage__
-inpath = args[0]
-if N==2:
-    outpath = args[1]
-else:
-    outpath = inpath
+
+if args.outpath is None:
+    args.outpath = args.eospath
 
 #-------------------------------------------------
 
 ### read in existing data
 if opts.verbose:
-    print('reading: '+inpath)
-data, columns = utils.load(inpath)
+    print('reading: '+args.eospath)
+data, columns = utils.load(args.eospath)
 
 e = data[:,columns.index('energy_densityc2')]
 p = data[:,columns.index('pressurec2')]
@@ -50,8 +48,8 @@ dedp = gp.num_dfdx(p, e) # delegate for convenience
 
 ### write out the result
 if opts.verbose:
-    print('writing: '+outpath)
-with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(columns+['denergy_densitydpressure'])
+    print('writing: '+args.outpath)
+with open(args.outpath, 'w') as obj:
+    print >> obj, ','.join(columns+['denergy_densitydpressure'])
     for i in xrange(N):
-        print >> file_obj, ','.join('%9e'%_ for _ in list(data[i,:])+[dedp[i]])
+        print >> obj, ','.join('%9e'%_ for _ in list(data[i,:])+[dedp[i]])

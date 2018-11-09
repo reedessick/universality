@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "integrate_phi [--options] phi.csv reference_pressurec2 reference_energy_densityc2 [out.csv]"
 __doc__ = """\
 numerically integrate phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 
 NOTE: 
@@ -12,39 +11,45 @@ __author__ = "reed.essick@ligo.org"
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+### required options
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('phipath', type=str)
+rgroup.add_argument('reference_pressurec2', type=float)
+rgroup.add_argument('reference_engergy_densityc2', type=float)
+rgroup.add_argument('outpath', type=str, default=None)
 
-parser.add_option('', '--sigma-energy_densityc2', default=0, type='float',
+### verbosity 
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### initial condition options
+igroup = parser.add_argument_group('initial condition options')
+igroup.add_argument('--sigma-energy_densityc2', default=0, type=float,
     help='The reference energy_densityc2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
 
-parser.add_option('', '--sigma-pressurec2', default=0, type='float',
+igroup.add_argument('--sigma-pressurec2', default=0, type=float,
     help='The reference pressurec2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
 
-opts, args = parser.parse_args()
-N = len(args)
-assert N in [3, 4], 'please supply either 3 or 4 input arguments\n%s'%__usage__
-inpath = args[0]
-ref_pc2, ref_ec2 = [float(_) for _ in args[1:3]]
-if N==4:
-    outpath = args[3]
-else:
-    outpath = inpath
+args = parser.parse_args()
+
+if args.outpath is None:
+    args.outpath = args.phipath
 
 #-------------------------------------------------
 
 # read in data
-if opts.verbose:
+if args.verbose:
     print('reading: '+inpath)
 data, columns = utils.load(inpath)
 
@@ -55,7 +60,7 @@ denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is 
 
 # perform numeric integration with trapazoidal approximation
 # NOTE: this could probably be improved...
-if opts.verbose:
+if args.verbose:
     print('performing numeric integration for energy_density via trapazoidal approximation')
 energy_densityc2 = np.empty_like(pressurec2, dtype='float')
 energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
@@ -64,8 +69,8 @@ energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
 
 # scale the result to match reference energy at reference pressure
-ec2 = ref_ec2 + np.random.randn()*opts.sigma_energy_densityc2
-pc2 = ref_pc2 + np.random.randn()*opts.sigma_pressurec2
+ec2 = ref_ec2 + np.random.randn()*args.sigma_energy_densityc2
+pc2 = ref_pc2 + np.random.randn()*args.sigma_pressurec2
 energy_densityc2 += ec2 - np.interp(pc2, pressurec2, energy_densityc2)
 
 ### throw away pressures corresponding to negative energy densities!
@@ -79,7 +84,7 @@ energy_densityc2 = energy_densityc2[truth]
 
 # perform numeric integration to obtain baryon density along with energy_density and pressure
 # NOTE: this could probably be improved as well...
-if opts.verbose:
+if args.verbose:
     print('performing numeric integration for baryon_density via trapazoidal approximation')
 baryon_density = np.ones_like(pressurec2, dtype='float')
 
@@ -94,7 +99,7 @@ baryon_density *= energy_densityc2[0]
 
 ### NOTE: we now assume 
 # write output
-if opts.verbose:
+if args.verbose:
     print('writing: '+outpath)
 with open(outpath, 'w') as file_obj:
     print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2', 'baryon_density'])

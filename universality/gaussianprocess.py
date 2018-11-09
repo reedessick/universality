@@ -11,11 +11,16 @@ import time
 #-------------------------------------------------
 
 ### defaults
-__default_sigma__ = 0.1
-__default_l__ = 0.1
+DEFAULT_SIGMA = 0.1
+DEFAULT_L = 0.1
 
-__default_sigma2__ = __default_sigma__**2
-__default_l2__ = __default_l__**2
+DEFAULT_SIGMA2 = DEFAULT_SIGMA**2
+DEFAULT_L2 = DEFAULT_L**2
+
+DEFAULT_POLY_DEGREE = 1
+DEFAULT_MODEL_MULTIPLIER = 1
+
+DEFAULT_NUM = 51
 
 #-------------------------------------------------
 # i/o specific for storing processes
@@ -62,25 +67,25 @@ def num_dfdx(x_obs, f_obs):
 # covariance kernels
 #-------------------------------------------------
 
-def cov_f1_f2(x1, x2, sigma2=__default_sigma2__, l2=__default_l2__):
+def cov_f1_f2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
     '''
     cov(f1, f2) = sigma2 * np.exp(-(x1-x2)**2/(2*l2))
     '''
     X1, X2 = np.meshgrid(x1, x2, indexing='ij')
     return sigma2 * np.exp(-0.5*(X1-X2)**2/l2)
 
-def cov_df1dx1_f2(x1, x2, sigma2=__default_sigma2__, l2=__default_l2__):
+def cov_df1dx1_f2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
     '''
     cov(df1/dx1, f2) = -sigma2 * (x1-x2)/l**2 * np.exp(-(x1-x2)**2/(2*l2))
     '''
     X1, X2 = np.meshgrid(x1, x2, indexing='ij')
     return -(X1-X2)/l2 * cov_f1_f2(x1, x2, sigma2=sigma2, l2=l2)
 
-def cov_f1_df2dx2(x1, x2, sigma2=__default_sigma2__, l2=__default_l2__):
+def cov_f1_df2dx2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
     X1, X2 = np.meshgrid(x1, x2, indexing='ij')
     return (X1-X2)/l2 * cov_f1_f2(x1, x2, sigma2=sigma2, l2=l2)
 
-def cov_df1dx1_df2dx2(x1, x2, sigma2=__default_sigma2__, l2=__default_l2__):
+def cov_df1dx1_df2dx2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
     '''
     cov(df1/dx1, df2/dx2) = -sigma2 (x1-x2)**2/l2**2 * np.exp(-(x1-x2)**2/(2*l2)) + sigma2 / l2 * np.exp(-(x1-x2)**2/(2*l2))
     '''
@@ -108,7 +113,7 @@ def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
 
     return mean, cov
 
-def _cov(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def _cov(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     a helper function that computes the covariance matrix for observed points
     '''
@@ -116,14 +121,14 @@ def _cov(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__defau
     cov_obs_obs += np.diag(np.ones(len(x_obs)))*sigma2_obs
     return cov_obs_obs
 
-def _dcov_dsigma2(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def _dcov_dsigma2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     a helper function for the derivative of cov_obs_obs with respect to sigma2
     '''
     X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
     return np.exp(-0.5*(X1-X2)**2/l2) ### simple derivative of cov_f1_f2
 
-def _dcov_dl2(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def _dcov_dl2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     a helper function for the derivative of cov_obs_obs with respect to l2
     '''
@@ -131,13 +136,13 @@ def _dcov_dl2(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__
     Z = 0.5*(X1-X2)**2/l2
     return sigma2*np.exp(-Z)*Z/l2 ### simple derivative of cov_f1_f2
 
-def _dcov_dsigma2_obs(x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def _dcov_dsigma2_obs(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     a helper function for the derivative of cov_obs_obs with respect to sigma2_obs
     '''
     return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
 
-def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__, timeit=False, degree=1):
+def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, timeit=False, degree=1):
     '''
     computes the logLikelihood and jacobian thereof based on the covariance between observation points
     the covariance is constructed given the hyper parameters just as it is for gpr_f and gpr_dfdx
@@ -177,7 +182,7 @@ def logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_o
 
     return obs + det + nrm ### assemble components and return
 
-def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__, degree=1):
+def grad_logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, degree=1):
     '''
     computes the logLikelihood and jacobian thereof based on the covariance between observation points
     the covariance is constructed given the hyper parameters just as it is for gpr_f and gpr_dfdx
@@ -200,7 +205,7 @@ def grad_logLike(f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sig
 
     return dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs
 
-def gpr_f(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def gpr_f(x_tst, f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     constructs covariance for f_tst|f_obs,x_obs,x_tst
     returns mean_tst, cov_tst_tst
@@ -213,7 +218,7 @@ def gpr_f(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sig
     ### delegate
     return gpr(f_obs, cov_tst_tst, cov_tst_obs, np.transpose(cov_tst_obs), cov_obs_obs)
 
-def gpr_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def gpr_dfdx(x_tst, f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     constructs covariance needed for df_tst/dx_tst|f_obs,x_obs,x_tst
     return mean_tst, cov_tst_tst
@@ -227,7 +232,7 @@ def gpr_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, 
     ### delegate
     return gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
 
-def gpr_f_dfdx(x_tst, f_obs, x_obs, sigma2=__default_sigma2__, l2=__default_l2__, sigma2_obs=__default_sigma2__):
+def gpr_f_dfdx(x_tst, f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
     constructs covariance needed for f_tst,dfdx_tst|f_obs,x_obs,x_tst
     return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx
@@ -297,7 +302,7 @@ def poly_model_f_dfdx(x_tst, f_obs, x_obs, degree=1):
         dfdx_tst += i*poly[-1-i]*x_tst**(i-1)
     return f_fit, f_tst, dfdx_tst
 
-def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2):
     '''
     resample the data via GPR to samples along x_tst
     performs automatic optimization to find the best hyperparameters along with subtracting out f_fit from a polynomial model
@@ -317,7 +322,7 @@ def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__,
 
     return mean, cov
 
-def gpr_resample_f_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+def gpr_resample_f_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2):
     '''
     the same as gpr_resample, except we regress out both the function and the derivative of the function instead of the just the function
     resample the data via GPR to samples along x_tst
@@ -388,7 +393,7 @@ def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_d
 
     return cov
 
-def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=__default_sigma2__, guess_l2=__default_l2__, guess_sigma2_obs=__default_sigma2__):
+def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2):
     '''
     a delegation function useful when I've already got a bunch of "noise" covariances known for f_obs(x_obs)
     performs automatic optimization ot find the best hyperparameters along with subtracting out f_fit from a polynomial model
