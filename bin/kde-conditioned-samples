@@ -213,6 +213,8 @@ for ind, (label, path) in enumerate(args.samples):
 
     ax.plot(samples[:,0], kde, color=colors[label])
 
+    if args.verbose:
+        print('    argmax : %.3e'%samples[kde.argmax(),0])
     if args.level:
         for level, (m, M) in zip(args.level, stats.logkde2crbounds(samples[:,0], logkde, args.level)):
             if args.verbose:
