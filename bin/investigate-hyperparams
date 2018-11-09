@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 __doc__ = "a script that lets users investigate hyperparameters and different optimization/marginalization techniques"
-__usage__ = "investigate_hyperparams [--options] xcolumn ycolumn eos.csv"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -10,97 +9,100 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
+from universality import gaussianprocess as gp
 from universality import hyperparams as hp
 from universality import utils
 from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('xcolumn', type=str)
+parser.add_argument('ycolumn', type=str)
+parser.add_argument('eospath', type=str)
 
-parser.add_option('', '--poly-degree', default=1, type='int')
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--log-xcolumn', default=False, action='store_true')
-parser.add_option('', '--log-ycolumn', default=False, action='store_true')
+parser.add_argument('--poly-degree', default=1, type=int)
 
-parser.add_option('', '--min-sigma', default=1.e-4, type='float',
-    help='DEFAULT=1e-4')
-parser.add_option('', '--max-sigma', default=1., type='float',
-    help='DEFAULT=1')
+parser.add_argument('--log-xcolumn', default=False, action='store_true')
+parser.add_argument('--log-ycolumn', default=False, action='store_true')
 
-parser.add_option('', '--min-l', default=0.1, type='float',
-    help='DEFAULT=0.1')
-parser.add_option('', '--max-l', default=5.0, type='float',
-    help='DEFAULT=5.0')
+parser.add_argument('--min-sigma', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+parser.add_argument('--max-sigma', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_SIGMA)
 
-parser.add_option('', '--min-sigma_obs', default=1.e-4, type='float',
-    help='DEFAULT=1e-4')
-parser.add_option('', '--max-sigma_obs', default=1., type='float',
-    help='DEFAULT=1')
+parser.add_argument('--min-l', default=hp.DEFAULT_MIN_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_L)
+parser.add_argument('--max-l', default=hp.DEFAULT_MAX_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_L)
 
-parser.add_option('', '--num-grid', default=hp.__default_num__, type='int',
+parser.add_argument('--min-sigma_obs', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+parser.add_argument('--max-sigma_obs', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_SIGMA)
+
+parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
     help='the number of grid points in each dimension. \
-DEFAULT=%d'%hp.__default_num__)
+DEFAULT=%d'%gp.DEFAULT_NUM)
 
-parser.add_option('', '--num-mcmc', default=hp.__default_num__, type='int',
+parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
     help='the number of samples to draw in mcmc. \
-DEFAULT=%d'%hp.__default_num__)
+DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
 
-parser.add_option('', '--num-walkers', default=hp.__default_num_walkers__, type='int',
-    help='DEFAULT=%d'%hp.__default_num_walkers__)
+parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
+    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
-parser.add_option('', '--maxL-method', default=hp.__default_method__, type='string',
-    help='DEFAULT='+hp.__default_method__)
+parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
+    help='DEFAULT='+hp.DEFAULT_METHOD)
 
-parser.add_option('', '--maxL-tol', default=hp.__default_tol__, type='float',
-    help='DEFAULT=%s'%hp.__default_tol__)
+parser.add_argument('--maxL-tol', default=hp.DEFAULT_TOL, type=float,
+    help='DEFAULT=%s'%hp.DEFAULT_TOL)
 
-parser.add_option('', '--l-prior', default='lin', type='string')
-parser.add_option('', '--sigma-prior', default='log', type='string')
-parser.add_option('', '--sigma_obs-prior', default='log', type='string')
+parser.add_argument('--l-prior', default=hp.DEFAULT_L_PRIOR, type=str)
+parser.add_argument('--sigma-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
+parser.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
 
-parser.add_option('', '--grid', default=False, action='store_true')
-parser.add_option('', '--mcmc', default=False, action='store_true')
-parser.add_option('', '--maxL', default=False, action='store_true')
+parser.add_argument('--grid', default=False, action='store_true')
+parser.add_argument('--mcmc', default=False, action='store_true')
+parser.add_argument('--maxL', default=False, action='store_true')
 
-parser.add_option('', '--strip-mcmc', default=0, type='int',
+parser.add_argument('--strip-mcmc', default=0, type=int,
     help='the number of burn in samples to reject from the mcmc sampler')
 
-parser.add_option('', '--log-sigmas', default=False, action='store_true')
-parser.add_option('', '--include-logL', default=False, action='store_true')
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
+parser.add_argument('--log-sigmas', default=False, action='store_true')
+parser.add_argument('--include-logL', default=False, action='store_true')
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
 
-opts, args = parser.parse_args()
+args = parser.parse_args()
 
-assert len(args)>2, 'please supply at least 2 input arguments\n%s'%__usage__
-assert np.any((opts.grid, opts.mcmc, opts.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
+assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
 
-xcolumn, ycolumn = columns = args[:2]
-inpath = args[2]
+xcolumn, ycolumn = columns = [args.xcolumn, args.ycolumn]
 
 logcolumns = []
-if opts.log_xcolumn:
+if args.log_xcolumn:
     logcolumns.append(xcolumn)
-if opts.log_ycolumn:
+if args.log_ycolumn:
     logcolumns.append(ycolumn)
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+if args.tag:
+    args.tag = "_"+args.tag
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
 #-------------------------------------------------
 
-if opts.verbose:
-    print('reading: '+inpath)
-data, cols = utils.load(inpath, columns, logcolumns=logcolumns)
+if args.verbose:
+    print('reading: '+args.eospath)
+data, cols = utils.load(args.eospath, columns, logcolumns=logcolumns)
 x_obs = data[:,0]
 f_obs = data[:,1]
 
@@ -108,26 +110,26 @@ f_obs = data[:,1]
 
 overlayfig = None
 
-if opts.log_sigmas:
+if args.log_sigmas:
     labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
 else:
     labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$']
-if opts.include_logL:
+if args.include_logL:
     labels.append('$\log\mathcal{L}$')
 
-if opts.maxL:
-    if opts.verbose:
+if args.maxL:
+    if args.verbose:
         print('finding maxLikelihood')
 
     maxL = hp.logLike_maxL(
         f_obs,
         x_obs,
-        (opts.min_sigma, opts.max_sigma),
-        (opts.min_l, opts.max_l),
-        (opts.min_sigma_obs, opts.max_sigma_obs),
-        method=opts.maxL_method,
-        tol=opts.maxL_tol,
-        degree=opts.poly_degree,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        method=args.maxL_method,
+        tol=args.maxL_tol,
+        degree=args.poly_degree,
     )
     print '''\
 sigma = %.3e
@@ -136,12 +138,12 @@ sigma_obs = %.3e
 logL = %.3e'''%tuple(maxL[0])
 
     ### add to overlay plot
-    if opts.log_sigmas:
+    if args.log_sigmas:
         truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
     else:
         truths = [maxL['sigma'][0], maxL['l'][0], maxL['sigma_obs'][0]]
 
-    if opts.include_logL:
+    if args.include_logL:
         truths.append(maxL['logLike'][0])
 
 else:
@@ -149,26 +151,26 @@ else:
 
 #---
 
-if opts.grid:
-    if opts.verbose:
+if args.grid:
+    if args.verbose:
         print('evaluating on a grid')
 
     grid = hp.logLike_grid(
         f_obs,
         x_obs,
-        (opts.min_sigma, opts.max_sigma),
-        (opts.min_l, opts.max_l),
-        (opts.min_sigma_obs, opts.max_sigma_obs),
-        num_sigma=opts.num_grid,
-        num_l=opts.num_grid,
-        num_sigma_obs=opts.num_grid,
-        l_prior=opts.l_prior,
-        sigma_prior=opts.sigma_prior,
-        sigma_obs_prior=opts.sigma_obs_prior,
-        degree=opts.poly_degree,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        num_sigma=args.num_grid,
+        num_l=args.num_grid,
+        num_sigma_obs=args.num_grid,
+        l_prior=args.l_prior,
+        sigma_prior=args.sigma_prior,
+        sigma_obs_prior=args.sigma_obs_prior,
+        degree=args.poly_degree,
     )
-    path = "%s/investigate_bandwidth-grid%s.csv"%(opts.output_dir, opts.tag)
-    if opts.verbose:
+    path = "%s/investigate_bandwidth-grid%s.csv"%(args.output_dir, args.tag)
+    if args.verbose:
         print('writing: '+path)
     tmp = ','.join('%.9e' for _ in grid.dtype.names)
     with open(path, 'w') as file_obj:
@@ -176,13 +178,13 @@ if opts.grid:
         for sample in grid:
             print >> file_obj, tmp%tuple(sample)
 
-    if opts.include_logL:
-        if opts.log_sigmas:
+    if args.include_logL:
+        if args.log_sigmas:
             data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
         else:
             data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['logLike']])
     else:
-        if opts.log_sigmas:
+        if args.log_sigmas:
             data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
         else:
             data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs']])
@@ -190,7 +192,7 @@ if opts.grid:
     weights = np.exp(grid['logLike']-np.max(grid['logLike']))
     weights /= np.sum(weights)
 
-    if opts.verbose:
+    if args.verbose:
         print('    plotting')
     fig = plot.corner(
         data,
@@ -199,8 +201,8 @@ if opts.grid:
         truths=truths,
         color='b',
     )
-    figname = '%s/investigate_hyperparams-grid%s.png'%(opts.output_dir, opts.tag)
-    if opts.verbose:
+    figname = '%s/investigate_hyperparams-grid%s.png'%(args.output_dir, args.tag)
+    if args.verbose:
         print('    saving: '+figname)
     fig.savefig(figname)
     plot.plt.close(fig)
@@ -217,29 +219,29 @@ if opts.grid:
 
 #---
 
-if opts.mcmc:
-    if opts.verbose:
-        print('running MCMC for %d steps with %d walkers'%(opts.num_mcmc, opts.num_walkers))
+if args.mcmc:
+    if args.verbose:
+        print('running MCMC for %d steps with %d walkers'%(args.num_mcmc, args.num_walkers))
 
     mcmc = hp.logLike_mcmc(
         f_obs,
         x_obs,
-        (opts.min_sigma, opts.max_sigma),
-        (opts.min_l, opts.max_l),
-        (opts.min_sigma_obs, opts.max_sigma_obs),
-        num_samples=opts.num_mcmc,
-        num_walkers=opts.num_walkers,
-        l_prior=opts.l_prior,
-        sigma_prior=opts.sigma_prior,
-        sigma_obs_prior=opts.sigma_obs_prior,
-        degree=opts.poly_degree,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        num_samples=args.num_mcmc,
+        num_walkers=args.num_walkers,
+        l_prior=args.l_prior,
+        sigma_prior=args.sigma_prior,
+        sigma_obs_prior=args.sigma_obs_prior,
+        degree=args.poly_degree,
     )
-    if opts.verbose:
-        print('discarding %d samples as burn in'%opts.strip_mcmc)
-    mcmc = mcmc[opts.strip_mcmc:]
+    if args.verbose:
+        print('discarding %d samples as burn in'%args.strip_mcmc)
+    mcmc = mcmc[args.strip_mcmc:]
 
-    path = "%s/investigate_bandwidth-mcmc%s.csv"%(opts.output_dir, opts.tag)
-    if opts.verbose:
+    path = "%s/investigate_bandwidth-mcmc%s.csv"%(args.output_dir, args.tag)
+    if args.verbose:
         print('writing: '+path)
     tmp = ','.join('%.9e' for _ in mcmc.dtype.names)
     with open(path, 'w') as file_obj:
@@ -247,18 +249,18 @@ if opts.mcmc:
         for sample in mcmc:
             print >> file_obj, tmp%tuple(sample)
 
-    if opts.include_logL:
-        if opts.log_sigmas:
+    if args.include_logL:
+        if args.log_sigmas:
             data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
         else:
             data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']])
     else:
-        if opts.log_sigmas:
+        if args.log_sigmas:
             data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
         else:
             data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs']])
 
-    if opts.verbose:
+    if args.verbose:
         print('    plotting')
     fig = plot.corner(
         data,
@@ -266,8 +268,8 @@ if opts.mcmc:
         truths=truths,
         color='r',
     )
-    figname = '%s/investigate_hyperparams-mcmc%s.png'%(opts.output_dir, opts.tag)
-    if opts.verbose:
+    figname = '%s/investigate_hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
+    if args.verbose:
         print('    saving: '+figname)
     fig.savefig(figname)
     plot.plt.close(fig)
@@ -288,8 +290,8 @@ if opts.mcmc:
 #--- wrap up overlay plot
 
 if overlayfig:
-    figname = '%s/investigate_hyperparams%s.png'%(opts.output_dir, opts.tag)
-    if opts.verbose:
+    figname = '%s/investigate_hyperparams%s.png'%(args.output_dir, args.tag)
+    if args.verbose:
         print('saving: '+figname)
     overlayfig.savefig(figname)
     plot.plt.close(overlayfig)

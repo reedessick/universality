@@ -16,10 +16,19 @@ DEFAULT_NUM_WALKERS = 50
 DEFAULT_NUM_MCMC = 101
 DEFAULT_NUM_STRIP = 0
 
-DFEAULT_METHOD = 'BFGS'
+DEFAULT_METHOD = 'BFGS'
 DEFAULT_TOL = None
 
 SAMPLES_DTYPE = [('sigma','float'), ('l','float'), ('sigma_obs','float'), ('logLike','float')]
+
+DEFAULT_MIN_SIGMA = 1.e-4
+DEFAULT_MAX_SIGMA = 1.0
+
+DEFAULT_MIN_L = 0.1
+DEFAULT_MAX_L = 5.0
+
+DEFAULT_SIGMA_PRIOR = 'log'
+DEFAULT_L_PRIOR = 'lin'
 
 #-------------------------------------------------
 ### methods useful for a basic squared-exponential kernel
@@ -231,7 +240,7 @@ def logLike_maxL(
         (min_sigma, max_sigma),
         (min_l, max_l),
         (min_sigma_obs, max_sigma_obs),
-        method=DFEAULT_METHOD,
+        method=DEFAULT_METHOD,
         tol=DEFAULT_TOL,
         degree=1,
     ):

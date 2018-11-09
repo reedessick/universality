@@ -22,15 +22,6 @@ from universality import plot
 DEFAULT_MIN_PRESSURE = 1e30 ### g/cm^3
 DFEAULT_MAX_PRESSURE = 1e38
 
-DEFAULT_MIN_SIGMA = 1.e-4
-DEFAULT_MAX_SIGMA = 1.0
-
-DEFAULT_MIN_L = 0.1
-DEFAULT_MAX_L = 5.0
-
-DEFAULT_SIGMA_PRIOR = 'log'
-DEFAULT_L_PRIOR = 'lin'
-
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
@@ -56,20 +47,20 @@ ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
 
 ### workflow options
 mgroup = parser.add_argument_group('mcmc options')
-mgroup.add_argument('--min-sigma', default=DEFAULT_MIN_SIGMA, type=float,
-    help='DEFAULT=%.3f'%DEFAULT_MIN_SIGMA)
-mgroup.add_argument('--max-sigma', default=DEFAULT_MAX_SIGMA, type=float,
-    help='DEFAULT=%.3e'%DEFAULT_MAX_SIGMA)
+mgroup.add_argument('--min-sigma', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+mgroup.add_argument('--max-sigma', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3e'%hp.DEFAULT_MAX_SIGMA)
 
-mgroup.add_argument('--min-l', default=DEFAULT_MIN_L, type=float,
-    help='DEFAULT=%.3f'%DEFAULT_MIN_L)
-mgroup.add_argument('--max-l', default=DEFAULT_MAX_L, type=float,
-    help='DEFAULT=%.3f'%DEFAULT_MAX_L)
+mgroup.add_argument('--min-l', default=hp.DEFAULT_MIN_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_L)
+mgroup.add_argument('--max-l', default=hp.DEFAULT_MAX_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_L)
 
-mgroup.add_argument('--min-sigma_obs', default=DEFAULT_MIN_SIGMA, type=float,
-    help='DEFAULT=%.3f'%DEFAULT_MIN_SIGMA)
-mgroup.add_argument('--max-sigma_obs', default=DEFAULT_MAX_SIGMA, type=float,
-    help='DEFAULT=%.3f'%DEFAULT_MAX_SIGMA)
+mgroup.add_argument('--min-sigma_obs', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+mgroup.add_argument('--max-sigma_obs', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_SIGMA)
 
 mgroup.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
     help='the number of samples to draw in mcmc. \
@@ -80,9 +71,9 @@ mgroup.add_argument('--strip-mcmc', default=hp.DEFAULT_NUM_STRIP, type=int,
 mgroup.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
     help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
-mgroup.add_argument('--l-prior', default=DEFAULT_L_PRIOR, type=str)
-mgroup.add_argument('--sigma-prior', default=DEFAULT_SIGMA_PRIOR, type=str)
-mgroup.add_argument('--sigma_obs-prior', default=DEFAULT_SIGMA_PRIOR, type=str)
+mgroup.add_argument('--l-prior', default=hp.DEFAULT_L_PRIOR, type=str)
+mgroup.add_argument('--sigma-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
+mgroup.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
 
 ### output options
 ogroup = parser.add_argument_group('output options')
