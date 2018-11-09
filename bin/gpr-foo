@@ -83,6 +83,8 @@ ogroup.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
+columns = [args.xcolumn, args.ycolumn]
+
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
