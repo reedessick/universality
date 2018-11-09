@@ -238,6 +238,7 @@ ax.set_xlim(global_range)
 
 ax.set_xlabel(args.column_label)
 
+plot.plt.setp(ax.get_yticklabels(), visible=False)
 ax.grid(True, which='both')
 
 # save
