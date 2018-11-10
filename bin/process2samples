@@ -25,7 +25,7 @@ rgroup.add_argument('outpath', type=str)
 
 rgroup.add_argument('reference', type=str,
     help='the reference column')
-rgroup.add_argument('columns', nargs='*', type=str,
+rgroup.add_argument('columns', nargs='+', type=str,
     help='columns to plot')
 
 rgroup.add_argument('-r', '--reference-value', required=True, default=[], type=float, action='append',

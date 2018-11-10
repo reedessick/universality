@@ -24,7 +24,7 @@ rgroup = parser.add_argument_group('required options')
 rgroup.add_argument('xcolumn', type=str)
 rgroup.add_argument('ycolumn', type=str)
 rgroup.add_argument('xtestpath', type=str, help='path to file containing x_test points')
-rgroup.add_argument('eospaths', nargs="*", type=str)
+rgroup.add_argument('eospaths', nargs="+", type=str)
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity options')

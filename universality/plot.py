@@ -21,6 +21,7 @@ except ImportError:
 ### non-standard libraries
 from . import utils
 from .stats import (logkde2levels, neff)
+from . import gaussianprocess as gp
 
 #-------------------------------------------------
 
@@ -400,7 +401,154 @@ def curve_corner(
 
 #-------------------------------------------------
 
-def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs):
+def gpr_overlay(
+        x_tst,
+        f_tst,
+        cr_tst,
+        x_obs,
+        f_obs,
+        cr_obs=None,
+        xlabel='x',
+        ylabel='f',
+        figwidth=DEFAULT_FIGWIDTH,
+        figheight=DEFAULT_FIGHEIGHT,
+        residuals=False,
+        ratios=False,
+        color_tst=DEFAULT_COLOR1,
+        color_obs=None,
+        logx=False,
+        logy=False,
+    ):
+    ### set up input arguments
+    if np.ndim(x_obs)==1:
+        x_obs = [x_obs]
+        f_obs = [f_obs]
+        cr_obs = [cr_obs]
+    Nobs = len(x_obs)
+
+    if color_obs is None:
+        color_obs = [DEFAULT_COLOR2 for _ in range(Nobs)]
+
+    xmin, xmax = np.min(x_tst), np.max(x_tst)
+
+    ### set up figure, axes
+    fig = plt.figure(figsize=(figwidth, figheight))
+    if residuals or ratios:
+        ax = fig.add_axes(MAIN_AXES_POSITION)
+        rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+
+    else:
+        ax = fig.add_axes(AXES_POSITION)
+
+    # plot the test points
+    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst, alpha=0.25)
+    ax.plot(x_tst, f_tst, color=color_tst)
+
+    # plot the observed data
+    for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
+        truth = (xmin<=x)*(x<=xmax)
+        if cr is not None:
+            ax.fill_between(x, cr[0], cr[1], color=color, alpha=0.25)
+        ax.plot(x, f, '.-', color=color, alpha=0.25)
+
+    # plot residuals, etc
+    if residuals or ratios:
+        if Nobs==1:
+            x_ref = x_obs[0]
+            f_ref = f_obs[0]
+            cr_ref = cr_obs[0]
+        else:
+            x_ref = x_tst
+            f_ref = f_tst
+            cr_ref = cr_tst
+        truth = (xmin<=x_ref)*(x_ref<=xmax)
+
+        f_tst_interp = np.interp(x_ref, x_tst, f_tst)
+        hgh = np.interp(x_ref, x_tst, cr_tst[1])
+        low = np.interp(x_ref, x_tst, cr_tst[0])
+
+        if residuals:
+            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst, alpha=0.25)
+            rs.plot(x_ref, f_tst_interp-f_ref, color=color_tst)
+
+            rs.set_ylim(ymin=np.min((low-f_ref)[truth]), ymax=np.max((hgh-f_ref)[truth]))
+
+        elif ratios:
+            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst, alpha=0.25)
+            rs.plot(x_ref, f_tst_interp/f_ref, color=color_tst)
+
+            rs.set_ylim(ymin=np.min((low/f_ref)[truth]), ymax=np.max((hgh/f_ref)[truth]))
+
+        # plot the observed data
+        for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
+            f = np.interp(x_ref, x, f)
+
+            if residuals:
+                if cr is not None:
+                    hgh = np.interp(x_ref, x, cr[1])
+                    low = np.interp(x_ref, x, cr[0])
+                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color, alpha=0.25)
+
+                rs.plot(x_ref, f-f_ref, '.-', color=color, alpha=0.25)
+
+            elif ratios:
+                if cr is not None:
+                    hgh = np.interp(x_ref, x, cr[1])
+                    low = np.interp(x_ref, x, cr[0])
+                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color, alpha=0.25)
+
+                rs.plot(x_ref, f/f_ref, '.-', color=color_obs, alpha=0.25)
+
+    # decorate
+    ax.grid(True, which='both')
+    ax.set_yscale('log' if logy else 'linear')
+    ax.set_xscale('log' if logx else 'linear')
+    ax.set_xlim(xmin=np.min(x_tst), xmax=np.max(x_tst))
+
+    if residuals or ratios:
+        rs.set_xscale(ax.get_xscale())
+        rs.set_xlim(ax.get_xlim())
+
+        rs.grid(True, which='both')
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+        rs.set_xlabel(xlabel)
+        if residuals:
+            if Nobs==1:
+                rs.set_ylabel('$%s - %s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$')))
+            else:
+                rs.set_ylabel('$%s_{\\ast} - %s$'%(ylabel.strip('$'), ylabel.strip('$')))
+        elif ratios:
+            rs.set_yscale(ax.get_xscale())
+            if Nobs==1:
+                rs.set_ylabel('$%s/%s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$')))
+            else:
+                rs.set_ylabel('$%s_{\\ast}/%s$'%(ylabel.strip('$'), ylabel.strip('$')))
+       
+    else:
+        ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    return fig
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs, std_obs=None):
     '''
     a helper function for plotting regressions as a way to sanity check results
     '''
@@ -412,7 +560,6 @@ def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs):
     res = fig.add_axes([0.13, 0.10, 0.85, 0.19]) ### residuals between data
 
     ### plot the regression
-    std *= 3 ### plot 3 sigma regions
     foo.fill_between(x_tst, f_tst-std_tst, f_tst+std_tst, color='grey', alpha=0.5)
     foo.plot(x_tst, f_tst, color='k')
 
@@ -422,18 +569,20 @@ def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs):
     res.plot(x_tst, np.zeros_like(x_tst, dtype='int'), color='k')
 
     ### iterate through observed data and overlay
-    for x, f in zip(x_obs, f_obs):
+    for i, (x, f) in enumerate(zip(x_obs, f_obs)):
         color = foo.plot(x, f, '.-', alpha=0.5)[0].get_color()
 
-        s *= 3 ### plot 3-sigma region
-        foo.fill_between(x, f+s, f-s, alpha=0.1, color=color)
+        if std_obs is not None:
+            foo.fill_between(x, f+std_obs[i], f-std_obs[i], alpha=0.1, color=color)
 
         truth = (xmin<=x)*(x<=xmax)
         x = x[truth]
         f = f[truth]
         f_int = np.interp(x, x_tst, f_tst)
         res.plot(x, (f_int-f)/f_int, '.-', color=color, alpha=0.5) ### plot the residual at the observed points
-        res.fill_between(x, f_int-f-s, f_int-f+s, alpha=0.1, color=color)
+
+        if std_obs is not None:
+            res.fill_between(x, f_int-f-std_obs[i], f_int-f+std_obs[i], alpha=0.1, color=color)
 
     foo.set_ylim(ylim)
 
@@ -568,8 +717,8 @@ def big_sanity_check(x_tst, f_tst, dfdx_tst, phi_tst, std_f, std_dfdx, std_phi, 
 
     ### plot the regression for phi
     std_phi *= 3 ### plot 3-sigma region
-    phi.fill_between(x_tst, mean_phi+std_phi, mean_phi-std_phi, color='grey', alpha=0.5)
-    phi.plot(x_tst, mean_phi, color='k')
+    phi.fill_between(x_tst, phi_tst+std_phi, phi_tst-std_phi, color='grey', alpha=0.5)
+    phi.plot(x_tst, phi_tst, color='k')
 
 #    pes.fill_between(x_tst, +std_phi/mean_phi, -std_phi/mean_phi, color='grey', alpha=0.5)
     pes.fill_between(x_tst, +std_phi, -std_phi, color='grey', alpha=0.5)

@@ -2,7 +2,6 @@
 
 __doc__ = "a script that estimates the bayes factor by comparing evidences based on the samples within inpath.csv. Assumes the same likelihood was used to weigh both sets of samples"
 __author__ = "reed.essick@ligo.org"
-__usage__ = "estimate-bayes [--options] inpath1.csv weight1_column inpath2.csv weight2_column"
 
 #-------------------------------------------------
 
@@ -10,7 +9,7 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -20,26 +19,29 @@ from universality import stats
 
 parser = OptionParser(usage=__usage__, description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('inpath1', type=str)
+parser.add_argument('weight1_column', type=str)
+parser.add_argument('inpath2', type=str)
+parser.add_argument('weight2_column', type=str)
 
-parser.add_option('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('', '--weight1-column-is-log', default=False, action='store_true',
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--weight1-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
+parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--weight2-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 opts, args = parser.parse_args()
-assert len(args)==4, 'please supply exactly 4 input arguments\n%s'%__usage__
-inpath1, weight1_column, inpath2, weight2_column = args
 
 #-------------------------------------------------
 
 ### read in source samples
 if opts.verbose:
-    print('reading samples from: '+inpath1)
-weights1 = utils.load(inpath1, [weight2_column], max_num_samples=opts.max_num_samples1)[0][:,0]
+    print('reading samples from: '+args.inpath1)
+weights1 = utils.load(args.inpath1, [args.weight1_column], max_num_samples=opts.max_num_samples1)[0][:,0]
 N1 = len(weights1)
 weights1.reshape(N1)
 
@@ -51,8 +53,8 @@ if opts.verbose:
     print('N1eff = %9.3f'%stats.neff(weights1/np.sum(weights1)))
 
 if opts.verbose:
-    print('reading samples from: '+inpath2)
-weights2 = utils.load(inpath2, [weight2_column], max_num_samples=opts.max_num_samples2)[0][:,0]
+    print('reading samples from: '+args.inpath2)
+weights2 = utils.load(args.inpath2, [args.weight2_column], max_num_samples=opts.max_num_samples2)[0][:,0]
 N2 = len(weights2)
 weights2.reshape(N2)
 

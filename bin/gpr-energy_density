@@ -27,7 +27,7 @@ DEFAULT_MAX_PRESSURE = 1e38
 parser = ArgumentParser(description=__doc__)
 
 rgroup = parser.add_argument_group('required arguments')
-rgroup.add_argument('eospaths', nargs='*', type=str)
+rgroup.add_argument('eospaths', nargs='+', type=str)
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity options')

@@ -500,3 +500,34 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
     vglogL = np.cov(weights*grad_logL.transpose(), rowvar=1) # matrix: (Ndim, Ndim)
 
     return mlogL, vlogL, mglogL, vglogL
+
+#-------------------------------------------------
+
+### integration routines
+def dedp2e(denergy_densitydpressure, pressurec2, ic=None):
+    energy_densityc2 = np.empty_like(pressurec2, dtype='float')
+    energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
+
+    # integrate in the bulk via trapazoidal approximation
+    energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
+
+    if ic is not None:
+        ic = pc2, ec2
+        energy_densityc2 = ec2 - np.interp(pc2, pressurec2, energy_densityc2)
+
+    return energy_densityc2
+
+def e_p2rho(energy_densityc2, pressurec2):
+    baryon_density = np.ones_like(pressurec2, dtype='float')
+
+    integrand = 1./(energy_densityc2+pressurec2)
+    integrand /= c2
+    baryon_density[1:] *= np.exp(np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(energy_densityc2[1:]-energy_densityc2[:-1]))) ### multiply by this factor
+
+    ### FIXME: match baryon density to energy density at reference pressure
+    #baryon_density *= ec2 / np.interp(ref_pc2, pressurec2, baryon_density)
+
+    ### match at the lowest allowed energy density
+    baryon_density *= energy_densityc2[0]
+
+    return baryon_density

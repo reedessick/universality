@@ -2,7 +2,6 @@
 
 __doc__ = "a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv."
 __author__ = "reed.essick@ligo.org"
-__usage__ = "weight_samples [--options] source_samples.csv target_samples.csv output_samples.csv column1 [column2 column3...]"
 
 #-------------------------------------------------
 
@@ -22,7 +21,7 @@ parser = ArgumentParser(description=__doc__)
 parser.add_argument('source', type=str)
 parser.add_argument('target', type=str)
 parser.add_argument('output', type=str)
-parser.add_argument('columns', nargs='*', type=str)
+parser.add_argument('columns', nargs='+', type=str)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 

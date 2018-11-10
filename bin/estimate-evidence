@@ -2,7 +2,6 @@
 
 __doc__ = "a script that estimates the evidence based on the samples within inpath.csv"
 __author__ = "reed.essick@ligo.org"
-__usage__ = "estimate-evidence [--options] inpath.csv weightcolumn"
 
 #-------------------------------------------------
 
@@ -10,7 +9,7 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumnetParser
 
 ### non-standard libraries
 from universality import utils
@@ -20,30 +19,31 @@ from universality import stats
 
 parser = OptionParser(usage=__usage__, description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('inpath', type=str)
+parser.add_argument('weightcolumn', type=str)
 
-parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('', '--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-opts, args = parser.parse_args()
-assert len(args)==2, 'please supply exactly 2 input arguments\n%s'%__usage__
-inpath, weightcolumn = args
+args = parser.parse_args()
 
 #-------------------------------------------------
 
 ### read in source samples
-if opts.verbose:
-    print('reading samples from: '+inpath)
-weights = utils.load(inpath, [weightcolumn], max_num_samples=opts.max_num_samples)[0][:,0]
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+weights = utils.load(args.inpath, [args.weightcolumn], max_num_samples=args.max_num_samples)[0][:,0]
 N = len(weights)
 sqrtN = N**0.5
 weights.reshape(N)
 
-if opts.weight_column_is_log:
+if args.weight_column_is_log:
     weights = np.exp(weights)
 
-if opts.verbose:
+if args.verbose:
     print('N    = %5d'%N)
     print('Neff = %9.3f'%stats.neff(weights/np.sum(weights)))
 

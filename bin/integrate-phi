@@ -54,7 +54,7 @@ if args.verbose:
 data, columns = utils.load(inpath)
 
 pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
-denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is the definition of phi=log(de/dp - 1)
+denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')]))/utils.c2 ### this is the definition of phi=log(de/dp - 1)
 
 #------------------------
 
@@ -62,16 +62,9 @@ denergy_densitydpressure = 1 + np.exp(data[:,columns.index('phi')]) ### this is 
 # NOTE: this could probably be improved...
 if args.verbose:
     print('performing numeric integration for energy_density via trapazoidal approximation')
-energy_densityc2 = np.empty_like(pressurec2, dtype='float')
-energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
-
-# integrate in the bulk via trapazoidal approximation
-energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
-
-# scale the result to match reference energy at reference pressure
 ec2 = ref_ec2 + np.random.randn()*args.sigma_energy_densityc2
 pc2 = ref_pc2 + np.random.randn()*args.sigma_pressurec2
-energy_densityc2 += ec2 - np.interp(pc2, pressurec2, energy_densityc2)
+energy_densityc2 = utils.dedp2e(denergy_densitydpressure, pressurec2, ic=(pc2, ec2))
 
 ### throw away pressures corresponding to negative energy densities!
 truth = energy_densityc2 >= 0
@@ -86,16 +79,7 @@ energy_densityc2 = energy_densityc2[truth]
 # NOTE: this could probably be improved as well...
 if args.verbose:
     print('performing numeric integration for baryon_density via trapazoidal approximation')
-baryon_density = np.ones_like(pressurec2, dtype='float')
-
-integrand = 1./(energy_densityc2+pressurec2)
-baryon_density[1:] *= np.exp(np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(energy_densityc2[1:]-energy_densityc2[:-1]))) ### multiply by this factor
-
-### FIXME: match baryon density to energy density at reference pressure
-#baryon_density *= ec2 / np.interp(ref_pc2, pressurec2, baryon_density)
-
-### match at the lowest allowed energy density
-baryon_density *= energy_densityc2[0]
+baryon_density = utils.e_p2rho(energy_densityc2, pressurec2)
 
 ### NOTE: we now assume 
 # write output

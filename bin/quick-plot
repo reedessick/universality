@@ -22,7 +22,7 @@ parser = OptionParser(usage=__usage__, description=__doc__)
 
 parser.add_option('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--linestyle', default='-', type='string')
+parser.add_option('', '--linestyle', default='solid', type='string')
 
 parser.add_option('', '--alpha', default=1.0, type='float')
 

@@ -19,7 +19,7 @@ from universality import plot
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('samples', type=str)
-parser.add_argument('columns', nargs='*', type=str)
+parser.add_argument('columns', nargs='+', type=str)
 
 vgroup = parser.add_argument_group('verbosity options')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')

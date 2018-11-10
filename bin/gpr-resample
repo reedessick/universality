@@ -1,0 +1,255 @@
+#!/usr/bin/env python
+
+__doc__ = "a one-stop shop for the full GPR regression for phi = log(denergy_density/dpressure -1) as a function of pressurec2."
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard
+from universality import utils
+from universality import gaussianprocess as gp
+from universality import plot
+
+#-------------------------------------------------
+
+DEFAULT_MIN_PRESSURE = 1e30 ### g/cm^3
+DEFAULT_MAX_PRESSURE = 1e38
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+### required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('eospaths', nargs='+', type=str)
+
+### verbosity arguments
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### options for resampling
+ggroup = parser.add_argument_group('Gaussian Process resampling options')
+ggroup.add_argument('--pressure-bounds', default=(DEFAULT_MIN_PRESSURE, DEFAULT_MAX_PRESSURE), nargs=2, type=float,
+    help='min max values for resample-pressure. Specified in g/cm^3. \
+DEFAULT=%.3e %.3e'%(DEFAULT_MIN_PRESSURE, DEFAULT_MAX_PRESSURE))
+ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
+    help='resample to this number of points. \
+DEFAULT=%d'%gp.DEFAULT_NUM)
+ggroup.add_argument('--truncate', default=False, action='store_true',
+    help='truncate the range of the resampling to match what is in the csv')
+
+ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
+    help='the degree of the polynomial used to model eos before GPR as part of resampling. \
+DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
+
+ggroup.add_argument('--sigma', default=gp.DEFAULT_SIGMA, type=float,
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
+ggroup.add_argument('--length-scale', dest='l', default=gp.DEFAULT_L, type=float,
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.DEFAULT_L)
+ggroup.add_argument('--sigma_obs', default=gp.DEFAULT_SIGMA, type=float,
+    help='used as a guess for the optimizer. \
+DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
+
+ggroup.add_argument('--check-for-nan', default=False, action='store_true',
+    help='look for nans during resampling step. If they are found, raise a ValueError')
+
+### plotting options
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('-p', '--plot-all', default=False, action='store_true')
+pgroup.add_argument('--plot-baryon_density', default=False, action='store_true')
+pgroup.add_argument('--plot-energy_densityc2', default=False, action='store_true')
+pgroup.add_argument('--plot-phi', default=False, action='store_true')
+
+pgroup.add_argument('--residuals', default=False, action='store_true')
+
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+
+### output options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+Neos = len(args.eospaths)
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+args.plot_baryon_density |= args.plot_all
+args.plot_energy_densityc2 |= args.plot_all
+args.plot_phi |= args.plot_all
+
+#-------------------------------------------------
+
+### resample eos into a big matrix
+### generate all data structures we'll need here
+if args.verbose:
+    print('resampling to %d points within [%.3e, %.3e] g/cm^3'%((args.num_points,)+tuple(args.pressure_bounds)))
+logp_resample = np.linspace(
+    np.log(args.pressure_bounds[0]),
+    np.log(args.pressure_bounds[1]),
+    args.num_points,
+)
+logp_resample -= 2*np.log(utils.c)
+
+for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resample, and fill in data structures
+    if args.verbose:
+        print('reading: '+path)
+    data, _ = utils.load(path, ['pressurec2', 'energy_densityc2'])
+    logp_obs = np.log(data[:,0])
+    loge_obs = np.log(data[:,1])
+
+    ### run gpr to resample this eos
+    if args.verbose:
+        print('resampling %d observations to %d+%d points'%(len(loge_obs), args.num_points, args.num_points))
+
+    if args.truncate:
+        truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
+    else:
+        truth = np.ones_like(logp_resample, dtype=bool)
+    if not np.any(truth):
+        raise Warning, 'no samples found with requested range. Skipping this EOS'
+        continue
+
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
+        logp_resample[truth],
+        loge_obs,
+        logp_obs,
+        degree=args.poly_degree,
+        guess_sigma2=args.sigma**2,
+        guess_l2=args.l**2,
+        guess_sigma2_obs=args.sigma_obs**2,
+    )
+
+    if args.verbose:
+        print('computing process for phi')
+    mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
+    mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
+    TRUTH = truth[:]
+    TRUTH[truth] = truth_phi
+
+    cov_phi_phi = gp.cov_phi_phi(
+        logp_resample[TRUTH],
+        mean_f[truth_phi],
+        mean_dfdx[truth_phi],
+        cov_f_f[truth_phi,:][:,truth_phi],
+        cov_f_dfdx[truth_phi,:][:,truth_phi],
+        cov_dfdx_f[truth_phi,:][:,truth_phi],
+        cov_dfdx_dfdx[truth_phi,:][:,truth_phi],
+    )
+
+    ### save the process for this resample to file
+    ### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
+
+    # just f
+    pklpath = os.path.join(args.output_dir, 'gpr_phi-f-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
+    if args.verbose:
+        print('writing process to: '+pklpath)
+    gp.pkldump(pklpath, 'logpressurec2', 'logenergy_densityc2', logp_resample[truth], mean_f, cov_f_f)
+
+    # just df/dx
+    pklpath = os.path.join(args.output_dir, 'gpr_phi-dfdx-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
+    if args.verbose:
+        print('writing process to: '+pklpath)
+    gp.pkldump(pklpath, 'logpressurec2', 'dlogenergy_densitydpressure', logp_resample[truth], mean_dfdx, cov_dfdx_dfdx)
+    
+    # just phi
+    pklpath = os.path.join(args.output_dir, 'gpr_phi-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
+    if args.verbose:
+        print('writing process to: '+pklpath)
+    gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[TRUTH], mean_phi, cov_phi_phi)
+
+    ### plot the result
+    if args.plot_baryon_density:
+        raise NotImplementedError('plot-baryon-density is broken!')
+        b_obs = np.log(utils.load(path, ['baryon_density'])[0][:,0])
+        b_tst = utils.e_p2rho(np.exp(mean_f), np.exp(logp_resample[truth]))
+        fig = plot.gpr_overlay(
+            np.exp(mean_f),
+            b_tst,
+            (b_tst, b_tst), ### hackey, but I can't be bothered to accurately estimate errors here...
+            np.exp(loge_obs),
+            b_obs,
+            logx=True,
+            logy=True,
+            xlabel='$\mu/c^2$',
+            ylabel='$\\rho$',
+            residuals=args.residuals,
+            figwidth=args.figwidth,
+            figheight=args.figheight,
+        )
+        plot.save('gpr-resample-baryon_density%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+
+    if args.plot_energy_densityc2:
+        fig = plot.gpr_overlay(
+            np.exp(logp_resample[truth]),
+            np.exp(mean_f),
+            (np.exp(mean_f+np.diag(cov_f_f)**0.5), np.exp(mean_f-np.diag(cov_f_f)**0.5)),
+            np.exp(logp_obs),
+            np.exp(loge_obs),
+            logx=True,
+            logy=True,
+            xlabel='$p/c^2$',
+            ylabel='$\mu/c^2$',
+            residuals=args.residuals,
+            figwidth=args.figwidth,
+            figheight=args.figheight,
+        )
+        plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+
+        fig = plot.gpr_overlay(
+            np.exp(logp_resample[truth]),
+            mean_dfdx,
+            (mean_dfdx-np.diag(cov_dfdx_dfdx)**0.5, mean_dfdx+np.diag(cov_dfdx_dfdx)**0.5),
+            np.exp(logp_obs),
+            gp.num_dfdx(logp_obs, loge_obs),
+            logx=True,
+            logy=False,
+            xlabel='$p/c^2$',
+            ylabel='$d\log \mu / d\log p$',
+            residuals=args.residuals,
+            figwidth=args.figwidth,
+            figheight=args.figheight,
+        )
+        plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+
+    if args.plot_phi:
+        fig = plot.gpr_overlay(
+            np.exp(logp_resample[TRUTH]),
+            mean_phi,
+            (mean_phi-np.diag(cov_phi_phi)**0.5, mean_phi+np.diag(cov_phi_phi)**0.5),
+            np.exp(logp_obs),
+            np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1),
+            logx=True,
+            logy=False,
+            xlabel='$p/c^2$',
+            ylabel='$\phi$',
+            residuals=args.residuals,
+            figwidth=args.figwidth,
+            figheight=args.figheight,
+        )
+        plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+
+    ### run basic sanity checks to make sure we don't break anything downstream...
+    if args.check_for_nan:
+        if np.any(mean_phi!=mean_phi):
+            raise ValueError, path+' produces nans for mean_phi when resampled!'
+        if np.any(cov_phi_phi!=cov_phi_phi):
+            raise ValueError, path+' producds nans for cov_phi_phi when resampled!'
