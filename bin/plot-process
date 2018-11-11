@@ -55,7 +55,7 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append',
     help='label max-num-samples pairs')
-sgroup.add_argument('-w', '--weight-column', nargs=2, default=None, type=str, action='append',
+sgroup.add_argument('-w', '--weight-column', nargs=2, default=[], type=str, action='append',
     help='label column pairs. if provided, thie numerical values from this column will be used as weights in the KDE')
 sgroup.add_argument('-W', '--weight-column-is-log', nargs=1, default=[], type=str,
     help='the label for samples for which this is true')
