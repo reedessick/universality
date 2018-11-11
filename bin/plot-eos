@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "plot_eos [--options] eos.csv [eos.csv eos.csv ...]"
 __doc__ = "generate some simple plots of the EOS to make sure they're reasonable. Assumes all columns are in g/cm^3, and converts to more standard units as appropriate"
 __author__ = "reed.essick@ligo.org"
 
@@ -10,133 +9,112 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
+from universality import utils
 from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+### required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('xcolumn', type=str)
+rgroup.add_argument('ycolumn', type=str)
+rgroup.add_argument('-s', '--samples', required=True, nargs=2, default=[], action='append', type=str)
 
-parser.add_option('','--min-baryon_density', default=None, type='float')
-parser.add_option('','--max-baryon_density', default=None, type='float')
+### samples arguments
+sgroup = parser.add_argument_group('sgroup')
+sgroup.add_argument('--samples-color', nargs=2, default=[], action='append', type=str)
+sgroup.add_argument('--samples-linestyle', nargs=2, default=[], action='append', type=str)
 
-parser.add_option('','--min-pressure', default=None, type='float')
-parser.add_option('','--max-pressure', default=None, type='float')
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('','--min-energy_density', default=None, type='float')
-parser.add_option('','--max-energy_density', default=None, type='float')
+### plotting options
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('--column-bounds', nargs=3, default=[], type=str, action='append')
+pgroup.add_argument('--column-label', nargs=2, default=[], type=str, action='append')
 
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
-parser.add_option('--figtype', default=[], type='string', action='append')
-parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
+pgroup.add_argument('--logx', default=False, action='store_true')
+pgroup.add_argument('--logy', default=False, action='store_true')
+pgroup.add_argument('--residuals', default=False, action='store_true')
+pgroup.add_argument('--ratios', default=False, action='store_true')
 
-opts, args = parser.parse_args()
-assert len(args), 'please supply at least 1 eos.csv\n%s'%__usage__
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+### output options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+args = parser.parse_args()
 
-if not opts.figtype:
-    opts.figtype = plot.DEFAULT_FIGTYPES
+### finish parsing
+columns = [args.xcolumn, args.ycolumn]
+
+bounds = dict((col, (float(m), float(M))) for col, m, M in args.column_bounds)
+
+labels = dict((col, '$'+col+'$') for col in columns)
+labels.update(dict(args.column_label))
+
+colors = dict(args.samples_color)
+colors = [colors.get(label, plot.DEFAULT_COLOR1) for label, _ in args.samples]
+
+linestyles = dict(args.samples_linestyle)
+linestyles = [linestyles.get(label, plot.DEFAULT_LINESTYLE) for label, _ in args.samples]
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
 
 #-------------------------------------------------
 
-c = (299792458*100) # speed of light in (cm/s)
-c2 = c**2
-
-### instantiate figure
-fig = plot.plt.figure()
-ax_re = plot.plt.subplot(2,2,1)
-ax_rp = plot.plt.subplot(2,2,3)
-ax_ep = plot.plt.subplot(2,2,4)
-
-### iterate and plot
-for path in args:
-    if opts.verbose:
+### iterate and load data
+x = []
+y = []
+for label, path in args.samples:
+    if args.verbose:
         print('reading EOS data from: '+path)
-    d = np.genfromtxt(path, names=True, delimiter=',')
+    d, cols = utils.load(path, columns)
 
-    if opts.verbose:
-        print('plotting')
+    truth = np.ones(len(d), dtype=bool)
+    if bounds.has_key(args.xcolumn):
+        m, M = bounds[args.xcolumn]
+        truth *= (m<=d[:,0])*(d[:,1]<=M)
+    if bounds.has_key(args.ycolumn):
+        m, M = bounds[args.ycolumn]
+        truth *= (m<=d[:,0])*(d[:,1]<=M)
 
-    label = os.path.basename(path)[:-4]
-    r = d['baryon_density']
-    p = d['pressurec2']*c2
-    e = d['energy_densityc2']*c2
+    x.append(d[truth,0])
+    y.append(d[truth,1])
 
-    truth = np.ones_like(r, dtype=bool)
-
-    if opts.min_baryon_density!=None:
-        truth *= r>=opts.min_baryon_density
-    if opts.max_baryon_density!=None:
-        truth *= r<=opts.max_baryon_density
-
-    if opts.min_pressure!=None:
-        truth *= p>=opts.min_pressure
-    if opts.max_pressure!=None:
-        truth *= p<=opts.max_pressure
-
-    if opts.min_energy_density!=None:
-        truth *= e>=opts.min_energy_density
-    if opts.min_energy_density!=None:
-        truth *= e<=opts.min_energy_density
-
-    r = r[truth]
-    p = p[truth]
-    e = e[truth]
-
-    ax_re.plot(r, e, label=label)
-    ax_rp.plot(r, p, label=label)
-    ax_ep.plot(e, p, label=label)
-
-### decorate figure
-e_label = r'$\epsilon$ [erg/cm$^3$]'
-r_label = r'$\rho$ [g/cm$^3$]'
-p_label = r'$p$ [erg/cm$^3$]'
-
-plot.plt.setp(ax_re.get_xticklabels(), visible=False)
-ax_re.set_ylabel(e_label)
-
-ax_rp.set_xlabel(r_label)
-ax_rp.set_ylabel(p_label)
-
-ax_ep.set_xlabel(e_label)
-plot.plt.setp(ax_ep.get_yticklabels(), visible=False)
-
-for ax in [ax_re, ax_rp, ax_ep]:
-    ax.grid(True, which='both')
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-if opts.min_baryon_density!=None:
-    ax_re.set_xlim(xmin=opts.min_baryon_density)
-if opts.max_baryon_density!=None:
-    ax_re.set_xlim(xmax=opts.max_baryon_density)
-ax_rp.set_xlim(ax_re.get_xlim())
-
-if opts.min_pressure!=None:
-    ax_rp.set_ylim(ymin=opts.min_pressure)
-if opts.max_pressure!=None:
-    ax_rp.set_ylim(ymax=opts.max_pressure)
-ax_ep.set_ylim(ax_rp.get_ylim())
-
-if opts.min_energy_density!=None:
-    ax_re.set_ylim(ymin=opts.min_energy_density)
-if opts.max_energy_density!=None:
-    ax_re.set_ylim(ymax=opts.max_energy_density)
-ax_ep.set_xlim(ax_re.get_ylim())
-
-plot.plt.subplots_adjust(hspace=0.1, wspace=0.1)
+fig = plot.overlay(
+    x,
+    y,
+    colors=colors,
+    linestyles=linestyles,
+    xlabel=labels[args.xcolumn],
+    ylabel=labels[args.ycolumn],
+    figwidth=args.figwidth,
+    figheight=args.figheight,
+    residuals=args.residuals,
+    ratios=args.ratios,
+    logx=args.logx,
+    logy=args.logy,
+)
 
 ### save
-plot.save('plot_eos%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
+plot.save('plot-eos%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.plt.close(fig)

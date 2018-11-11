@@ -35,7 +35,7 @@ DEFAULT_COLOR2 = 'r'
 DEFAULT_TRUTH_COLOR = 'b'
 
 DEFAULT_LINEWIDTH = 1.
-DEFAULT_LINESTYLE = 'solid'
+DEFAULT_LINESTYLE = '-'
 
 DEFAULT_FIGTYPES = ['png']
 DEFAULT_DPI = 100
@@ -401,14 +401,97 @@ def curve_corner(
 
 #-------------------------------------------------
 
+def overlay(
+        x,
+        f,
+        colors=None,
+        linestyles=None,
+        xlabel='x',
+        ylabel='f',
+        figwidth=DEFAULT_FIGWIDTH,
+        figheight=DEFAULT_FIGHEIGHT,
+        residuals=False,
+        ratios=False,
+        logx=False,
+        logy=False,
+    ):
+    if np.ndim(x)==1:
+        x_obs = [x]
+        f_obs = [f]
+    N = len(x)
+
+    if colors is None:
+        colors = [DEFAULT_COLOR2 for _ in range(N)]
+
+    if linestyles is None:
+        linestyles = [DEFAULT_LINESTYLE for _ in range(N)]
+
+    ### set up figure, axes
+    fig = plt.figure(figsize=(figwidth, figheight))
+    if residuals or ratios:
+        ax = fig.add_axes(MAIN_AXES_POSITION)
+        rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+
+    else:
+        ax = fig.add_axes(AXES_POSITION)
+
+    xmin = np.min([np.min(_) for _ in x])
+    xmax = np.max([np.max(_) for _ in x])
+
+    # plot the observed data
+    for x, f, c, l in zip(x, f, colors, linestyles):
+        ax.plot(x, f, l, color=c, alpha=0.5)
+
+    # plot residuals, etc
+    if residuals or ratios:
+        x_ref = x[0]
+        f_ref = f[0]
+
+        # plot the observed data
+        for x, f, c, l in zip(x, f, colors, linestyles):
+            f = np.interp(x_ref, x, f)
+
+            if residuals:
+                rs.plot(x_ref, f-f_ref, l, color=c, alpha=0.5)
+
+            elif ratios:
+                rs.plot(x_ref, f/f_ref, l, color=c, alpha=0.5)
+
+    # decorate
+    ax.grid(True, which='both')
+    ax.set_yscale('log' if logy else 'linear')
+    ax.set_xscale('log' if logx else 'linear')
+    ax.set_xlim(xmin=xmin, xmax=xmax)
+
+    if residuals or ratios:
+        rs.set_xscale(ax.get_xscale())
+        rs.set_xlim(ax.get_xlim())
+
+        rs.grid(True, which='both')
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+        rs.set_xlabel(xlabel)
+        if residuals:
+            rs.set_ylabel('$%s - %s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$')))
+        elif ratios:
+            rs.set_yscale(ax.get_xscale())
+            rs.set_ylabel('$%s/%s_{\mathrm{ref}$'%(ylabel.strip('$'), ylabel.strip('$')))
+
+    else:
+        ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    return fig
+
 def gpr_overlay(
         x_tst,
         f_tst,
         cr_tst,
-        x_obs,
-        f_obs,
+        x_obs=None,
+        f_obs=None,
         cr_obs=None,
-        linestyle_obs='.-',
+        linestyle_tst=DEFAULT_LINESTYLE,
+        linestyle_obs=DEFAULT_LINESTYLE,
         xlabel='x',
         ylabel='f',
         figwidth=DEFAULT_FIGWIDTH,
@@ -421,20 +504,24 @@ def gpr_overlay(
         logy=False,
     ):
     ### set up input arguments
-    if np.ndim(x_obs)==1:
-        x_obs = [x_obs]
-        f_obs = [f_obs]
-        cr_obs = [cr_obs]
-    Nobs = len(x_obs)
+    if x_obs is not None:
+        if np.ndim(x_obs)==1:
+            x_obs = [x_obs]
+            f_obs = [f_obs]
+            cr_obs = [cr_obs]
+        Nobs = len(x_obs)
 
-    if color_obs is None:
-        color_obs = [DEFAULT_COLOR2 for _ in range(Nobs)]
+        if color_obs is None:
+            color_obs = [DEFAULT_COLOR2 for _ in range(Nobs)]
+
+    else:
+        Nobs = 0
 
     xmin, xmax = np.min(x_tst), np.max(x_tst)
 
     ### set up figure, axes
     fig = plt.figure(figsize=(figwidth, figheight))
-    if residuals or ratios:
+    if (residuals or ratios) and (Nobs > 0):
         ax = fig.add_axes(MAIN_AXES_POSITION)
         rs = fig.add_axes(RESIDUAL_AXES_POSITION)
 
@@ -443,17 +530,18 @@ def gpr_overlay(
 
     # plot the test points
     ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst, alpha=0.25)
-    ax.plot(x_tst, f_tst, color=color_tst)
+    ax.plot(x_tst, f_tst, linestyle_tst, color=color_tst)
 
     # plot the observed data
-    for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
-        truth = (xmin<=x)*(x<=xmax)
-        if cr is not None:
-            ax.fill_between(x, cr[0], cr[1], color=color, alpha=0.25)
-        ax.plot(x, f, linestyle_obs, color=color, alpha=0.25)
+    if Nobs > 0:
+        for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
+            truth = (xmin<=x)*(x<=xmax)
+            if cr is not None:
+                ax.fill_between(x, cr[0], cr[1], color=color, alpha=0.25)
+            ax.plot(x, f, linestyle_obs, color=color, alpha=0.25)
 
     # plot residuals, etc
-    if residuals or ratios:
+    if (residuals or ratios) and (Nobs > 0):
         if Nobs==1:
             x_ref = x_obs[0]
             f_ref = f_obs[0]
@@ -470,13 +558,13 @@ def gpr_overlay(
 
         if residuals:
             rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst, alpha=0.25)
-            rs.plot(x_ref, f_tst_interp-f_ref, color=color_tst)
+            rs.plot(x_ref, f_tst_interp-f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low-f_ref)[truth]), ymax=np.max((hgh-f_ref)[truth]))
 
         elif ratios:
             rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst, alpha=0.25)
-            rs.plot(x_ref, f_tst_interp/f_ref, color=color_tst)
+            rs.plot(x_ref, f_tst_interp/f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low/f_ref)[truth]), ymax=np.max((hgh/f_ref)[truth]))
 
@@ -504,9 +592,9 @@ def gpr_overlay(
     ax.grid(True, which='both')
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
-    ax.set_xlim(xmin=np.min(x_tst), xmax=np.max(x_tst))
+    ax.set_xlim(xmin=xmin, xmax=xmax)
 
-    if residuals or ratios:
+    if (residuals or ratios) and (Nobs > 0):
         rs.set_xscale(ax.get_xscale())
         rs.set_xlim(ax.get_xlim())
 
@@ -532,22 +620,11 @@ def gpr_overlay(
 
     return fig
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#-------------------------------------------------
+#
+### functions below here are deprecated!
+#
+#-------------------------------------------------
 
 def sanity_check(x_tst, f_tst, std_tst, x_obs, f_obs, std_obs=None):
     '''
