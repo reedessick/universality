@@ -48,13 +48,13 @@ ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
     help='the degree of the polynomial used to model eos before GPR as part of resampling. \
 DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
 
-ggroup.add_argument('--sigma', default=gp.DEFAULT_SIGMA, type=float,
+ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
-ggroup.add_argument('--length-scale', dest='l', default=gp.DEFAULT_L, type=float,
+ggroup.add_argument('-l', '--length-scale', dest='l', default=gp.DEFAULT_L, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_L)
-ggroup.add_argument('--sigma_obs', default=gp.DEFAULT_SIGMA, type=float,
+ggroup.add_argument('-S', '--sigma-obs', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
 
@@ -142,7 +142,9 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         print('computing process for phi')
     mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
     mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
-    TRUTH = truth[:]
+
+    TRUTH = np.zeros_like(truth, dtype=bool) ### make a copy
+    TRUTH[truth] = True
     TRUTH[truth] = truth_phi
 
     cov_phi_phi = gp.cov_phi_phi(

@@ -35,28 +35,28 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 ### options for evaluation
 ggroup = parser.add_argument_group('Gaussian Process options')
-ggroup.add_argument('--evaluate-bounds', default=(DEFAULT_MIN, DEFAULT_MAX), nargs=2, type=float,
+ggroup.add_argument('--pressure-bounds', default=(DEFAULT_MIN, DEFAULT_MAX), nargs=2, type=float,
     help='min max values for evaluation bounds. Specified in the same units used in the supplied pkl. \
 DEFAULT=%.3e %.3e'%(DEFAULT_MIN, DEFAULT_MAX))
-ggroup.add_argument('--evaluate-num', default=gp.DEFAULT_NUM, type=int,
+ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
     help='evaluate at this number of points. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-ggroup.add_argument('--evaluate-poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
+ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
     help='the degree of the polynomial used to model eos before GPR as part of evaluation. \
 DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
 
-ggroup.add_argument('--evaluate-sigma', default=gp.DEFAULT_SIGMA, type=float,
+ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
-ggroup.add_argument('--evaluate-l', default=gp.DEFAULT_L, type=float,
+ggroup.add_argument('-l', '--length-scale', dest='l', default=gp.DEFAULT_L, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_L)
-ggroup.add_argument('--evaluate-sigma_obs', default=gp.DEFAULT_SIGMA, type=float,
+ggroup.add_argument('-S', '--sigma-obs', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
 
-ggroup.add_argument('--evaluate-model_multiplier', default=gp.DEFAULT_MODEL_MULTIPLIER, type=float,
+ggroup.add_argument('-m', '--model-multiplier', default=gp.DEFAULT_MODEL_MULTIPLIER, type=float,
     help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
 Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
 
@@ -85,6 +85,9 @@ if not os.path.exists(args.output_dir):
 
 if args.tag:
     args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
 
 #-------------------------------------------------
 
@@ -128,7 +131,7 @@ for i in xrange(Nx):
     var = np.var([m[i] for m in means]) + np.sum([c[i,i] for c in covs])
 
     # multiply this sample by some factor (hyper-parameter)
-    var *= args.evaluate_model_multiplier
+    var *= args.model_multiplier
 
     # fill in big array as needed
     for j in xrange(Npkl):
@@ -147,24 +150,25 @@ for ind in xrange(Npkl):
 
 ### perform the "altogether" regression
 if args.verbose:
-    print('evaluating f at %d points within [%.3e, %.3e] g/cm^3'%((args.evaluate_num,)+args.evaluate_bounds))
+    print('evaluating f at %d points within [%.3e, %.3e] g/cm^3'%((args.num_points,)+tuple(args.pressure_bounds)))
 x_evaluate = np.linspace(
-    args.evaluate_bounds[0],
-    args.evaluate_bounds[1],
-    args.evaluate_num,
+    np.log(args.pressure_bounds[0]),
+    np.log(args.pressure_bounds[1]),
+    args.num_points,
 )
+x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
 
 if args.verbose:
-    print('regressing %d values from %d noisy observations'%(args.evaluate_num, Nobs))
+    print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
 mean, cov = gp.gpr_altogether(
     x_evaluate,
     means_1d,
     xs_1d,
     covs_2d,
-    degree=args.evaluate_poly_degree,
-    guess_sigma2=args.evaluate_sigma**2,
-    guess_l2=args.evaluate_l**2,
-    guess_sigma2_obs=args.evaluate_sigma_obs**2,
+    degree=args.poly_degree,
+    guess_sigma2=args.sigma**2,
+    guess_l2=args.l**2,
+    guess_sigma2_obs=args.sigma_obs**2,
 )
 
 ### save the result
@@ -176,17 +180,18 @@ gp.pkldump(pklpath, labels[0], labels[1], x_evaluate, mean, cov)
 ### plot the result
 if args.plot:
     cr_obs = []
-    for mean, cov in zip(means, covs):
-        cov = np.diag(cov)**0.5
-        cr_obs.append( (mean-cov, mean+cov) )
+    for m, c in zip(means, covs):
+        c = np.diag(c)**0.5
+        cr_obs.append( (m-c, m+c) )
 
     fig = plot.gpr_overlay(
         np.exp(x_evaluate),
         mean,
         (mean-np.diag(cov)**0.5, mean+np.diag(cov)**0.5),
-        [np.exp(x_obs) for _ in range(Npkl)],
+        [np.exp(x_obs)]*Npkl,
         means,
         cr_obs=cr_obs,
+        linestyle_obs='-',
         logx=True,
         logy=False,
         xlabel='$p/c^2$',

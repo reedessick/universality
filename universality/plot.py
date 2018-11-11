@@ -408,6 +408,7 @@ def gpr_overlay(
         x_obs,
         f_obs,
         cr_obs=None,
+        linestyle_obs='.-',
         xlabel='x',
         ylabel='f',
         figwidth=DEFAULT_FIGWIDTH,
@@ -449,7 +450,7 @@ def gpr_overlay(
         truth = (xmin<=x)*(x<=xmax)
         if cr is not None:
             ax.fill_between(x, cr[0], cr[1], color=color, alpha=0.25)
-        ax.plot(x, f, '.-', color=color, alpha=0.25)
+        ax.plot(x, f, linestyle_obs, color=color, alpha=0.25)
 
     # plot residuals, etc
     if residuals or ratios:
@@ -489,7 +490,7 @@ def gpr_overlay(
                     low = np.interp(x_ref, x, cr[0])
                     rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color, alpha=0.25)
 
-                rs.plot(x_ref, f-f_ref, '.-', color=color, alpha=0.25)
+                rs.plot(x_ref, f-f_ref, linestyle_obs, color=color, alpha=0.25)
 
             elif ratios:
                 if cr is not None:
@@ -497,7 +498,7 @@ def gpr_overlay(
                     low = np.interp(x_ref, x, cr[0])
                     rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color, alpha=0.25)
 
-                rs.plot(x_ref, f/f_ref, '.-', color=color_obs, alpha=0.25)
+                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color_obs, alpha=0.25)
 
     # decorate
     ax.grid(True, which='both')
