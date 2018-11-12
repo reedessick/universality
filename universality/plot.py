@@ -114,6 +114,7 @@ def kde_corner(
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
+        alpha=0.25,
     ):
     """
     should be mostly equivalent to corner.corner, except we build our own KDEs and the like
@@ -253,8 +254,8 @@ def kde_corner(
 
                     thrs = sorted(np.exp(logkde2levels(np.log(kde), levels)), reverse=True)
                     if filled:
-                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.25, levels=thrs)
-                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=0.5, levels=thrs, linewidths=linewidth, linestyles=linestyle)
+                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs)
+                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate
             ax.grid(grid, which='both')

@@ -383,7 +383,7 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append(utils.load(path, [args.xcolumn, args.ycolumn])[0]) ### just grab the data, not the column names
+        reference.append((label, utils.load(path, [args.xcolumn, args.ycolumn])[0])) ### just grab the data, not the column names
 
 ### set up reference curves
 if args.residuals or args.ratios:
@@ -417,13 +417,14 @@ for ind, label in enumerate(names):
 
     # add reference curves
     for ref_label, curve in reference:
-        x = curve[:,0]
-        y = curve[:,1]
-        ax.plot(x, y, color=reference_colors[ref_label])
+        X = curve[:,0]
+        Y = curve[:,1]
+        color = reference_colors.get(ref_label, plot.DEFAULT_COLOR2)
+        ax.plot(X, Y, color=color, alpha=0.5)
         if args.residuals:
-            ax_res.plot(x_test, np.interp(x_test, x, y)-y_reference, color=reference_colors[ref_label])
+            ax_res.plot(x_test, np.interp(x_test, X, Y)-y_reference, color=color, alpha=0.5)
         elif args.ratios:
-            ax_res.plot(x_test, np.interp(x_test, x, y)/y_reference, color=reference_colors[ref_label])
+            ax_res.plot(x_test, np.interp(x_test, X, Y)/y_reference, color=color, alpha=0.5)
 
 ### decorate
 
