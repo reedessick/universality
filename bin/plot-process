@@ -390,7 +390,7 @@ if args.reference:
 ### set up reference curves
 if args.residuals or args.ratios:
     if len(reference)==1: ### use the one reference curve a the baseline
-        y_reference = np.interp(x_test, reference[0][:,0], reference[0][:,1])
+        y_reference = np.interp(x_test, reference[0][1][:,0], reference[0][1][:,1])
         y_reference_label = 'reference'
     else:
         y_reference = y_median[0,:]
@@ -421,7 +421,7 @@ for ind, label in enumerate(names):
 for ref_label, curve in reference:
     X = curve[:,0]
     Y = curve[:,1]
-    color = reference_colors.get(ref_label, plot.DEFAULT_COLOR2)
+    color = reference_colors[ref_label]
     ax.plot(X, Y, color=color, alpha=0.5)
 
     if args.residuals:
