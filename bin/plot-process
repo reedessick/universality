@@ -161,6 +161,7 @@ args = parser.parse_args()
 ### finish parsing
 columns = [args.xcolumn, args.ycolumn]
 names = [label for label, path in args.samples]
+reference_names = [label for label, path in args.reference]
 Nsamples = len(names)
 
 # samples arguments
