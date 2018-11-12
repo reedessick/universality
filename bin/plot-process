@@ -417,16 +417,17 @@ for ind, label in enumerate(names):
     elif args.ratios:
         ax_res.plot(x_test, y_median[ind,:]/y_reference, color=colors[label], alpha=1.0)
 
-    # add reference curves
-    for ref_label, curve in reference:
-        X = curve[:,0]
-        Y = curve[:,1]
-        color = reference_colors.get(ref_label, plot.DEFAULT_COLOR2)
-        ax.plot(X, Y, color=color, alpha=0.5)
-        if args.residuals:
-            ax_res.plot(x_test, np.interp(x_test, X, Y)-y_reference, color=color, alpha=0.5)
-        elif args.ratios:
-            ax_res.plot(x_test, np.interp(x_test, X, Y)/y_reference, color=color, alpha=0.5)
+# add reference curves
+for ref_label, curve in reference:
+    X = curve[:,0]
+    Y = curve[:,1]
+    color = reference_colors.get(ref_label, plot.DEFAULT_COLOR2)
+    ax.plot(X, Y, color=color, alpha=0.5)
+
+    if args.residuals:
+        ax_res.plot(x_test, np.interp(x_test, X, Y)-y_reference, color=color, alpha=0.5)
+    elif args.ratios:
+        ax_res.plot(x_test, np.interp(x_test, X, Y)/y_reference, color=color, alpha=0.5)
 
 ### decorate
 
