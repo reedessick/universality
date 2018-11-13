@@ -36,7 +36,7 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
-pgroup.add_argument('--column-bounds', nargs=3, default=[], type=str, action='append')
+pgroup.add_argument('--column-range', nargs=3, default=[], type=str, action='append')
 pgroup.add_argument('--column-label', nargs=2, default=[], type=str, action='append')
 
 pgroup.add_argument('--logx', default=False, action='store_true')
@@ -57,16 +57,23 @@ ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 ### finish parsing
+names = [label for label, _ in args.samples]
 columns = [args.xcolumn, args.ycolumn]
 
-bounds = dict((col, (float(m), float(M))) for col, m, M in args.column_bounds)
+ranges = dict((col, (float(m), float(M))) for col, m, M in args.column_range)
 
+for col, _ in args.column_label:
+    assert col in columns, 'specifying --column-label for uknown column: '+col
 labels = dict((col, '$'+col+'$') for col in columns)
 labels.update(dict(args.column_label))
 
+for label, _ in args.samples:
+    assert label in names, 'specifying --samples-color for unknown sample set: '+label
 colors = dict(args.samples_color)
 colors = [colors.get(label, plot.DEFAULT_COLOR1) for label, _ in args.samples]
 
+for label, _ in args.samples:
+    assert label in names, 'specifying --samples-label for unknown sample set: '+label
 linestyles = dict(args.samples_linestyle)
 linestyles = [linestyles.get(label, plot.DEFAULT_LINESTYLE) for label, _ in args.samples]
 
@@ -90,11 +97,11 @@ for label, path in args.samples:
     d, cols = utils.load(path, columns)
 
     truth = np.ones(len(d), dtype=bool)
-    if bounds.has_key(args.xcolumn):
-        m, M = bounds[args.xcolumn]
+    if ranges.has_key(args.xcolumn):
+        m, M = ranges[args.xcolumn]
         truth *= (m<=d[:,0])*(d[:,1]<=M)
-    if bounds.has_key(args.ycolumn):
-        m, M = bounds[args.ycolumn]
+    if ranges.has_key(args.ycolumn):
+        m, M = ranges[args.ycolumn]
         truth *= (m<=d[:,0])*(d[:,1]<=M)
 
     x.append(d[truth,0])

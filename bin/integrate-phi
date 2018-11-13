@@ -3,8 +3,10 @@
 __doc__ = """\
 numerically integrate phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 
 NOTE: 
-  reference_pressurec2 and reference_energy_densityc2 should be specified in g/cm^3. The integral is performed over all samples in phi.csv (we assign one value for energy_density for each pressure) and adjust the curve so that it passes through reference_energy_densityc2 at reference_pressurec2
-Furthermore, we require phi.csv to have logpressurec2 and phi as columns"""
+  reference_pressurec2 should be specified in g/cm^3. The integral is performed over all samples in phi.csv (we assign one value for energy_density for each pressure) and adjust the curve so that it passes through reference_energy_densityc2 at reference_pressurec2
+Furthermore, we require phi.csv to have logpressurec2 and phi as columns.
+
+Stitching to set the initial condition is done by matching to a known crust from Douchin+Haensel, arXiv:0111092. The value of the energy density is matched to the crust's prediction at pressurec2=N(reference_pressurec2, sigma_pressurec2)."""
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -24,8 +26,7 @@ parser = ArgumentParser(description=__doc__)
 rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('phipath', type=str)
 rgroup.add_argument('reference_pressurec2', type=float)
-rgroup.add_argument('reference_engergy_densityc2', type=float)
-rgroup.add_argument('outpath', type=str, default=None)
+rgroup.add_argument('-o', '--outpath', type=str, default=None)
 
 ### verbosity 
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -33,13 +34,11 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 ### initial condition options
 igroup = parser.add_argument_group('initial condition options')
-igroup.add_argument('--sigma-energy_densityc2', default=0, type=float,
-    help='The reference energy_densityc2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
-DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
-
 igroup.add_argument('--sigma-pressurec2', default=0, type=float,
     help='The reference pressurec2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
+igroup.add_argument('--stitch-below-reference-pressure', default=False, action='store_true',
+    help='if supplied, report the values from the piecewise polytropic EOS below reference_pressure rather than continuing the drawn EOS below the stitching point.')
 
 args = parser.parse_args()
 
@@ -50,11 +49,11 @@ if args.outpath is None:
 
 # read in data
 if args.verbose:
-    print('reading: '+inpath)
-data, columns = utils.load(inpath)
+    print('reading: '+args.phipath)
+data, columns = utils.load(args.phipath)
 
 pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
-denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')]))/utils.c2 ### this is the definition of phi=log(de/dp - 1)
+denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')])) ### this is the definition of phi=log(de/dp - 1)
 
 #------------------------
 
@@ -62,9 +61,14 @@ denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')]))/utils.c2 #
 # NOTE: this could probably be improved...
 if args.verbose:
     print('performing numeric integration for energy_density via trapazoidal approximation')
-ec2 = ref_ec2 + np.random.randn()*args.sigma_energy_densityc2
-pc2 = ref_pc2 + np.random.randn()*args.sigma_pressurec2
-energy_densityc2 = utils.dedp2e(denergy_densitydpressure, pressurec2, ic=(pc2, ec2))
+reference_pressurec2 = args.reference_pressurec2 + np.random.randn()*args.sigma_pressurec2
+energy_densityc2 = utils.dedp2e(
+    denergy_densitydpressure,
+    pressurec2,
+    reference_pressurec2,
+)
+if args.stitch_below_reference_pressure:
+    energy_densityc2, pressurec2 = utils.stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2)
 
 ### throw away pressures corresponding to negative energy densities!
 truth = energy_densityc2 >= 0
@@ -84,8 +88,8 @@ baryon_density = utils.e_p2rho(energy_densityc2, pressurec2)
 ### NOTE: we now assume 
 # write output
 if args.verbose:
-    print('writing: '+outpath)
-with open(outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(columns+['pressurec2', 'energy_densityc2', 'baryon_density'])
+    print('writing: '+args.outpath)
+with open(args.outpath, 'w') as obj:
+    print >> obj, ','.join(columns+['pressurec2', 'energy_densityc2', 'baryon_density'])
     for sample, p, e, rho in zip(data, pressurec2, energy_densityc2, baryon_density):
-        print >> file_obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e, rho])
+        print >> obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e, rho])

@@ -8,6 +8,8 @@ import numpy as np
 
 import multiprocessing as mp
 
+from pkg_resources import resource_filename ### used to look up reference EOSs
+
 #-------------------------------------------------
 
 DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
@@ -503,25 +505,44 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
 
 #-------------------------------------------------
 
+def crust_energy_densityc2(pressurec2):
+    """
+    return energy_densityc2 for the crust from Douchin+Haensel, arXiv:0111092
+    this is included in our repo within "sly.csv", taken from Ozel's review.
+    """
+    return np.interp(pressurec2, SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2)
+
+def stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2):
+    """reutrn energy_densityc2, pressurec2"""
+    sly_truth = SLY_PRESSUREC2 <= reference_pressurec2
+    eos_truth = reference_pressurec2 <= pressurec2
+    return np.concatenate((SLY_ENERGY_DENSITYC2[sly_truth], energy_densityc2[eos_truth])), np.concatenate((SLY_PRESSUREC2[sly_truth], pressurec2[eos_truth]))
+
 ### integration routines
-def dedp2e(denergy_densitydpressure, pressurec2, ic=None):
+def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
+    """
+    integrate to obtain the energy density
+    if stitch=True, map the lower pressures onto a known curst below the reference pressure instead of just matching at the reference pressure
+    """
     energy_densityc2 = np.empty_like(pressurec2, dtype='float')
     energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
 
     # integrate in the bulk via trapazoidal approximation
     energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
 
-    if ic is not None:
-        ic = pc2, ec2
-        energy_densityc2 = ec2 - np.interp(pc2, pressurec2, energy_densityc2)
+    ### match at reference pressure
+    energy_densityc2 += crust_energy_densityc2(reference_pressurec2) - np.interp(reference_pressurec2, pressurec2, energy_densityc2)
 
     return energy_densityc2
 
 def e_p2rho(energy_densityc2, pressurec2):
+    """
+    integrate the first law of thermodynamics
+        dmu = rho/(mu+p) drho
+    """
     baryon_density = np.ones_like(pressurec2, dtype='float')
 
     integrand = 1./(energy_densityc2+pressurec2)
-    integrand /= c2
     baryon_density[1:] *= np.exp(np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(energy_densityc2[1:]-energy_densityc2[:-1]))) ### multiply by this factor
 
     ### FIXME: match baryon density to energy density at reference pressure
@@ -531,3 +552,8 @@ def e_p2rho(energy_densityc2, pressurec2):
     baryon_density *= energy_densityc2[0]
 
     return baryon_density
+
+#-------------------------------------------------
+
+### load the sly EOS for stitching logic
+SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2 = load(resource_filename(__name__, 'eos/sly.csv'), columns=['pressurec2', 'energy_densityc2'])[0].transpose()

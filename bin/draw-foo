@@ -43,6 +43,8 @@ wgroup.add_argument('-p', '--plot', default=False, action='store_true')
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
 ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
 args = parser.parse_args()
 
@@ -51,6 +53,9 @@ if not os.path.exists(args.output_dir):
 
 if args.tag:
     args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
 
 #-------------------------------------------------
 
@@ -63,7 +68,7 @@ if args.plot:
     fig = plot.plt.figure()
     ax = fig.gca()
 
-    s = 3*np.diag(cov)**0.5 ### plot 3-sigma regions
+    s = np.diag(cov)**0.5 ### plot 1-sigma regions
     ax.fill_between(x_tst, mean+s, mean-s, color='grey', alpha=0.5)
     ax.plot(x_tst, mean, color='k')
 
@@ -102,8 +107,5 @@ if args.verbose:
 
 if args.plot:
     ax.set_xlim(np.min(x_tst), np.max(x_tst))
-    figname = os.path.join(args.output_dir, 'draw-foo%s.png'%args.tag)
-    if args.verbose:
-        print('saving: '+figname)
-    fig.savefig(figname)
+    plot.save('draw-foo%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
     plot.plt.close(fig)
