@@ -61,6 +61,8 @@ args = parser.parse_args()
 names = [label for label, _ in args.samples]
 columns = [args.xcolumn, args.ycolumn]
 
+for col, _, _ in args.column_range:
+    assert col in columns, 'specifying --column-range for uknown column: '+col
 ranges = dict((col, (float(m), float(M))) for col, m, M in args.column_range)
 
 for col, _ in args.column_label:
@@ -105,10 +107,10 @@ for label, path in args.samples:
     truth = np.ones(len(d), dtype=bool)
     if ranges.has_key(args.xcolumn):
         m, M = ranges[args.xcolumn]
-        truth *= (m<=d[:,0])*(d[:,1]<=M)
+        truth *= (m<=d[:,0])*(d[:,0]<=M)
     if ranges.has_key(args.ycolumn):
         m, M = ranges[args.ycolumn]
-        truth *= (m<=d[:,0])*(d[:,1]<=M)
+        truth *= (m<=d[:,1])*(d[:,1]<=M)
 
     x.append(d[truth,0])
     y.append(d[truth,1])
