@@ -8,7 +8,7 @@ import numpy as np
 
 import multiprocessing as mp
 
-from pkg_resources import resource_filename ### used to look up reference EOSs
+from . import eos
 
 #-------------------------------------------------
 
@@ -556,4 +556,4 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
 #-------------------------------------------------
 
 ### load the sly EOS for stitching logic
-SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2, SLY_BARYON_DENSITY = load(resource_filename(__name__, 'eos/sly.csv'), columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
+SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2, SLY_BARYON_DENSITY = load(eos.eospaths['sly'], columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()

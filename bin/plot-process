@@ -436,18 +436,19 @@ if args.legend:
     if Nsamples==1:
         placement = [0.5]
     else:
-        placement = np.linspace(plot.MAIN_AXES_POSITION[0], plot.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], Nsamples) 
+        placement = np.linspace(plot.MAIN_AXES_POSITION[0], plot.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], Nsamples)
+    center = plot.MAIN_AXES_POSITION[0]+0.5*plot.MAIN_AXES_POSITION[2]
     for i, (placement, label) in enumerate(zip(placement, names)):
         legend = label
         if args.include_neff:
             legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(neff[i], nkde[i])
-        if placement < 0.5:
+        if placement < center:
             ha='left'
-        elif placement==0.5:
+        elif placement==center:
             ha='center'
         else:
             ha='right'
-        fig.text(placement, plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3], legend, color=colors[label], ha=ha, va='bottom')
+        fig.text(placement, 0.5*(1+plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3]), legend, color=colors[label], ha=ha, va='center')
 
 # scaling, etc
 if args.xcolumn in args.logcolumn:

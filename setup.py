@@ -17,7 +17,7 @@ setup(
     description = __description__,
     license = 'MIT',
     scripts = glob.glob('bin/*'),
-    packages = ['universality'],
+    packages = find_packages(),
     data_files = [],
     package_data = {'universality.eos':['*.csv']},
     requires = [],
