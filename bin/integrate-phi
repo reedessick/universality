@@ -83,7 +83,10 @@ energy_densityc2 = energy_densityc2[truth]
 # NOTE: this could probably be improved as well...
 if args.verbose:
     print('performing numeric integration for baryon_density via trapazoidal approximation')
-baryon_density = utils.e_p2rho(energy_densityc2, pressurec2)
+baryon_density = utils.e_p2rho(energy_densityc2, pressurec2, reference_pressurec2)
+if args.stitch_below_reference_pressure:
+    ### the following indecies should match up because of the call to utils.stitch_below_reference_pressure made above
+    baryon_density[pressurec2<=reference_pressurec2] = utils.SLY_BARYON_DENSITY[utils.SLY_PRESSUREC2<=reference_pressurec2] 
 
 ### NOTE: we now assume 
 # write output

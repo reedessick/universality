@@ -535,7 +535,7 @@ def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
 
     return energy_densityc2
 
-def e_p2rho(energy_densityc2, pressurec2):
+def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
     """
     integrate the first law of thermodynamics
         dmu = rho/(mu+p) drho
@@ -549,11 +549,11 @@ def e_p2rho(energy_densityc2, pressurec2):
     #baryon_density *= ec2 / np.interp(ref_pc2, pressurec2, baryon_density)
 
     ### match at the lowest allowed energy density
-    baryon_density *= energy_densityc2[0]
+    baryon_density *= np.interp(reference_pressurec2, SLY_PRESSUREC2, SLY_BARYON_DENSITY)/np.interp(reference_pressurec2, pressurec2, baryon_density)
 
     return baryon_density
 
 #-------------------------------------------------
 
 ### load the sly EOS for stitching logic
-SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2 = load(resource_filename(__name__, 'eos/sly.csv'), columns=['pressurec2', 'energy_densityc2'])[0].transpose()
+SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2, SLY_BARYON_DENSITY = load(resource_filename(__name__, 'eos/sly.csv'), columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
