@@ -406,6 +406,7 @@ def overlay(
         x,
         f,
         colors=None,
+        alphas=None,
         linestyles=None,
         xlabel='x',
         ylabel='f',
@@ -423,6 +424,9 @@ def overlay(
 
     if colors is None:
         colors = [DEFAULT_COLOR2 for _ in range(N)]
+
+    if alphas is None:
+        alphas = [1.0 for _ in range(N)]
 
     if linestyles is None:
         linestyles = [DEFAULT_LINESTYLE for _ in range(N)]
@@ -449,14 +453,14 @@ def overlay(
         f_ref = f[0]
 
         # plot the observed data
-        for x, f, c, l in zip(x, f, colors, linestyles):
+        for x, f, c, l, a in zip(x, f, colors, linestyles, alphas):
             f = np.interp(x_ref, x, f)
 
             if residuals:
-                rs.plot(x_ref, f-f_ref, l, color=c, alpha=0.5)
+                rs.plot(x_ref, f-f_ref, l, color=c, alpha=a)
 
             elif ratios:
-                rs.plot(x_ref, f/f_ref, l, color=c, alpha=0.5)
+                rs.plot(x_ref, f/f_ref, l, color=c, alpha=a)
 
     # decorate
     ax.grid(True, which='both')

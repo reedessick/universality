@@ -28,6 +28,7 @@ rgroup.add_argument('-s', '--samples', required=True, nargs=2, default=[], actio
 ### samples arguments
 sgroup = parser.add_argument_group('sgroup')
 sgroup.add_argument('--samples-color', nargs=2, default=[], action='append', type=str)
+sgroup.add_argument('--samples-alpha', nargs=2, default=[], action='append', type=str)
 sgroup.add_argument('--samples-linestyle', nargs=2, default=[], action='append', type=str)
 
 ### verbosity options
@@ -67,12 +68,17 @@ for col, _ in args.column_label:
 labels = dict((col, '$'+col+'$') for col in columns)
 labels.update(dict(args.column_label))
 
-for label, _ in args.samples:
+for label, _ in args.samples_color:
     assert label in names, 'specifying --samples-color for unknown sample set: '+label
 colors = dict(args.samples_color)
 colors = [colors.get(label, plot.DEFAULT_COLOR1) for label, _ in args.samples]
 
-for label, _ in args.samples:
+for label, _ in args.samples_alpha:
+    assert label in names, 'specifying --samples-alpha for unknown sample set: '+label
+alphas = dict(args.samples_alpha)
+alphas = [alphas.get(label, 1.0) for label, _ in args.samples]
+
+for label, _ in args.samples_linestyle:
     assert label in names, 'specifying --samples-label for unknown sample set: '+label
 linestyles = dict(args.samples_linestyle)
 linestyles = [linestyles.get(label, plot.DEFAULT_LINESTYLE) for label, _ in args.samples]
@@ -111,6 +117,7 @@ fig = plot.overlay(
     x,
     y,
     colors=colors,
+    alphas=alphas,
     linestyles=linestyles,
     xlabel=labels[args.xcolumn],
     ylabel=labels[args.ycolumn],
