@@ -21,6 +21,10 @@ from universality import plot
 DEFAULT_MIN = 1e30 ### g/cm^3
 DEFAULT_MAX = 1e38
 
+DEFAULT_STITCH_MEAN = 6.0 ### chosen by eye...
+DEFAULT_STITCH_PRESSURE = 1e10*utils.c2 ### dyn/cm^2
+DEFAULT_STITCH_INDEX = 5
+
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
@@ -59,6 +63,21 @@ DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
 ggroup.add_argument('-m', '--model-multiplier', default=gp.DEFAULT_MODEL_MULTIPLIER, type=float,
     help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
 Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
+
+### options for stitching
+sgroup = parser.add_argument_group('stitching options')
+sgroup.add_argument('--stitch', default=False, action='store_true')
+sgroup.add_argument('--stitch-mean', default=DEFAULT_STITCH_MEAN, type=float,
+    help='the mean value for stitching points. \
+DEFAULT=%.3f'%DEFAULT_STITCH_MEAN)
+sgroup.add_argument('--stitch-pressure', default=DEFAULT_STITCH_PRESSURE, type=float,
+    help='the abscissa at which we place a roll-off to enforce stitching. \
+We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
+DEFAULT=%.3f'%DEFAULT_STITCH_PRESSURE)
+sgroup.add_argument('--stitch-index', default=DEFAULT_STITCH_INDEX, type=float,
+    help='the power used to roll-off the white-noise kernel and enforce stitching. \
+We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
+DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
 
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
@@ -123,7 +142,10 @@ xs_1d = np.concatenate([x_obs for _ in means])
 Nobs = len(xs_1d)
 
 ### add in "theory model noise" as diagonal components based on variance of means at each pressure
-covs_2d = np.zeros((Nobs,Nobs), dtype='float')
+if args.stitch:
+    covs_2d = np.zeros((Nobs+args.num_points, Nobs+args.num_points), dtype=float) ### include space for the stitching conditions
+else:
+    covs_2d = np.zeros((Nobs,Nobs), dtype=float)
 
 ### iterate through pressure samples and compute theory variance of each
 for i in xrange(Nx):
@@ -158,8 +180,18 @@ x_evaluate = np.linspace(
 )
 x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
 
+if args.stitch: ### set up stitching conditions
+    if args.verbose:
+        print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f'%(args.stitch_mean, args.stitch_pressure, args.stitch_index))
+    xs_1d = np.concatenate((xs_1d, x_evaluate))
+    means_1d = np.concatenate((means_1d, np.ones(args.num_points, dtype=float)*args.stitch_mean))
+    covs_2d[Nobs:,Nobs:] = np.diag(np.exp(x_evaluate - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### add the stitching white-noise kernel
+
 if args.verbose:
-    print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
+    if args.stitch:
+        print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.num_points))
+    else:
+        print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
 mean, cov = gp.gpr_altogether(
     x_evaluate,
     means_1d,
