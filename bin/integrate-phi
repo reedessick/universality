@@ -35,7 +35,7 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 ### initial condition options
 igroup = parser.add_argument_group('initial condition options')
 igroup.add_argument('--sigma-pressurec2', default=0, type=float,
-    help='The reference pressurec2 used is drawn from a Gaussian distribution with the mean specified as an argument and this option as the standard deviation. \
+    help='The reference pressurec2 used is drawn from a log-normal distribution (natural log) with the mean specified as an argument and this option as the standard deviation. \
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
 igroup.add_argument('--stitch-below-reference-pressure', default=False, action='store_true',
     help='if supplied, report the values from the piecewise polytropic EOS below reference_pressure rather than continuing the drawn EOS below the stitching point.')
@@ -61,7 +61,7 @@ denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')])) ### this i
 # NOTE: this could probably be improved...
 if args.verbose:
     print('performing numeric integration for energy_density via trapazoidal approximation')
-reference_pressurec2 = args.reference_pressurec2 + np.random.randn()*args.sigma_pressurec2
+reference_pressurec2 = np.exp(np.log(args.reference_pressurec2) + np.random.randn()*args.sigma_pressurec2)
 energy_densityc2 = utils.dedp2e(
     denergy_densitydpressure,
     pressurec2,
