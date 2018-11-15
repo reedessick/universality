@@ -442,6 +442,8 @@ def overlay(
 
     xmin = np.min([np.min(_) for _ in x])
     xmax = np.max([np.max(_) for _ in x])
+    ymin = np.min([np.min(_) for _ in f])
+    ymax = np.max([np.max(_) for _ in f])
 
     # plot the observed data
     for x, f, c, l in zip(x, f, colors, linestyles):
@@ -467,6 +469,7 @@ def overlay(
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
+    ax.set_ylim(ymin=ymin, ymax=ymax)
 
     if residuals or ratios:
         rs.set_xscale(ax.get_xscale())
