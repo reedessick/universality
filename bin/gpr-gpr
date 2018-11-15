@@ -67,6 +67,12 @@ Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
 ### options for stitching
 sgroup = parser.add_argument_group('stitching options')
 sgroup.add_argument('--stitch', default=False, action='store_true')
+
+sgroup.add_argument('--stitch-pressure-bounds', nargs=2, default=None, type=float,
+    help='limit the range of stitching points. DEFAULT is to use --pressure-bounds')
+sgroup.add_argument('--stitch-num-points', default=None, type=int,
+    help='the number of points to use when constructing the stitching conditions. DEFAULT is to use --num-points')
+
 sgroup.add_argument('--stitch-mean', default=DEFAULT_STITCH_MEAN, type=float,
     help='the mean value for stitching points. \
 DEFAULT=%.3f'%DEFAULT_STITCH_MEAN)
@@ -97,7 +103,14 @@ ogroup.add_argument('--figtype', default=[], type=str, action='append')
 ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
 args = parser.parse_args()
+
+### finish parsing
 Npkl = len(args.pklpaths)
+
+if args.stitch_pressure_bounds is None:
+    args.stitch_pressure_bounds = args.pressure_bounds
+if args.stitch_num_points is None:
+    args.stitch_num_points = args.num_points
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
@@ -143,7 +156,7 @@ Nobs = len(xs_1d)
 
 ### add in "theory model noise" as diagonal components based on variance of means at each pressure
 if args.stitch:
-    covs_2d = np.zeros((Nobs+args.num_points, Nobs+args.num_points), dtype=float) ### include space for the stitching conditions
+    covs_2d = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
 else:
     covs_2d = np.zeros((Nobs,Nobs), dtype=float)
 
@@ -172,7 +185,7 @@ for ind in xrange(Npkl):
 
 ### perform the "altogether" regression
 if args.verbose:
-    print('evaluating f at %d points within [%.3e, %.3e] g/cm^3'%((args.num_points,)+tuple(args.pressure_bounds)))
+    print('evaluating f at %d points within [%.3e, %.3e] dyn/cm^2'%((args.num_points,)+tuple(args.pressure_bounds)))
 x_evaluate = np.linspace(
     np.log(args.pressure_bounds[0]),
     np.log(args.pressure_bounds[1]),
@@ -182,14 +195,20 @@ x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent un
 
 if args.stitch: ### set up stitching conditions
     if args.verbose:
-        print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f'%(args.stitch_mean, args.stitch_pressure, args.stitch_index))
-    xs_1d = np.concatenate((xs_1d, x_evaluate))
-    means_1d = np.concatenate((means_1d, np.ones(args.num_points, dtype=float)*args.stitch_mean))
-    covs_2d[Nobs:,Nobs:] = np.diag(np.exp(x_evaluate - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### add the stitching white-noise kernel
+        print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f at %d points within  [%.3e, %.3e] dyn/cm^2'%((args.stitch_mean, args.stitch_pressure, args.stitch_index, args.stitch_num_points)+tuple(args.stitch_pressure_bounds)))
+    x_stitch = np.linspace(
+        np.log(args.stitch_pressure_bounds[0]),
+        np.log(args.stitch_pressure_bounds[1]),
+        args.stitch_num_points,
+    )
+    x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
+    xs_1d = np.concatenate((xs_1d, x_stitch))
+    means_1d = np.concatenate((means_1d, np.ones(args.stitch_num_points, dtype=float)*args.stitch_mean))
+    covs_2d[Nobs:,Nobs:] = np.diag(np.exp(x_stitch - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### add the stitching white-noise kernel
 
 if args.verbose:
     if args.stitch:
-        print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.num_points))
+        print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.stitch_num_points))
     else:
         print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
 mean, cov = gp.gpr_altogether(
