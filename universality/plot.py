@@ -77,16 +77,16 @@ def corner(*args, **kwargs):
         raise ImportError('could not import corner')
     return _corner(*args, **kwargs)
 
-def weights2color(weights, basecolor):
+def weights2color(weights, basecolor, prefact=750.):
     Nsamp = len(weights)
     scatter_color = np.empty((Nsamp, 4), dtype=float)
     scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(basecolor)
     mw, Mw = np.min(weights), np.max(weights)
     if np.all(weights==Mw):
-        scatter_color[:,3] = max(min(1., 750./Nsamp), 0.001) ### equal weights
+        scatter_color[:,3] = max(min(1., prefact/Nsamp), 0.001) ### equal weights
     else:
         scatter_color[:,3] = weights/np.max(weights)
-        scatter_color[:,3] *= 750./neff(weights)
+        scatter_color[:,3] *= prefact/neff(weights)
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
         scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
     return scatter_color
@@ -537,7 +537,7 @@ def gpr_overlay(
         ax = fig.add_axes(AXES_POSITION)
 
     # plot the test points
-    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst, alpha=0.25)
+    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst)
     ax.plot(x_tst, f_tst, linestyle_tst, color=color_tst)
 
     # plot the observed data
@@ -545,8 +545,8 @@ def gpr_overlay(
         for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
             truth = (xmin<=x)*(x<=xmax)
             if cr is not None:
-                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color, alpha=0.25)
-            ax.plot(x[truth], f[truth], linestyle_obs, color=color, alpha=0.25)
+                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color)
+            ax.plot(x[truth], f[truth], linestyle_obs, color=color)
 
     # plot residuals, etc
     if (residuals or ratios) and (Nobs > 0):
@@ -565,13 +565,13 @@ def gpr_overlay(
         low = np.interp(x_ref, x_tst, cr_tst[0])
 
         if residuals:
-            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst, alpha=0.25)
+            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst)
             rs.plot(x_ref, f_tst_interp-f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low-f_ref)[truth]), ymax=np.max((hgh-f_ref)[truth]))
 
         elif ratios:
-            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst, alpha=0.25)
+            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst)
             rs.plot(x_ref, f_tst_interp/f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low/f_ref)[truth]), ymax=np.max((hgh/f_ref)[truth]))
@@ -584,17 +584,17 @@ def gpr_overlay(
                 if cr is not None:
                     hgh = np.interp(x_ref, x, cr[1])
                     low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color, alpha=0.25)
+                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color)
 
-                rs.plot(x_ref, f-f_ref, linestyle_obs, color=color, alpha=0.25)
+                rs.plot(x_ref, f-f_ref, linestyle_obs, color=color)
 
             elif ratios:
                 if cr is not None:
                     hgh = np.interp(x_ref, x, cr[1])
                     low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color, alpha=0.25)
+                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color)
 
-                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color_obs, alpha=0.25)
+                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color_obs)
 
     # decorate
     ax.grid(True, which='both')

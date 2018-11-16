@@ -8,6 +8,7 @@ __author__ = "reed.essick@ligo.org"
 import os
 
 import numpy as np
+import h5py
 
 from argparse import ArgumentParser
 
@@ -48,6 +49,12 @@ ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
     help='the degree of the polynomial used to model eos before GPR as part of resampling. \
 DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
 
+ggroup.add_argument('--hyperparampath', default=None, type=str,
+    help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
+If supplied, we ignore values of --sigma, --length-scale, --sigma-obs and build a mixture-model hdf5 file based on the weights contained in the csv.')
+ggroup.add_argument('--max-num-models', default=None, type=int,
+    help='if supplied, only include up to this many models in the mixture, selecting those with the largest weights first')
+
 ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
 DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
@@ -64,7 +71,6 @@ ggroup.add_argument('--check-for-nan', default=False, action='store_true',
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('-p', '--plot-all', default=False, action='store_true')
-pgroup.add_argument('--plot-baryon_density', default=False, action='store_true')
 pgroup.add_argument('--plot-energy_densityc2', default=False, action='store_true')
 pgroup.add_argument('--plot-phi', default=False, action='store_true')
 
@@ -92,11 +98,43 @@ if args.tag:
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
-args.plot_baryon_density |= args.plot_all
 args.plot_energy_densityc2 |= args.plot_all
 args.plot_phi |= args.plot_all
 
 #-------------------------------------------------
+
+# figure out the hyperparameters we'll use
+if args.hyperparampath:
+    polydeg, sigma, length_scale, sigma_obs, weights = utils.load(args.hyperparampath, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'logLike'])[0].transpose()
+    polydeg = polydeg.astype(int)
+    sigma = sigma
+    length_scale = length_scale
+    sigma_obs = sigma_obs
+
+    if args.max_num_models is not None: ### truncate the number of models considered
+        truth = weights.argsort()[::-1][:args.max_num_models]
+        polydeg = polydeg[truth]
+        sigma = sigma[truth]
+        length_scale = length_scale[truth]
+        sigma_obs = sigma_obs[truth]
+        weights = weights[truth]
+
+    weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+    truth = weights > 0 ### throw away anything that won't ever matter
+    polydeg = polydeg[truth]
+    sigma = sigma[truth]
+    length_scale = length_scale[truth]
+    sigma_obs = sigma_obs[truth]
+    weights = weights[truth]
+
+else:
+    polydeg = [args.polydeg]
+    sigma = [args.sigma]
+    length_scale = [args.l]
+    sigma_obs = [args.sigma_obs]
+    weights = [1.]
 
 ### resample eos into a big matrix
 ### generate all data structures we'll need here
@@ -116,10 +154,6 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
     logp_obs = np.log(data[:,0])
     loge_obs = np.log(data[:,1])
 
-    ### run gpr to resample this eos
-    if args.verbose:
-        print('resampling %d observations to %d+%d points'%(len(loge_obs), args.num_points, args.num_points))
-
     if args.truncate:
         truth = (np.min(logp_obs)<=logp_resample)*(logp_resample<=np.max(logp_obs)) ### only keep samples below the max tabulated value
     else:
@@ -128,86 +162,127 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         raise Warning, 'no samples found with requested range. Skipping this EOS'
         continue
 
-    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
-        logp_resample[truth],
-        loge_obs,
-        logp_obs,
-        degree=args.poly_degree,
-        guess_sigma2=args.sigma**2,
-        guess_l2=args.l**2,
-        guess_sigma2_obs=args.sigma_obs**2,
-    )
+    ### run gpr to resample this eos
+    if args.plot_energy_densityc2 or args.plot_phi:
+        f_xtst = [] ### holders for plotting
+        ftxt = []
+        fbnd = []
 
-    if args.verbose:
-        print('computing process for phi')
-    mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
-    mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
+        dftst = []
+        dfbnd = []
 
-    TRUTH = np.zeros_like(truth, dtype=bool) ### make a copy
-    TRUTH[truth] = True
-    TRUTH[truth] = truth_phi
+        p_xtst = []
+        ptst = []
+        pbnd = []
 
-    cov_phi_phi = gp.cov_phi_phi(
-        logp_resample[TRUTH],
-        mean_f[truth_phi],
-        mean_dfdx[truth_phi],
-        cov_f_f[truth_phi,:][:,truth_phi],
-        cov_f_dfdx[truth_phi,:][:,truth_phi],
-        cov_dfdx_f[truth_phi,:][:,truth_phi],
-        cov_dfdx_dfdx[truth_phi,:][:,truth_phi],
-    )
+    fpath = os.path.join(args.output_dir, 'gpr_f-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
+    ppath = os.path.join(args.output_dir, 'gpr_phi-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
+    with h5py.File(fpath, 'w') as fobj:
+        with h5py.File(ppath, 'w') as pobj:
+            for ind, (p, s, l, S, w) in enumerate(zip(polydeg, sigma, length_scale, sigma_obs, weights)):
+                if args.verbose:
+                    print('resampling %d observations to %d+%d points with (s=%.3e, l=%.3f, S=%.3e, p=%d) and weight=%.3e'%(len(loge_obs), args.num_points, args.num_points, s, l, S, p, w))
 
-    ### save the process for this resample to file
-    ### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
+                mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
+                    logp_resample[truth],
+                    loge_obs,
+                    logp_obs,
+                    degree=p,
+                    guess_sigma2=s**2,
+                    guess_l2=l**2,
+                    guess_sigma2_obs=S**2,
+                )
 
-    # just f
-    pklpath = os.path.join(args.output_dir, 'gpr_phi-f-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
-    if args.verbose:
-        print('writing process to: '+pklpath)
-    gp.pkldump(pklpath, 'logpressurec2', 'logenergy_densityc2', logp_resample[truth], mean_f, cov_f_f)
+                if args.verbose:
+                    print('computing process for phi')
+                mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
+                mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
 
-    # just df/dx
-    pklpath = os.path.join(args.output_dir, 'gpr_phi-dfdx-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
-    if args.verbose:
-        print('writing process to: '+pklpath)
-    gp.pkldump(pklpath, 'logpressurec2', 'dlogenergy_densitydpressure', logp_resample[truth], mean_dfdx, cov_dfdx_dfdx)
-    
-    # just phi
-    pklpath = os.path.join(args.output_dir, 'gpr_phi-%s%s.pkl'%(os.path.basename(path)[:-4], args.tag))
-    if args.verbose:
-        print('writing process to: '+pklpath)
-    gp.pkldump(pklpath, 'logpressurec2', 'phi', logp_resample[TRUTH], mean_phi, cov_phi_phi)
+                TRUTH = np.zeros_like(truth, dtype=bool) ### make a copy
+                TRUTH[truth] = True
+                TRUTH[truth] = truth_phi
+
+                cov_phi_phi = gp.cov_phi_phi(
+                    logp_resample[TRUTH],
+                    mean_f[truth_phi],
+                    mean_dfdx[truth_phi],
+                    cov_f_f[truth_phi,:][:,truth_phi],
+                    cov_f_dfdx[truth_phi,:][:,truth_phi],
+                    cov_dfdx_f[truth_phi,:][:,truth_phi],
+                    cov_dfdx_dfdx[truth_phi,:][:,truth_phi],
+                )
+
+                ### run basic sanity checks to make sure we don't break anything downstream...
+                if args.check_for_nan:
+                    if np.any(mean_phi!=mean_phi):
+                        raise ValueError, path+' produces nans for mean_phi when resampled!'
+                    if np.any(cov_phi_phi!=cov_phi_phi):
+                        raise ValueError, path+' producds nans for cov_phi_phi when resampled!'
+
+                ### save the process for this resample to file
+                ### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
+
+                # just f
+                utils.create_process_dataset(
+                    fobj.create_group(str(ind)),
+                    p,
+                    s,
+                    l,
+                    S,
+                    logp_resample[truth],
+                    mean_f,
+                    cov_f_f,
+                    xlabel='log(pressurec2)',
+                    flabel='log(energy_densityc2',
+                    weight=w,
+                )
+                
+                # just phi
+                utils.create_process_dataset(
+                    pobj.create_group(str(ind)),
+                    p,
+                    s,
+                    l,
+                    S,
+                    logp_resample[TRUTH],
+                    mean_phi,
+                    cov_phi_phi,
+                    xlabel='log(pressurec2)',
+                    flabel='phi',
+                    weight=w,
+                )
+
+                if args.plot_energy_densityc2 or args.plot_phi:
+                    f_xtst.append(np.exp(logp_resample[truth]))
+                    ftxt.append(np.exp(mean_f))
+                    fbnd.append((np.exp(mean_f+np.diag(cov_f_f)**0.5), np.exp(mean_f-np.diag(cov_f_f)**0.5)))
+
+                    dftst.append(mean_dfdx)
+                    dfbnd.append((mean_dfdx-np.diag(cov_dfdx_dfdx)**0.5, mean_dfdx+np.diag(cov_dfdx_dfdx)**0.5))
+
+                    p_xtst.append(np.exp(logp_resample[TRUTH]))
+                    ptst.append(mean_phi)
+                    pbnd.append((mean_phi-np.diag(cov_phi_phi)**0.5, mean_phi+np.diag(cov_phi_phi)**0.5))
+
+    # for plotting purposes
+    if args.plot_energy_densityc2 or args.plot_phi:
+        truth = (logp_obs>=np.min(logp_resample))*(np.max(logp_resample)>=logp_obs) ### only keep samples below the max tabulated value
+        colors = plot.weights2color(weights, plot.DEFAULT_COLOR1, prefact=1.)
 
     ### plot the result
-    if args.plot_baryon_density:
-        raise NotImplementedError('plot-baryon-density is broken!')
-        b_obs = np.log(utils.load(path, ['baryon_density'])[0][:,0])
-        b_tst = utils.e_p2rho(np.exp(mean_f), np.exp(logp_resample[truth]))
-        fig = plot.gpr_overlay(
-            np.exp(mean_f),
-            b_tst,
-            (b_tst, b_tst), ### hackey, but I can't be bothered to accurately estimate errors here...
-            np.exp(loge_obs),
-            b_obs,
-            linestyle_obs='.-',
-            logx=True,
-            logy=True,
-            xlabel='$\mu/c^2$',
-            ylabel='$\\rho$',
-            residuals=args.residuals,
-            figwidth=args.figwidth,
-            figheight=args.figheight,
-        )
-        plot.save('gpr-resample-baryon_density%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-
     if args.plot_energy_densityc2:
+        obs = np.exp(loge_obs[truth])
         fig = plot.gpr_overlay(
-            np.exp(logp_resample[truth]),
-            np.exp(mean_f),
-            (np.exp(mean_f+np.diag(cov_f_f)**0.5), np.exp(mean_f-np.diag(cov_f_f)**0.5)),
-            np.exp(logp_obs),
-            np.exp(loge_obs),
-            linestyle_obs='.-',
+            np.exp(logp_obs[truth]),
+            obs,
+            (obs, obs),
+            x_obs=f_xtst,
+            f_obs=ftxt,
+            cr_obs=fbnd,
+            color_tst=plot.DEFAULT_COLOR2,
+            linestyle_tst='.-',
+            color_obs=colors,
+            linestyle_obs='-',
             logx=True,
             logy=True,
             xlabel='$p/c^2$',
@@ -218,13 +293,18 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         )
         plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
+        obs = gp.num_dfdx(logp_obs, loge_obs)[truth]
         fig = plot.gpr_overlay(
-            np.exp(logp_resample[truth]),
-            mean_dfdx,
-            (mean_dfdx-np.diag(cov_dfdx_dfdx)**0.5, mean_dfdx+np.diag(cov_dfdx_dfdx)**0.5),
-            np.exp(logp_obs),
-            gp.num_dfdx(logp_obs, loge_obs),
-            linestyle_obs='.-',
+            np.exp(logp_obs[truth]),
+            obs,
+            (obs, obs),
+            x_obs=f_xtst,
+            f_obs=dftst,
+            cr_obs=dfbnd,
+            color_tst=plot.DEFAULT_COLOR2,
+            linestyle_tst='.-',
+            color_obs=colors,
+            linestyle_obs='-',
             logx=True,
             logy=False,
             xlabel='$p/c^2$',
@@ -236,13 +316,18 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
     if args.plot_phi:
+        obs = np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1)[truth]
         fig = plot.gpr_overlay(
-            np.exp(logp_resample[TRUTH]),
-            mean_phi,
-            (mean_phi-np.diag(cov_phi_phi)**0.5, mean_phi+np.diag(cov_phi_phi)**0.5),
-            np.exp(logp_obs),
-            np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1),
-            linestyle_obs='.-',
+            np.exp(logp_obs[truth]),
+            obs,
+            (obs, obs),
+            x_obs=p_xtst,
+            f_obs=ptst,
+            cr_obs=pbnd,
+            color_tst=plot.DEFAULT_COLOR2,
+            linestyle_tst='.-',
+            color_obs=colors,
+            linestyle_obs='-',
             logx=True,
             logy=False,
             xlabel='$p/c^2$',
@@ -252,10 +337,3 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             figheight=args.figheight,
         )
         plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-
-    ### run basic sanity checks to make sure we don't break anything downstream...
-    if args.check_for_nan:
-        if np.any(mean_phi!=mean_phi):
-            raise ValueError, path+' produces nans for mean_phi when resampled!'
-        if np.any(cov_phi_phi!=cov_phi_phi):
-            raise ValueError, path+' producds nans for cov_phi_phi when resampled!'
