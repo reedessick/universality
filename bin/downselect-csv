@@ -36,6 +36,8 @@ wgroup = parser.add_argument_group('workflow arguments')
 wgroup.add_argument('-n', '--num-samples', default=DEFAULT_NUM_SAMPLES, type=int,
     help='draw this many samples (with replacement) from the csv. \
 DEFAULT=%d'%DEFAULT_NUM_SAMPLES)
+wgroup.add_argument('-f', '--force', default=False, action='store_true',
+    help='do not check the number of repeated samples and write the output regardless')
 
 # finish parsing
 args = parser.parse_args()
@@ -45,7 +47,6 @@ args = parser.parse_args()
 if args.verbose:
     print('reading samples from: '+args.sourcepath)
 data, columns = utils.load(args.sourcepath)
-N = len(data)
 
 if args.weight_column is not None:
     try:
@@ -59,7 +60,14 @@ if args.weight_column is not None:
     weights /= np.sum(weights)
 
 else:
+    N = len(data)
     weights = np.ones(N, dtype=float)/N
+
+### prune data that will never be selected
+truth = weights > 0
+data = data[truth]
+weights = weights[truth]
+N = len(data)
 
 #------------------------
 
@@ -72,10 +80,15 @@ data = data[order]
 weights = weights[order]
 
 # compute a cdf and draw from it
-inds = np.ceil(np.interp(np.random.rand(args.num_samples), np.arange(0, 1, 1./N), np.cumsum(weights)))
+inds = np.ceil(np.interp(np.random.random(args.num_samples), np.cumsum(weights), np.arange(N))).astype(int)
+
+if (not args.force) and (len(set(inds)) < 0.95*args.num_samples):
+    raise RuntimeWarning('your subset has more than 5% repeated samples '+'(%d unique sample out of %d attempts). I do not think this is what you actually want. If it is, re-run with --force.'%(len(set(inds)), args.num_samples))
 
 # keep only those data and get rid of the weights column
-data = data[inds][[col!=args.weight_column for col in columns]]
+new = np.empty((args.num_samples, data.shape[1]), dtype=float)
+new[...] = data[inds]
+new = new[:,np.array(columns)!=args.weight_column]
 
 #------------------------
 
@@ -83,6 +96,6 @@ if args.verbose:
     print('writing representative set to: '+args.targetpath)
 with open(args.targetpath, 'w') as obj:
     print >> obj, ','.join(col for col in columns if col!=args.weight_column)
-    tmp = ','.join('%.9e' for _ in xrange(data.ndim))
-    for sample in data:
+    tmp = ','.join('%.9e' for _ in xrange(new.shape[1]))
+    for sample in new:
         print >> obj, tmp%tuple(sample)
