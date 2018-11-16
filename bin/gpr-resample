@@ -33,6 +33,7 @@ rgroup.add_argument('eospaths', nargs='+', type=str)
 ### verbosity arguments
 vgroup = parser.add_argument_group('verbosity options')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 ### options for resampling
 ggroup = parser.add_argument_group('Gaussian Process resampling options')
@@ -100,6 +101,8 @@ if not args.figtype:
 
 args.plot_energy_densityc2 |= args.plot_all
 args.plot_phi |= args.plot_all
+
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
@@ -177,10 +180,12 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
 
     fpath = os.path.join(args.output_dir, 'gpr_f-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
     ppath = os.path.join(args.output_dir, 'gpr_phi-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
+    if args.verbose:
+        print('saving mixture models of processes to:\n    %s\n    %s'%(fpath, ppath))
     with h5py.File(fpath, 'w') as fobj:
         with h5py.File(ppath, 'w') as pobj:
             for ind, (p, s, l, S, w) in enumerate(zip(polydeg, sigma, length_scale, sigma_obs, weights)):
-                if args.verbose:
+                if args.Verbose:
                     print('resampling %d observations to %d+%d points with (s=%.3e, l=%.3f, S=%.3e, p=%d) and weight=%.3e'%(len(loge_obs), args.num_points, args.num_points, s, l, S, p, w))
 
                 mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
@@ -193,7 +198,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                     guess_sigma2_obs=S**2,
                 )
 
-                if args.verbose:
+                if args.Verbose:
                     print('computing process for phi')
                 mean_phi, truth_phi = gp.mean_phi(logp_resample[truth], mean_f, mean_dfdx)
                 mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
