@@ -215,7 +215,7 @@ l     = %.3f
 sigma_obs = %.3e
 logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
 
-    path = "%s/investigate_bandwidth-grid%s.csv"%(args.output_dir, args.tag)
+    path = "%s/investigate-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
     tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in grid.dtype.names)
@@ -290,7 +290,7 @@ if args.mcmc:
         print('discarding %d samples as burn in'%args.strip_mcmc)
     mcmc = mcmc[args.strip_mcmc:]
 
-    path = "%s/investigate_bandwidth-mcmc%s.csv"%(args.output_dir, args.tag)
+    path = "%s/investigate-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
     tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in mcmc.dtype.names)
