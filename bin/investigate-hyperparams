@@ -99,6 +99,15 @@ for col, (m, M) in ranges.items():
     if col in args.logcolumn:
         ranges[col] = (np.log(m), np.log(M))
 
+include = np.ones(4 if args.include_logL else 3, dtype=bool)
+if args.min_sigma==args.max_sigma:
+    include[0] = False
+if args.min_l==args.max_l:
+    include[1] = False
+if args.min_sigma_obs==args.max_sigma_obs:
+    include[2] = False
+
+
 #-------------------------------------------------
 
 if args.verbose:
@@ -139,6 +148,7 @@ else:
     labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$']
 if args.include_logL:
     labels.append('$\log\mathcal{L}$')
+labels = np.array(labels)
 
 if args.maxL:
     if args.verbose:
@@ -169,6 +179,8 @@ logL = %.3e'''%tuple(maxL[0])
     if args.include_logL:
         truths.append(maxL['logLike'][0])
 
+    truths = np.array(truths)
+
 else:
     truths = None
 
@@ -176,7 +188,7 @@ else:
 
 if args.grid:
     if args.verbose:
-        print('evaluating on a %dx%dx%d grid'%(args.num_grid, args.num_grid, args.num_grid))
+        print('evaluating on a %s grid'%("x".join('%d'%args.num_grid for _ in xrange(np.sum(include)-args.include_logL))))
 
     grid = hp.logLike_grid(
         f_obs,
@@ -220,11 +232,12 @@ if args.grid:
 
     if args.verbose:
         print('    plotting')
+
     fig = plot.corner(
-        data[truth,:],
-        labels=labels,
+        data[truth][:,include],
+        labels=labels[include],
         weights=weights[truth],
-        truths=truths,
+        truths=truths[include] if truths is not None else None,
         color='b',
     )
     figname = '%s/investigate_hyperparams-grid%s.png'%(args.output_dir, args.tag)
@@ -235,11 +248,11 @@ if args.grid:
 
     ### add to overlay plot
     overlayfig = plot.corner(
-        data[truth,:],
-        labels=labels,
+        data[truth][:,include],
+        labels=labels[include],
         weights=weights[truth],
         color='b',
-        truths=truths,
+        truths=truths[include] if truths is not None else None,
         fig=overlayfig,
     )
 
@@ -289,9 +302,9 @@ if args.mcmc:
     if args.verbose:
         print('    plotting')
     fig = plot.corner(
-        data,
-        labels=labels,
-        truths=truths,
+        data[:,include],
+        labels=labels[include],
+        truths=truths[include],
         color='r',
     )
     figname = '%s/investigate_hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
@@ -305,11 +318,11 @@ if args.mcmc:
 
     ### add to overlay plot
     overlayfig = plot.corner(
-        data,
-        labels=labels,
+        data[:,include],
+        labels=labels[include],
         weights=weights,
         color='r',
-        truths=truths,
+        truths=truths[include] if truths is not None else None,
         fig=overlayfig,
     )
 

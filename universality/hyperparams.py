@@ -143,26 +143,35 @@ def logLike_grid(
     We space points logarithmically for sigma and sigma_obs, linearly for l
     '''
     ### compute grid
-    if sigma_prior=='log':
-        sigma = np.logspace(np.log10(min_sigma), np.log10(max_sigma), num_sigma)
-    elif sigma_prior=='lin':
-        sigma = np.linspace(min_sigma, max_sigma, num_sigma)
+    if min_sigma==max_sigma: ### fix this value
+        sigma = [min_sigma]
     else:
-        raise ValueError, 'unknown sigma_prior='+sigma_prior
+        if sigma_prior=='log':
+            sigma = np.logspace(np.log10(min_sigma), np.log10(max_sigma), num_sigma)
+        elif sigma_prior=='lin':
+            sigma = np.linspace(min_sigma, max_sigma, num_sigma)
+        else:
+            raise ValueError, 'unknown sigma_prior='+sigma_prior
 
-    if l_prior=='log':
-        l = np.logspace(np.log10(min_l), np.log10(max_l), num_l)
-    elif l_prior=='lin':
-        l = np.linspace(min_l, max_l, num_l)
+    if min_l==max_l: ### fix this value
+        l = [min_l]
     else:
-        raise ValueError, 'unkown l_prior='+l_prior
+        if l_prior=='log':
+            l = np.logspace(np.log10(min_l), np.log10(max_l), num_l)
+        elif l_prior=='lin':
+            l = np.linspace(min_l, max_l, num_l)
+        else:
+            raise ValueError, 'unkown l_prior='+l_prior
 
-    if sigma_obs_prior=='log':
-        sigma_obs = np.logspace(np.log10(min_sigma_obs), np.log10(max_sigma_obs), num_sigma_obs)
-    elif sigma_obs_prior=='lin':
-        sigma_obs = np.linspace(min_sigma_obs, max_sigma_obs, num_sigma_obs)
+    if min_sigma_obs==max_sigma_obs:
+        sigma_obs = [min_sigma_obs]
     else:
-        raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
+        if sigma_obs_prior=='log':
+            sigma_obs = np.logspace(np.log10(min_sigma_obs), np.log10(max_sigma_obs), num_sigma_obs)
+        elif sigma_obs_prior=='lin':
+            sigma_obs = np.linspace(min_sigma_obs, max_sigma_obs, num_sigma_obs)
+        else:
+            raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
 
     SIGMA, L, SIGMA_NOISE = np.meshgrid(sigma, l, sigma_obs, indexing='ij')
 
