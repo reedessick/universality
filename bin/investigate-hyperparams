@@ -107,7 +107,6 @@ if args.min_l==args.max_l:
 if args.min_sigma_obs==args.max_sigma_obs:
     include[2] = False
 
-
 #-------------------------------------------------
 
 if args.verbose:
@@ -164,11 +163,11 @@ if args.maxL:
         tol=args.maxL_tol,
         degree=args.poly_degree,
     )
-    print '''\
+    print('''\
 sigma = %.3e
 l     = %.3f
 sigma_obs = %.3e
-logL = %.3e'''%tuple(maxL[0])
+logL = %.3e'''%tuple(maxL[0]))
 
     ### add to overlay plot
     if args.log_sigmas:
@@ -205,6 +204,12 @@ if args.grid:
         degree=args.poly_degree,
         num_proc=args.num_proc,
     )
+    print('''\
+sigma = %.3e
+l     = %.3f
+sigma_obs = %.3e
+logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
+
     path = "%s/investigate_bandwidth-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
