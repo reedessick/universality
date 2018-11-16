@@ -506,11 +506,9 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
 #-------------------------------------------------
 
 def set_crust(crust_eos=eos.DEFAULT_CRUST_EOS):
-    if not eos.eospaths.has_key(crust_eos):
-        raise KeyError('crust_eos=%s is not known!'%crust_eos)
     global CRUST_PRESSUREC2, CRUST_ENERGY_DENSITYC2, CRUST_BARYON_DENSITY
     CRUST_PRESSUREC2, CRUST_ENERGY_DENSITYC2, CRUST_BARYON_DENSITY = \
-        load(eos.eospaths[crust_eos], columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
+        load(eos.eospaths.get(crust_eos, crust_eos), columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
 
 def crust_energy_densityc2(pressurec2):
     """
