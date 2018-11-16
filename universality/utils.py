@@ -41,45 +41,6 @@ def draw(mean, std, size=1, bounds=None):
         return np.random.normal(mean, std, size)
 
 #-------------------------------------------------
-# hdf5 process files
-#-------------------------------------------------
-
-def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_tst, f_tst, cov_f_f, xlabel='xl', flabel='f', weight=1.):
-    """helper funtion to record the data about a process in a mixture model"""
-    group.attrs.create('weight', weight)
-    group.attrs.create('poly_degree', poly_degree)
-    group.attrs.create('sigma', sigma)
-    group.attrs.create('length_scale', length_scale)
-    group.attrs.create('sigma_obs', sigma_obs)
-    group.attrs.create('xlabel', xlabel)
-    group.attrs.create('flabel', flabel)
-
-    means = group.create_dataset('mean', data=np.array(zip(x_tst, f_tst), dtype=[(xlabel, 'float'), (flabel, 'float')]))
-    cov = group.create_dataset('cov', data=cov_f_f)
-
-def parse_process_group(group):
-    """helper function to read stuff out of our hdf5 data structures
-    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs)
-    """
-    attrs = group.attrs
-    weight = attrs['weight']
-
-    xlabel = attrs['xlabel']
-    flabel = attrs['flabel']
-
-    poly_degree = attrs['poly_degree']
-    sigma = attrs['sigma']
-    length_scale = attrs['length_scale']
-    sigma_obs = attrs['sigma_obs']
-
-    x_tst = group['mean'][xlabel]
-    f_tst = group['mean'][flabel]
-
-    cov_f_f = group['cov'][...]
-
-    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs)
-
-#-------------------------------------------------
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------
 
@@ -544,18 +505,28 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
 
 #-------------------------------------------------
 
+def set_crust(crust_eos=eos.DEFAULT_CRUST_EOS):
+    if not eos.eospaths.has_key(crust_eos):
+        raise KeyError('crust_eos=%s is not known!'%crust_eos)
+    global CRUST_PRESSUREC2, CRUST_ENERGY_DENSITYC2, CRUST_BARYON_DENSITY
+    CRUST_PRESSUREC2, CRUST_ENERGY_DENSITYC2, CRUST_BARYON_DENSITY = \
+        load(eos.eospaths[crust_eos], columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
+
 def crust_energy_densityc2(pressurec2):
     """
     return energy_densityc2 for the crust from Douchin+Haensel, arXiv:0111092
     this is included in our repo within "sly.csv", taken from Ozel's review.
     """
-    return np.interp(pressurec2, SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2)
+    return np.interp(pressurec2, CRUST_PRESSUREC2, CRUST_ENERGY_DENSITYC2)
+
+def crust_baryon_density(pressurec2):
+    return np.interp(pressurec2, CRUST_PRESSUREC2, CRUST_BARYON_DENSITY)
 
 def stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2):
     """reutrn energy_densityc2, pressurec2"""
-    sly_truth = SLY_PRESSUREC2 <= reference_pressurec2
+    sly_truth = CRUST_PRESSUREC2 <= reference_pressurec2
     eos_truth = reference_pressurec2 <= pressurec2
-    return np.concatenate((SLY_ENERGY_DENSITYC2[sly_truth], energy_densityc2[eos_truth])), np.concatenate((SLY_PRESSUREC2[sly_truth], pressurec2[eos_truth]))
+    return np.concatenate((CRUST_ENERGY_DENSITYC2[sly_truth], energy_densityc2[eos_truth])), np.concatenate((CRUST_PRESSUREC2[sly_truth], pressurec2[eos_truth]))
 
 ### integration routines
 def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
@@ -588,11 +559,11 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
     #baryon_density *= ec2 / np.interp(ref_pc2, pressurec2, baryon_density)
 
     ### match at the lowest allowed energy density
-    baryon_density *= np.interp(reference_pressurec2, SLY_PRESSUREC2, SLY_BARYON_DENSITY)/np.interp(reference_pressurec2, pressurec2, baryon_density)
+    baryon_density *= crust_baryon_density(reference_pressurec2)/np.interp(reference_pressurec2, pressurec2, baryon_density)
 
     return baryon_density
 
 #-------------------------------------------------
 
 ### load the sly EOS for stitching logic
-SLY_PRESSUREC2, SLY_ENERGY_DENSITYC2, SLY_BARYON_DENSITY = load(eos.eospaths['sly'], columns=['pressurec2', 'energy_densityc2', 'baryon_density'])[0].transpose()
+set_crust() ### use this as the crust!

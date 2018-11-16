@@ -39,11 +39,16 @@ igroup.add_argument('--sigma-pressurec2', default=0, type=float,
 DEFAULT=0.') ### FIXME: may want this to be a log-normal distribution instead of a normal distribution?
 igroup.add_argument('--stitch-below-reference-pressure', default=False, action='store_true',
     help='if supplied, report the values from the piecewise polytropic EOS below reference_pressure rather than continuing the drawn EOS below the stitching point.')
+igroup.add_argument('--crust-eos', default=utils.eos.DEFAULT_CRUST_EOS, type=str,
+    help='the eos used at the crust when stitching. \
+DEFAULT='+utils.eos.DEFAULT_CRUST_EOS)
 
 args = parser.parse_args()
 
 if args.outpath is None:
     args.outpath = args.phipath
+
+utils.set_crust(crust_eos=args.crust_eos)
 
 #-------------------------------------------------
 
@@ -86,7 +91,7 @@ if args.verbose:
 baryon_density = utils.e_p2rho(energy_densityc2, pressurec2, reference_pressurec2)
 if args.stitch_below_reference_pressure:
     ### the following indecies should match up because of the call to utils.stitch_below_reference_pressure made above
-    baryon_density[pressurec2<=reference_pressurec2] = utils.SLY_BARYON_DENSITY[utils.SLY_PRESSUREC2<=reference_pressurec2] 
+    baryon_density[pressurec2<=reference_pressurec2] = utils.CRUST_BARYON_DENSITY[utils.CRUST_PRESSUREC2<=reference_pressurec2] 
 
 ### NOTE: we now assume 
 # write output
