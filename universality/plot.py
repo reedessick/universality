@@ -513,7 +513,7 @@ def gpr_overlay(
     ):
     ### set up input arguments
     if x_obs is not None:
-        if np.ndim(x_obs)==1:
+        if isinstance(x_obs[0], (int, float)): ### possibly different length arrays in each element of the list
             x_obs = [x_obs]
             f_obs = [f_obs]
             cr_obs = [cr_obs]
