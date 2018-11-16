@@ -227,7 +227,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 ### NOTE: we do not actually record the full covariance matrix between f and df/dx. That's probably not needed, so this is probably ok
 
                 # just f
-                utils.create_process_dataset(
+                utils.create_process_group(
                     fobj.create_group(str(ind)),
                     p,
                     s,
@@ -242,7 +242,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 )
                 
                 # just phi
-                utils.create_process_dataset(
+                utils.create_process_group(
                     pobj.create_group(str(ind)),
                     p,
                     s,

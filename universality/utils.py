@@ -44,7 +44,7 @@ def draw(mean, std, size=1, bounds=None):
 # hdf5 process files
 #-------------------------------------------------
 
-def create_process_dataset(group, poly_degree, sigma, length_scale, sigma_obs, x_tst, f_tst, cov_f_f, xlabel='xl', flabel='f', weight=1.):
+def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_tst, f_tst, cov_f_f, xlabel='xl', flabel='f', weight=1.):
     """helper funtion to record the data about a process in a mixture model"""
     group.attrs.create('weight', weight)
     group.attrs.create('poly_degree', poly_degree)
@@ -56,6 +56,28 @@ def create_process_dataset(group, poly_degree, sigma, length_scale, sigma_obs, x
 
     means = group.create_dataset('mean', data=np.array(zip(x_tst, f_tst), dtype=[(xlabel, 'float'), (flabel, 'float')]))
     cov = group.create_dataset('cov', data=cov_f_f)
+
+def parse_process_group(group):
+    """helper function to read stuff out of our hdf5 data structures
+    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs)
+    """
+    attrs = group.attrs
+    weight = attrs['weight']
+
+    xlabel = attrs['xlabel']
+    flabel = attrs['flabel']
+
+    poly_degree = attrs['poly_degree']
+    sigma = attrs['sigma']
+    length_scale = attrs['length_scale']
+    sigma_obs = attrs['sigma_obs']
+
+    x_tst = group['mean'][xlabel]
+    f_tst = group['mean'][flabel]
+
+    cov_f_f = group['cov'][...]
+
+    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs)
 
 #-------------------------------------------------
 # basic utilities for manipulating existing sapmles
