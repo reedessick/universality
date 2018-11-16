@@ -133,7 +133,7 @@ if args.hyperparampath:
     weights = weights[truth]
 
 else:
-    polydeg = [args.polydeg]
+    polydeg = [args.poly_degree]
     sigma = [args.sigma]
     length_scale = [args.l]
     sigma_obs = [args.sigma_obs]
@@ -204,7 +204,6 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 mean_phi = mean_phi[truth_phi] ### prune bad (acausal?) samples from the data set!
 
                 TRUTH = np.zeros_like(truth, dtype=bool) ### make a copy
-                TRUTH[truth] = True
                 TRUTH[truth] = truth_phi
 
                 cov_phi_phi = gp.cov_phi_phi(
@@ -272,7 +271,10 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
     # for plotting purposes
     if args.plot_energy_densityc2 or args.plot_phi:
         truth = (logp_obs>=np.min(logp_resample))*(np.max(logp_resample)>=logp_obs) ### only keep samples below the max tabulated value
-        colors = plot.weights2color(weights, plot.DEFAULT_COLOR1, prefact=1.)
+        if len(weights)==1:
+            colors = [plot.matplotlib.colors.ColorConverter().to_rgb(plot.DEFAULT_COLOR1)+(0.25,)]
+        else:
+            colors = plot.weights2color(weights, plot.DEFAULT_COLOR1, prefact=1.)
 
     ### plot the result
     if args.plot_energy_densityc2:
@@ -321,7 +323,10 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
     if args.plot_phi:
-        obs = np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1)[truth]
+        obs = np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1)
+        truth *= obs==obs
+        obs = obs[truth]
+
         fig = plot.gpr_overlay(
             np.exp(logp_obs[truth]),
             obs,
