@@ -77,6 +77,8 @@ parser.add_argument('--strip-mcmc', default=0, type=int,
 
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
 
+parser.add_argument('-p', '--plot', default=False, action='store_true')
+
 parser.add_argument('--log-sigmas', default=False, action='store_true')
 parser.add_argument('--include-logL', default=False, action='store_true')
 parser.add_argument('-o', '--output-dir', default='.', type=str)
@@ -99,13 +101,14 @@ for col, (m, M) in ranges.items():
     if col in args.logcolumn:
         ranges[col] = (np.log(m), np.log(M))
 
-include = np.ones(4 if args.include_logL else 3, dtype=bool)
-if args.min_sigma==args.max_sigma:
-    include[0] = False
-if args.min_l==args.max_l:
-    include[1] = False
-if args.min_sigma_obs==args.max_sigma_obs:
-    include[2] = False
+if args.plot:
+    include = np.ones(4 if args.include_logL else 3, dtype=bool)
+    if args.min_sigma==args.max_sigma:
+        include[0] = False
+    if args.min_l==args.max_l:
+        include[1] = False
+    if args.min_sigma_obs==args.max_sigma_obs:
+        include[2] = False
 
 #-------------------------------------------------
 
@@ -139,15 +142,16 @@ if args.verbose:
 
 #--- now do some logLikelihood stuff!
 
-overlayfig = None
+if args.plot:
+    overlayfig = None
 
-if args.log_sigmas:
-    labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
-else:
-    labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$']
-if args.include_logL:
-    labels.append('$\log\mathcal{L}$')
-labels = np.array(labels)
+    if args.log_sigmas:
+        labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$']
+    else:
+        labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$']
+    if args.include_logL:
+        labels.append('$\log\mathcal{L}$')
+    labels = np.array(labels)
 
 if args.maxL:
     if args.verbose:
@@ -170,15 +174,16 @@ sigma_obs = %.3e
 logL = %.3e'''%tuple(maxL[0]))
 
     ### add to overlay plot
-    if args.log_sigmas:
-        truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
-    else:
-        truths = [maxL['sigma'][0], maxL['l'][0], maxL['sigma_obs'][0]]
+    if args.plot:
+        if args.log_sigmas:
+            truths = [np.log10(maxL['sigma'][0]), maxL['l'][0], np.log10(maxL['sigma_obs'][0])]
+        else:
+            truths = [maxL['sigma'][0], maxL['l'][0], maxL['sigma_obs'][0]]
 
-    if args.include_logL:
-        truths.append(maxL['logLike'][0])
-
-    truths = np.array(truths)
+        if args.include_logL:
+            truths.append(maxL['logLike'][0])
+  
+        truths = np.array(truths)
 
 else:
     truths = None
@@ -219,47 +224,48 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
         for sample in grid:
             print >> file_obj, tmp%tuple(sample)
 
-    if args.include_logL:
-        if args.log_sigmas:
-            data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
+    if args.plot:
+        if args.include_logL:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), grid['logLike']])
+            else:
+                data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['logLike']])
         else:
-            data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['logLike']])
-    else:
-        if args.log_sigmas:
-            data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
-        else:
-            data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs']])
+            if args.log_sigmas:
+                data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs'])])
+            else:
+                data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs']])
 
-    weights = np.exp(grid['logLike']-np.max(grid['logLike']))
-    weights /= np.sum(weights)
+        weights = np.exp(grid['logLike']-np.max(grid['logLike']))
+        weights /= np.sum(weights)
 
-    truth = weights>1e-2/len(weights)
+        truth = weights>1e-2/len(weights)
 
-    if args.verbose:
-        print('    plotting')
+        if args.verbose:
+            print('    plotting')
 
-    fig = plot.corner(
-        data[truth][:,include],
-        labels=labels[include],
-        weights=weights[truth],
-        truths=truths[include] if truths is not None else None,
-        color='b',
-    )
-    figname = '%s/investigate_hyperparams-grid%s.png'%(args.output_dir, args.tag)
-    if args.verbose:
-        print('    saving: '+figname)
-    fig.savefig(figname)
-    plot.plt.close(fig)
+        fig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            truths=truths[include] if truths is not None else None,
+            color='b',
+        )
+        figname = '%s/investigate_hyperparams-grid%s.png'%(args.output_dir, args.tag)
+        if args.verbose:
+            print('    saving: '+figname)
+        fig.savefig(figname)
+        plot.plt.close(fig)
 
-    ### add to overlay plot
-    overlayfig = plot.corner(
-        data[truth][:,include],
-        labels=labels[include],
-        weights=weights[truth],
-        color='b',
-        truths=truths[include] if truths is not None else None,
-        fig=overlayfig,
-    )
+        ### add to overlay plot
+        overlayfig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            color='b',
+            truths=truths[include] if truths is not None else None,
+            fig=overlayfig,
+        )
 
 #---
 
@@ -293,47 +299,48 @@ if args.mcmc:
         for sample in mcmc:
             print >> file_obj, tmp%tuple(sample)
 
-    if args.include_logL:
-        if args.log_sigmas:
-            data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
+    if args.plot:
+        if args.include_logL:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), mcmc['logLike']])
+            else:
+                data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']])
         else:
-            data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['logLike']])
-    else:
-        if args.log_sigmas:
-            data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
-        else:
-            data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs']])
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs'])])
+            else:
+                data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs']])
 
-    if args.verbose:
-        print('    plotting')
-    fig = plot.corner(
-        data[:,include],
-        labels=labels[include],
-        truths=truths[include],
-        color='r',
-    )
-    figname = '%s/investigate_hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
-    if args.verbose:
-        print('    saving: '+figname)
-    fig.savefig(figname)
-    plot.plt.close(fig)
+        if args.verbose:
+            print('    plotting')
+        fig = plot.corner(
+            data[:,include],
+            labels=labels[include],
+            truths=truths[include],
+            color='r',
+        )
+        figname = '%s/investigate_hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
+        if args.verbose:
+            print('    saving: '+figname)
+        fig.savefig(figname)
+        plot.plt.close(fig)
 
-    N = len(data)
-    weights = np.ones(N, dtype='float')/N
+        N = len(data)
+        weights = np.ones(N, dtype='float')/N
 
-    ### add to overlay plot
-    overlayfig = plot.corner(
-        data[:,include],
-        labels=labels[include],
-        weights=weights,
-        color='r',
-        truths=truths[include] if truths is not None else None,
-        fig=overlayfig,
-    )
+        ### add to overlay plot
+        overlayfig = plot.corner(
+            data[:,include],
+            labels=labels[include],
+            weights=weights,
+            color='r',
+            truths=truths[include] if truths is not None else None,
+            fig=overlayfig,
+        )
 
 #--- wrap up overlay plot
 
-if overlayfig:
+if args.plot and (overlayfig is not None):
     figname = '%s/investigate_hyperparams%s.png'%(args.output_dir, args.tag)
     if args.verbose:
         print('saving: '+figname)
