@@ -4,10 +4,15 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import numpy as np
-from universality import gaussianprocess as gp
 
 import emcee
 from scipy import optimize
+
+import multiprocessing as mp
+
+### non-standard libraries
+from universality import gaussianprocess as gp
+from universality import utils
 
 #-------------------------------------------------
 
@@ -16,7 +21,7 @@ DEFAULT_NUM_WALKERS = 50
 DEFAULT_NUM_MCMC = 101
 DEFAULT_NUM_STRIP = 0
 
-DEFAULT_METHOD = 'BFGS'
+DEFAULT_METHOD = None
 DEFAULT_TOL = None
 
 SAMPLES_DTYPE = [('sigma','float'), ('l','float'), ('sigma_obs','float'), ('logLike','float')]
@@ -131,6 +136,7 @@ def logLike_grid(
         sigma_obs_prior='log',
         l_prior='lin',
         degree=1,
+        num_proc=utils.DEFAULT_NUM_PROC,
     ):
     '''
     compute logLike on a grid and return "samples" with associated logLike values corresponding to each grid point
@@ -166,10 +172,48 @@ def logLike_grid(
     SIGMA_NOISE = SIGMA_NOISE.flatten()
 
     ### iterate over grid points and copmute logLike for each
-    return np.array(
-        [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
-        dtype=SAMPLES_DTYPE,
-    )
+    if num_proc==1: ### do this on a single core
+        ans = _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree)
+
+    else: ### divide up work and parallelize
+
+        Nsamp = len(SIGMA)
+        ans = np.empty((Nsamp, 4), dtype=float)
+
+        # partition work amongst the requested number of cores
+        sets = utils._define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logLike_worker, args=(f_obs, x_obs, SIGMA[truth], L[truth], SIGMA_NOISE[truth], degree), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            ans[truth,:] = conni.recv()
+
+        # cast ans to the correct structured array
+        ans = np.array(zip(ans[:,0], ans[:,1], ans[:,2], ans[:,3]), dtype=SAMPLES_DTYPE) ### do this because numpy arrays are stupid and don't cast like I want
+
+    return ans
+
+def _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, conn=None):
+    if conn is not None:
+        conn.send(
+            np.array([(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)])
+        )
+    else:
+        return np.array(
+            [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
+            dtype=SAMPLES_DTYPE,
+        )
+
+#------------------------
 
 def logLike_mcmc(
         f_obs,
@@ -234,6 +278,8 @@ def logLike_mcmc(
         dtype=SAMPLES_DTYPE,
     )
 
+#------------------------
+
 def logLike_maxL(
         f_obs,
         x_obs,
@@ -260,10 +306,7 @@ def logLike_maxL(
     foo = lambda args: -gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=degree)
     jac = lambda args: -np.array(gp.grad_logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=degree))
 
-    res = optimize.minimize(
-        foo,
-        x0,
-        method=method,
+    kwargs = dict(
         jac=jac,
         bounds=[
             (min_sigma2, max_sigma2),
@@ -277,6 +320,13 @@ def logLike_maxL(
         ],
         tol=tol,
     )
+    if method is not None:
+        kwargs['method'] = method
+
+    res = optimize.minimize(foo, x0, **kwargs)
+
+    if not res.success:
+        print('\n>>> WARNING: failed to converge: %s\n'%res.message)
 
     sigma, l, sigma_obs = res.x
     return np.array(

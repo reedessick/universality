@@ -545,8 +545,8 @@ def gpr_overlay(
         for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
             truth = (xmin<=x)*(x<=xmax)
             if cr is not None:
-                ax.fill_between(x, cr[0], cr[1], color=color, alpha=0.25)
-            ax.plot(x, f, linestyle_obs, color=color, alpha=0.25)
+                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color, alpha=0.25)
+            ax.plot(x[truth], f[truth], linestyle_obs, color=color, alpha=0.25)
 
     # plot residuals, etc
     if (residuals or ratios) and (Nobs > 0):

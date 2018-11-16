@@ -29,8 +29,8 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('--poly-degree', default=1, type=int)
 
-parser.add_argument('--log-xcolumn', default=False, action='store_true')
-parser.add_argument('--log-ycolumn', default=False, action='store_true')
+parser.add_argument('--logcolumn', default=[], action='append', type=str)
+parser.add_argument('--column-range', nargs=3, type=str, action='append')
 
 parser.add_argument('--min-sigma', default=hp.DEFAULT_MIN_SIGMA, type=float,
     help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
@@ -59,7 +59,7 @@ parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
     help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
 parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
-    help='DEFAULT='+hp.DEFAULT_METHOD)
+    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
 
 parser.add_argument('--maxL-tol', default=hp.DEFAULT_TOL, type=float,
     help='DEFAULT=%s'%hp.DEFAULT_TOL)
@@ -75,6 +75,8 @@ parser.add_argument('--maxL', default=False, action='store_true')
 parser.add_argument('--strip-mcmc', default=0, type=int,
     help='the number of burn in samples to reject from the mcmc sampler')
 
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
+
 parser.add_argument('--log-sigmas', default=False, action='store_true')
 parser.add_argument('--include-logL', default=False, action='store_true')
 parser.add_argument('-o', '--output-dir', default='.', type=str)
@@ -86,25 +88,46 @@ assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one o
 
 xcolumn, ycolumn = columns = [args.xcolumn, args.ycolumn]
 
-logcolumns = []
-if args.log_xcolumn:
-    logcolumns.append(xcolumn)
-if args.log_ycolumn:
-    logcolumns.append(ycolumn)
-
 if args.tag:
     args.tag = "_"+args.tag
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
+ranges = dict((col, (float(m), float(M))) for col, m, M in args.column_range)
+for col, (m, M) in ranges.items():
+    if col in args.logcolumn:
+        ranges[col] = (np.log(m), np.log(M))
+
 #-------------------------------------------------
 
 if args.verbose:
     print('reading: '+args.eospath)
-data, cols = utils.load(args.eospath, columns, logcolumns=logcolumns)
+data, cols = utils.load(args.eospath, columns, logcolumns=args.logcolumn)
+N = len(data)
+if args.verbose:
+    print('found %d observations'%N)
+truth = np.ones(N, dtype=bool)
+
 x_obs = data[:,0]
+if ranges.has_key(args.xcolumn):
+    m, M = ranges[args.xcolumn]
+    if args.verbose:
+        print('retaining %s within [%.3f, %.3f]'%(cols[0], m, M))
+    truth *= (m<=x_obs)*(x_obs<=M)
+
 f_obs = data[:,1]
+if ranges.has_key(args.ycolumn):
+    m, M = ranges[args.ycolumn]
+    if args.verbose:
+        print('retaining %s within [%.3f, %.3f]'%(cols[1], m, M))
+    truth *= (m<=f_obs)*(f_obs<=M)
+
+x_obs = x_obs[truth]
+f_obs = f_obs[truth]
+
+if args.verbose:
+    print('retained %d observations'%np.sum(truth))
 
 #--- now do some logLikelihood stuff!
 
@@ -119,7 +142,7 @@ if args.include_logL:
 
 if args.maxL:
     if args.verbose:
-        print('finding maxLikelihood')
+        print('finding maxLikelihood with method=%s'%args.maxL_method)
 
     maxL = hp.logLike_maxL(
         f_obs,
@@ -153,7 +176,7 @@ else:
 
 if args.grid:
     if args.verbose:
-        print('evaluating on a grid')
+        print('evaluating on a %dx%dx%d grid'%(args.num_grid, args.num_grid, args.num_grid))
 
     grid = hp.logLike_grid(
         f_obs,
@@ -168,6 +191,7 @@ if args.grid:
         sigma_prior=args.sigma_prior,
         sigma_obs_prior=args.sigma_obs_prior,
         degree=args.poly_degree,
+        num_proc=args.num_proc,
     )
     path = "%s/investigate_bandwidth-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
@@ -192,12 +216,14 @@ if args.grid:
     weights = np.exp(grid['logLike']-np.max(grid['logLike']))
     weights /= np.sum(weights)
 
+    truth = weights>1e-2/len(weights)
+
     if args.verbose:
         print('    plotting')
     fig = plot.corner(
-        data,
+        data[truth,:],
         labels=labels,
-        weights=weights,
+        weights=weights[truth],
         truths=truths,
         color='b',
     )
@@ -209,9 +235,9 @@ if args.grid:
 
     ### add to overlay plot
     overlayfig = plot.corner(
-        data,
+        data[truth,:],
         labels=labels,
-        weights=weights,
+        weights=weights[truth],
         color='b',
         truths=truths,
         fig=overlayfig,
