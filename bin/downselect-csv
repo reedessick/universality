@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+__doc__ = "downselect a csv based on it's weights to generate a smaller, representative set"
+__author__ = "Reed Essick <reed.essick@ligo.org>"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+DEFAULT_NUM_SAMPLES = 10000
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+### required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('sourcepath', type=str)
+rgroup.add_argument('targetpath', type=str)
+rgroup.add_argument('--weight-column', default=None, type=str)
+rgroup.add_argument('--weight-column-is-log', default=False, action='store_true')
+
+### verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### workflow arguments
+wgroup = parser.add_argument_group('workflow arguments')
+wgroup.add_argument('-n', '--num-samples', default=DEFAULT_NUM_SAMPLES, type=int,
+    help='draw this many samples (with replacement) from the csv. \
+DEFAULT=%d'%DEFAULT_NUM_SAMPLES)
+
+# finish parsing
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.sourcepath)
+data, columns = utils.load(args.sourcepath)
+N = len(data)
+
+if args.weight_column is not None:
+    try:
+        ind = columns.index(args.weight_column)
+    except ValueError:
+        raise ValueError('--weight-column=%s not found!'%args.weight_column)
+    weights = data[:,ind]
+
+    if args.weight_column_is_log:
+        weights = np.exp(weights-np.max(weights))
+    weights /= np.sum(weights)
+
+else:
+    weights = np.ones(N, dtype=float)/N
+
+#------------------------
+
+if args.verbose:
+    print('drawing %d samples (with replacement)'%args.num_samples)
+
+# sort the data
+order = weights.argsort()
+data = data[order]
+weights = weights[order]
+
+# compute a cdf and draw from it
+inds = np.ceil(np.interp(np.random.rand(args.num_samples), np.arange(0, 1, 1./N), np.cumsum(weights)))
+
+# keep only those data and get rid of the weights column
+data = data[inds][[col!=args.weight_column for col in columns]]
+
+#------------------------
+
+if args.verbose:
+    print('writing representative set to: '+args.targetpath)
+with open(args.targetpath, 'w') as obj:
+    print >> obj, ','.join(col for col in columns if col!=args.weight_column)
+    tmp = ','.join('%.9e' for _ in xrange(data.ndim))
+    for sample in data:
+        print >> obj, tmp%tuple(sample)
