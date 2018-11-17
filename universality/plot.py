@@ -310,6 +310,7 @@ def curve_corner(
         truths=None,
         color=None, ### let matplotlib pick this for you automatically
         alpha=1.0,
+        grid=True,
         linestyle=DEFAULT_LINESTYLE,
         linewidth=DEFAULT_LINEWIDTH,
         fig=None,
@@ -369,7 +370,7 @@ def curve_corner(
                 ax.plot(data[:,col], data[:,row], linestyle=linestyle, alpha=alpha, linewidth=linewidth)
 
             # decorate
-            ax.grid(True, which='both')
+            ax.grid(grid, which='both')
 
             ax.set_xlim(range[col])
 #            plt.setp(ax.get_xticklabels(), rotation=45)
@@ -416,6 +417,7 @@ def overlay(
         ratios=False,
         logx=False,
         logy=False,
+        grid=True,
     ):
     if np.ndim(x)==1:
         x_obs = [x]
@@ -465,7 +467,7 @@ def overlay(
                 rs.plot(x_ref, f/f_ref, l, color=c, alpha=a)
 
     # decorate
-    ax.grid(True, which='both')
+    ax.grid(grid, which='both')
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
@@ -475,7 +477,7 @@ def overlay(
         rs.set_xscale(ax.get_xscale())
         rs.set_xlim(ax.get_xlim())
 
-        rs.grid(True, which='both')
+        rs.grid(grid, which='both')
         plt.setp(ax.get_xticklabels(), visible=False)
 
         rs.set_xlabel(xlabel)
@@ -510,6 +512,7 @@ def gpr_overlay(
         color_obs=None,
         logx=False,
         logy=False,
+        grid=True,
     ):
     ### set up input arguments
     if x_obs is not None:
@@ -597,7 +600,7 @@ def gpr_overlay(
                 rs.plot(x_ref, f/f_ref, linestyle_obs, color=color_obs)
 
     # decorate
-    ax.grid(True, which='both')
+    ax.grid(grid, which='both')
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
@@ -606,7 +609,7 @@ def gpr_overlay(
         rs.set_xscale(ax.get_xscale())
         rs.set_xlim(ax.get_xlim())
 
-        rs.grid(True, which='both')
+        rs.grid(grid, which='both')
         plt.setp(ax.get_xticklabels(), visible=False)
 
         rs.set_xlabel(xlabel)

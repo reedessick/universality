@@ -80,6 +80,8 @@ pgroup.add_argument('--residuals', default=False, action='store_true')
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
+pgroup.add_argument('--grid', default=False, action='store_true')
+
 ### output options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -297,6 +299,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             residuals=args.residuals,
             figwidth=args.figwidth,
             figheight=args.figheight,
+            grid=args.grid,
         )
         plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
@@ -319,6 +322,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             residuals=args.residuals,
             figwidth=args.figwidth,
             figheight=args.figheight,
+            grid=args.grid,
         )
         plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
@@ -345,5 +349,6 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             residuals=args.residuals,
             figwidth=args.figwidth,
             figheight=args.figheight,
+            grid=args.grid,
         )
         plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)

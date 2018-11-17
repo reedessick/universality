@@ -95,6 +95,8 @@ pgroup.add_argument('--ylabel', default='$\phi$', type=str)
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
+pgroup.add_argument('--grid', default=False, action='store_true')
+
 ### output options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -250,6 +252,7 @@ if args.plot:
         residuals=args.residuals,
         figwidth=args.figwidth,
         figheight=args.figheight,
+        grid=args.grid,
     )
     plot.save('gpr-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
     plot.plt.close(fig)

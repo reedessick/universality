@@ -107,6 +107,8 @@ pgroup.add_argument('--filled', default=False, action='store_true',
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
+pgroup.add_argument('--grid', default=False, action='store_true')
+
 # ouptut options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -260,6 +262,7 @@ for ind, (label, path) in enumerate(args.samples):
         figwidth=args.figwidth,
         figheight=args.figheight,
         fig=fig,
+        grid=args.grid,
     )
 
     if args.legend:
@@ -287,6 +290,7 @@ for i, (label, path) in enumerate(args.reference):
         figwidth=args.figwidth,
         figheight=args.figheight,
         fig=fig,
+        grid=args.grid,
     )
 
     if args.reference_legend:

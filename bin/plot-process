@@ -123,6 +123,8 @@ pgroup.add_argument('--reference-legend', default=False, action='store_true')
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
+pgroup.add_argument('--grid', default=False, action='store_true')
+
 # annotation options
 agroup = parser.add_argument_group('annotation options')
 agroup.add_argument('--signpost', nargs=2, default=[], type=str, action='append',
@@ -463,9 +465,10 @@ if args.ycolumn in args.logcolumn:
     for key, val in y_cent.items():
         y_cent[key] = np.log10(val)
 
-ax.grid(True, which='both')
-if args.residuals or args.ratios:
-    ax_res.grid(True, which='both')
+if args.grid:
+    ax.grid(True, which='both')
+    if args.residuals or args.ratios:
+        ax_res.grid(True, which='both')
 
 # set limits
 ax.set_xlim(xmin=args.xmin, xmax=args.xmax)

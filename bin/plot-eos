@@ -47,6 +47,8 @@ pgroup.add_argument('--ratios', default=False, action='store_true')
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
+pgroup.add_argument('--grid', default=False, action='store_true')
+
 ### output options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -131,6 +133,9 @@ fig = plot.overlay(
     ratios=args.ratios,
     logx=args.xcolumn in args.logcolumn,
     logy=args.ycolumn in args.logcolumn,
+    logx=args.logx,
+    logy=args.logy,
+    grid=args.grid,
 )
 
 ### save
