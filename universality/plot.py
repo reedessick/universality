@@ -114,7 +114,7 @@ def kde_corner(
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
-        alpha=0.25,
+        alpha=1.0,
     ):
     """
     should be mostly equivalent to corner.corner, except we build our own KDEs and the like
@@ -209,7 +209,7 @@ def kde_corner(
 
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
-                        ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle)
+                        ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
@@ -217,7 +217,7 @@ def kde_corner(
                         ax.set_xlim(xmin=0, xmax=xmax)
 
                     else:
-                        ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle)
+                        ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
@@ -449,7 +449,7 @@ def overlay(
 
     # plot the observed data
     for x, f, c, l in zip(x, f, colors, linestyles):
-        ax.plot(x, f, l, color=c, alpha=0.5)
+        ax.plot(x, f, l, color=c)
 
     # plot residuals, etc
     if residuals or ratios:
