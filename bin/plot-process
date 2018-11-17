@@ -465,10 +465,9 @@ if args.ycolumn in args.logcolumn:
     for key, val in y_cent.items():
         y_cent[key] = np.log10(val)
 
-if args.grid:
-    ax.grid(True, which='both')
-    if args.residuals or args.ratios:
-        ax_res.grid(True, which='both')
+ax.grid(args.grid, which='both')
+if args.residuals or args.ratios:
+    ax_res.grid(args.grid, which='both')
 
 # set limits
 ax.set_xlim(xmin=args.xmin, xmax=args.xmax)
