@@ -39,9 +39,8 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('--column-range', nargs=3, default=[], type=str, action='append')
 pgroup.add_argument('--column-label', nargs=2, default=[], type=str, action='append')
+pgroup.add_argument('--logcolumn', default=[], type=str, action='append')
 
-pgroup.add_argument('--logx', default=False, action='store_true')
-pgroup.add_argument('--logy', default=False, action='store_true')
 pgroup.add_argument('--residuals', default=False, action='store_true')
 pgroup.add_argument('--ratios', default=False, action='store_true')
 
@@ -60,6 +59,9 @@ args = parser.parse_args()
 ### finish parsing
 names = [label for label, _ in args.samples]
 columns = [args.xcolumn, args.ycolumn]
+
+for col in args.logcolumn:
+    assert col in columns, 'specifying --logcolumn for unknown column: '+col
 
 for col, _, _ in args.column_range:
     assert col in columns, 'specifying --column-range for uknown column: '+col
@@ -127,8 +129,8 @@ fig = plot.overlay(
     figheight=args.figheight,
     residuals=args.residuals,
     ratios=args.ratios,
-    logx=args.logx,
-    logy=args.logy,
+    logx=args.xcolumn in args.logcolumn,
+    logy=args.ycolumn in args.logcolumn,
 )
 
 ### save
