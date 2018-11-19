@@ -220,7 +220,7 @@ for label, color in args.color:
     assert label in names, 'specifying --color for uknown sample set: '+label
     colors[label] = color
 
-reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in names)
+reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in reference_names)
 for label, color in args.reference_color:
     assert label in reference_names, 'specifying --reference-color for unknown reference set: '+label
     reference_colors[label] = color
