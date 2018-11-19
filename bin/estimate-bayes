@@ -34,37 +34,36 @@ parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES,
 parser.add_argument('--weight2-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-opts, args = parser.parse_args()
+args = parser.parse_args()
 
 #-------------------------------------------------
 
 ### read in source samples
-if opts.verbose:
+if args.verbose:
     print('reading samples from: '+args.inpath1)
-weights1 = utils.load(args.inpath1, [args.weight1_column], max_num_samples=opts.max_num_samples1)[0][:,0]
+weights1 = utils.load(args.inpath1, [args.weight1_column], max_num_samples=args.max_num_samples1)[0][:,0]
 N1 = len(weights1)
 weights1.reshape(N1)
 
-if opts.weight1_column_is_log:
+if args.weight1_column_is_log:
     weights1 = np.exp(weights1)
 
-if opts.verbose:
+if args.verbose:
     print('N1    = %5d'%N1)
     print('N1eff = %9.3f'%stats.neff(weights1/np.sum(weights1)))
 
-if opts.verbose:
+if args.verbose:
     print('reading samples from: '+args.inpath2)
-weights2 = utils.load(args.inpath2, [args.weight2_column], max_num_samples=opts.max_num_samples2)[0][:,0]
+weights2 = utils.load(args.inpath2, [args.weight2_column], max_num_samples=args.max_num_samples2)[0][:,0]
 N2 = len(weights2)
 weights2.reshape(N2)
 
-if opts.weight2_column_is_log:
+if args.weight2_column_is_log:
     weights2 = np.exp(weights2)
 
-if opts.verbose:
+if args.verbose:
     print('N2    = %5d'%N2)
     print('N2eff = %9.3f'%stats.neff(weights2/np.sum(weights2)))
-
 
 #------------------------
 

@@ -9,7 +9,7 @@ import os
 
 import numpy as np
 
-from argparse import ArgumnetParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -17,7 +17,7 @@ from universality import stats
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('inpath', type=str)
 parser.add_argument('weightcolumn', type=str)
