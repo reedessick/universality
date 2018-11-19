@@ -17,7 +17,7 @@ from universality import stats
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('inpath1', type=str)
 parser.add_argument('weight1_column', type=str)
