@@ -53,8 +53,8 @@ WSPACE = 0.05
 
 #------------------------
 
-MAIN_AXES_POSITION = [0.15, 0.33, 0.80, 0.62]
-RESIDUAL_AXES_POSITION = [0.15, 0.12, 0.80, 0.2]
+MAIN_AXES_POSITION = [0.18, 0.33, 0.77, 0.62]
+RESIDUAL_AXES_POSITION = [0.18, 0.12, 0.77, 0.2]
 AXES_POSITION = [
     MAIN_AXES_POSITION[0],
     RESIDUAL_AXES_POSITION[1],
@@ -413,6 +413,7 @@ def overlay(
         ylabel='f',
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
+        fractions=False,
         residuals=False,
         ratios=False,
         logx=False,
@@ -435,7 +436,7 @@ def overlay(
 
     ### set up figure, axes
     fig = plt.figure(figsize=(figwidth, figheight))
-    if residuals or ratios:
+    if fractions or residuals or ratios:
         ax = fig.add_axes(MAIN_AXES_POSITION)
         rs = fig.add_axes(RESIDUAL_AXES_POSITION)
 
@@ -460,7 +461,10 @@ def overlay(
         for x, f, c, l, a in zip(x, f, colors, linestyles, alphas):
             f = np.interp(x_ref, x, f)
 
-            if residuals:
+            if fractions:
+                rs.plot(x_ref, (f-f_ref)/f_ref, l, color=c, alpha=a)
+
+            elif residuals:
                 rs.plot(x_ref, f-f_ref, l, color=c, alpha=a)
 
             elif ratios:
@@ -481,8 +485,12 @@ def overlay(
         plt.setp(ax.get_xticklabels(), visible=False)
 
         rs.set_xlabel(xlabel)
-        if residuals:
+        if fractions:
+            rs.set_ylabel('$(%s - %s_{\mathrm{ref}})/%s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
+
+        elif residuals:
             rs.set_ylabel('$%s - %s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$')))
+
         elif ratios:
             rs.set_yscale(ax.get_xscale())
             rs.set_ylabel('$%s/%s_{\mathrm{ref}$'%(ylabel.strip('$'), ylabel.strip('$')))
@@ -506,6 +514,7 @@ def gpr_overlay(
         ylabel='f',
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
+        fractions=False,
         residuals=False,
         ratios=False,
         color_tst=DEFAULT_COLOR1,
@@ -532,7 +541,7 @@ def gpr_overlay(
 
     ### set up figure, axes
     fig = plt.figure(figsize=(figwidth, figheight))
-    if (residuals or ratios) and (Nobs > 0):
+    if (fractions or residuals or ratios) and (Nobs > 0):
         ax = fig.add_axes(MAIN_AXES_POSITION)
         rs = fig.add_axes(RESIDUAL_AXES_POSITION)
 
@@ -540,7 +549,7 @@ def gpr_overlay(
         ax = fig.add_axes(AXES_POSITION)
 
     # plot the test points
-    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst)
+    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst, alpha=0.25)
     ax.plot(x_tst, f_tst, linestyle_tst, color=color_tst)
 
     # plot the observed data
@@ -548,11 +557,11 @@ def gpr_overlay(
         for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
             truth = (xmin<=x)*(x<=xmax)
             if cr is not None:
-                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color)
+                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color, alpha=0.25)
             ax.plot(x[truth], f[truth], linestyle_obs, color=color)
 
     # plot residuals, etc
-    if (residuals or ratios) and (Nobs > 0):
+    if (fractions or residuals or ratios) and (Nobs > 0):
         if Nobs==1:
             x_ref = x_obs[0]
             f_ref = f_obs[0]
@@ -567,14 +576,20 @@ def gpr_overlay(
         hgh = np.interp(x_ref, x_tst, cr_tst[1])
         low = np.interp(x_ref, x_tst, cr_tst[0])
 
-        if residuals:
-            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst)
+        if fractions:
+            rs.fill_between(x_ref, (hgh-f_ref)/f_ref, (low-f_ref)/f_ref, color=color_tst, alpha=0.25)
+            rs.plot(x_ref, (f_tst_interp-f_ref)/f_ref, linestyle_tst, color=color_tst)
+
+            rs.set_ylim(ymin=np.min(((low-f_ref)/f_ref)[truth]), ymax=np.max(((hgh-f_ref)/f_ref)[truth]))
+
+        elif residuals:
+            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst, alpha=0.25)
             rs.plot(x_ref, f_tst_interp-f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low-f_ref)[truth]), ymax=np.max((hgh-f_ref)[truth]))
 
         elif ratios:
-            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst)
+            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst, alpha=0.25)
             rs.plot(x_ref, f_tst_interp/f_ref, linestyle_tst, color=color_tst)
 
             rs.set_ylim(ymin=np.min((low/f_ref)[truth]), ymax=np.max((hgh/f_ref)[truth]))
@@ -583,11 +598,19 @@ def gpr_overlay(
         for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
             f = np.interp(x_ref, x, f)
 
-            if residuals:
+            if fractions:
                 if cr is not None:
                     hgh = np.interp(x_ref, x, cr[1])
                     low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color)
+                    rs.fill_between(x_ref, (hgh-f_ref)/f_ref, (low-f_ref)/f_ref, color=color, alpha=0.25)
+
+                rs.plot(x_ref, (f-f_ref)/f_ref, linestyle_obs, color=color)
+
+            elif residuals:
+                if cr is not None:
+                    hgh = np.interp(x_ref, x, cr[1])
+                    low = np.interp(x_ref, x, cr[0])
+                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color, alpha=0.25)
 
                 rs.plot(x_ref, f-f_ref, linestyle_obs, color=color)
 
@@ -595,9 +618,9 @@ def gpr_overlay(
                 if cr is not None:
                     hgh = np.interp(x_ref, x, cr[1])
                     low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color)
+                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color, alpha=0.25)
 
-                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color_obs)
+                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color)
 
     # decorate
     ax.grid(grid, which='both')
@@ -613,11 +636,18 @@ def gpr_overlay(
         plt.setp(ax.get_xticklabels(), visible=False)
 
         rs.set_xlabel(xlabel)
-        if residuals:
+        if fractions:
+            if Nobs==1:
+                rs.set_ylabel('$(%s - %s_{\\ast})/%s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
+            else:
+                rs.set_ylabel('$(%s_{\\ast} - %s)/%s$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
+
+        elif residuals:
             if Nobs==1:
                 rs.set_ylabel('$%s - %s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$')))
             else:
                 rs.set_ylabel('$%s_{\\ast} - %s$'%(ylabel.strip('$'), ylabel.strip('$')))
+
         elif ratios:
             rs.set_yscale(ax.get_xscale())
             if Nobs==1:

@@ -41,6 +41,7 @@ pgroup.add_argument('--column-range', nargs=3, default=[], type=str, action='app
 pgroup.add_argument('--column-label', nargs=2, default=[], type=str, action='append')
 pgroup.add_argument('--logcolumn', default=[], type=str, action='append')
 
+pgroup.add_argument('--fractions', default=False, action='store_true')
 pgroup.add_argument('--residuals', default=False, action='store_true')
 pgroup.add_argument('--ratios', default=False, action='store_true')
 
@@ -129,6 +130,7 @@ fig = plot.overlay(
     ylabel=labels[args.ycolumn],
     figwidth=args.figwidth,
     figheight=args.figheight,
+    fractions=args.fractions,
     residuals=args.residuals,
     ratios=args.ratios,
     logx=args.xcolumn in args.logcolumn,

@@ -88,7 +88,9 @@ DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('-p', '--plot', default=False, action='store_true')
+pgroup.add_argument('--fractions', default=False, action='store_true')
 pgroup.add_argument('--residuals', default=False, action='store_true')
+pgroup.add_argument('--ratios', default=False, action='store_true')
 
 pgroup.add_argument('--ylabel', default='$\phi$', type=str)
 
@@ -245,11 +247,16 @@ if args.plot:
         means,
         cr_obs=cr_obs,
         linestyle_obs='-',
+        linestyle_tst='-',
+        color_tst='k',
+        color_obs=['r']*Npkl,
         logx=True,
         logy=False,
         xlabel='$p/c^2$',
         ylabel=args.ylabel,
+        fractions=args.fractions,
         residuals=args.residuals,
+        ratios=args.ratios,
         figwidth=args.figwidth,
         figheight=args.figheight,
         grid=args.grid,

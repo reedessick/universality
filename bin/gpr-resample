@@ -75,7 +75,9 @@ pgroup.add_argument('-p', '--plot-all', default=False, action='store_true')
 pgroup.add_argument('--plot-energy_densityc2', default=False, action='store_true')
 pgroup.add_argument('--plot-phi', default=False, action='store_true')
 
+pgroup.add_argument('--fractions', default=False, action='store_true')
 pgroup.add_argument('--residuals', default=False, action='store_true')
+pgroup.add_argument('--ratios', default=False, action='store_true')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -296,7 +298,9 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             logy=True,
             xlabel='$p/c^2$',
             ylabel='$\mu/c^2$',
+            fractions=args.fractions,
             residuals=args.residuals,
+            ratios=args.ratios,
             figwidth=args.figwidth,
             figheight=args.figheight,
             grid=args.grid,
@@ -319,7 +323,9 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             logy=False,
             xlabel='$p/c^2$',
             ylabel='$d\log \mu / d\log p$',
+            fractions=args.fractions,
             residuals=args.residuals,
+            ratios=args.ratios,
             figwidth=args.figwidth,
             figheight=args.figheight,
             grid=args.grid,
@@ -346,7 +352,9 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             logy=False,
             xlabel='$p/c^2$',
             ylabel='$\phi$',
+            fractions=args.fractions,
             residuals=args.residuals,
+            ratios=args.ratios,
             figwidth=args.figwidth,
             figheight=args.figheight,
             grid=args.grid,
