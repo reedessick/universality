@@ -257,7 +257,8 @@ if args.plot_stats:
     ax = fig.gca()
     AX = ax.twinx()
 
-    vals = [_[1][2] for _ in stats] ### plot log10(MID)
+    vals = np.array([_[1][2] for _ in stats]) ### plot MID
+    vals = np.array(vals==vals) ### reject nans
 
     # basic histogram
     bins = np.logspace(*np.log10(utils.data2range(vals, pad=0)), num=max(10, (N*(N-1)/2)**0.5))
