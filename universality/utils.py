@@ -140,7 +140,7 @@ def logaddexp(logx):
 def data2range(data, pad=0.1):
     m = np.min(data)
     M = np.max(data)
-    delta = (M-m)*0.1
+    delta = (M-m)*pad
     return (m-delta, M+delta)
 
 def vects2flatgrid(*vects):
