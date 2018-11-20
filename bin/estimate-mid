@@ -146,9 +146,6 @@ i = 1
 for ind in xrange(1, N):
     key1 = columns[ind]
     for jnd in xrange(ind):
-
-        if i > 100: break
-
         key2 = columns[jnd]
 
         if args.verbose:
@@ -272,6 +269,11 @@ if args.plot_stats:
     ax.set_xscale('log')
     AX.set_xlim(ax.get_xlim())
     AX.set_xscale(ax.get_xscale())
+
+    m, M = ax.get_ylim()
+    d = (M-m)*0.01
+    ax.set_ylim(ymin=m-d, ymax=M+d)
+    AX.set_ylim(ymin=-0.01, ymax=1.01)
 
     AX.grid(args.grid, which='both')
 
