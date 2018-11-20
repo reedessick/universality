@@ -292,7 +292,7 @@ else:
 if args.xcolumn in args.logcolumn:
     x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
 else:
-    args.x_test = np.linspace(args.xmin, args.xmax, args.num_points)
+    x_test = np.linspace(args.xmin, args.xmax, args.num_points)
 
 y = np.empty((Nsamples, Nquantiles, args.num_points), dtype='float')
 y_median = np.empty((Nsamples, args.num_points), dtype='float')
