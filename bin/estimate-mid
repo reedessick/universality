@@ -42,6 +42,9 @@ parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('--plot-distribs', default=False, action='store_true')
 parser.add_argument('--plot-stats', default=False, action='store_true')
 
+parser.add_argument('--level', default=[], type=float, action='append',
+    help='confidence levels for contour plots')
+
 parser.add_argument('--no-scatter', default=False, action='store_true')
 parser.add_argument('--grid', default=False, action='store_true')
 
@@ -65,6 +68,9 @@ args.plot_stats |= args.plot
 
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
+
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
 
 #-------------------------------------------------
 
@@ -192,14 +198,14 @@ for ind in xrange(1, N):
                 vect[jnd]*std[jnd] + means[jnd],
                 kdej.reshape((args.num_points, args.num_points)).transpose(),
                 colors='b',
-                levels=sorted(np.exp(plot.logkde2levels(np.log(kdej), [0.5, 0.9])), reverse=True),
+                levels=sorted(np.exp(plot.logkde2levels(np.log(kdej), args.level)), reverse=True),
             )
             ax.contour( ### product of marginals
                 vect[ind]*std[ind] + means[ind],
                 vect[jnd]*std[jnd] + means[jnd],
                 kdei.reshape((args.num_points, args.num_points)).transpose(),
                 colors='r',
-                levels=sorted(np.exp(plot.logkde2levels(np.log(kdei), [0.5, 0.9])), reverse=True),
+                levels=sorted(np.exp(plot.logkde2levels(np.log(kdei), args.level)), reverse=True),
             )
 
             ax.set_xlim(xmin=min(vect[ind])*std[ind]+means[ind], xmax=max(vect[ind])*std[ind]+means[ind])
