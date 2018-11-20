@@ -83,6 +83,8 @@ if args.verbose:
     print('found %d samples for %d columns'%(Nsamp, len(columns)))
 
 if args.weight_column is not None:
+    if args.verbose:
+        print('reading weights as %s from: %s'%(args.weight_column, args.samples))
     weights = utils.load(args.samples, [args.weight_column])[0][:,0]
 
     if args.weight_column_is_log:
@@ -90,7 +92,7 @@ if args.weight_column is not None:
     weights /= np.sum(weights)
 
     truth = weights>0
-    data = data[:,truth]
+    data = data[truth,:]
     weights = weights[truth]
     Nsamp = len(data)
     if args.verbose:
