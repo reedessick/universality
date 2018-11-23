@@ -181,6 +181,13 @@ for ind in xrange(1, N):
         kdei[:] = np.outer(kde1, kde2).flatten() ### to get meshgrid right
         kdei /= np.sum(kdei) ### just to be safe...
 
+        ### compute statistics
+        TRUTH[:] = kdej > 0
+
+        mi = +np.sum(kdej[TRUTH]*np.log(kdej[TRUTH]/kdei[TRUTH]))
+        hj = -np.sum(kdej[TRUTH]*np.log(kdej[TRUTH]))
+        mid = mi/hj
+
         ### plot for visual inspection
         if args.plot_distribs:
             fig = plot.plt.figure()
@@ -219,19 +226,16 @@ for ind in xrange(1, N):
             fig.text(0.15, 0.95, 'joint distribution', color='b', ha='left', va='center')
             fig.text(0.90, 0.95, 'product of marginals', color='r', ha='right', va='center')
 
+            exponent = np.floor(np.log10(mid))
+            fig.text(0.5*(0.15+0.90), 0.95, '$\mathrm{MID}=%.3f\\times10^{%d}$'%(mid*10**(-exponent), exponent), color='k', ha='center', va='center')
+
             ax.grid(args.grid, which='both')
 
             plot.save('mid_%s-%s%s'%(key1, key2, args.tag), fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.Verbose, dpi=args.dpi)
             plot.plt.close(fig)
 
-        ### compute statistics
-        TRUTH[:] = kdej > 0
-
-        mi = +np.sum(kdej[TRUTH]*np.log(kdej[TRUTH]/kdei[TRUTH]))
-        hj = -np.sum(kdej[TRUTH]*np.log(kdej[TRUTH]))
-
         # sanity check the results with known bounds
-        if mi > hj:
+        if mid > 1:
             raise ValueError('unphysical mutual information:\n    mi=%.6e\n    hj=%.6e'%(mi, hj))
 
         stats.append( ((key1, key2), (mi, hj, mi/hj)) )
