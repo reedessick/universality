@@ -8,6 +8,7 @@ __author__ = "reed.essick@ligo.org"
 import os
 
 import numpy as np
+import h5py
 
 from argparse import ArgumentParser
 
@@ -31,11 +32,13 @@ parser = ArgumentParser(description=__doc__)
 
 ### required arguments
 parser.add_argument_group('required arguments')
-parser.add_argument('pklpaths', nargs='+', type=str)
+parser.add_argument('hdf5paths', nargs='+', type=str)
+
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity arguments')
-parser.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 ### options for evaluation
 ggroup = parser.add_argument_group('Gaussian Process options')
@@ -109,7 +112,7 @@ ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 ### finish parsing
-Npkl = len(args.pklpaths)
+Nhdf5 = len(args.hdf5paths)
 
 if args.stitch_pressure_bounds is None:
     args.stitch_pressure_bounds = args.pressure_bounds
@@ -125,115 +128,194 @@ if args.tag:
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
+args.verbose |= args.Verbose
+
 #-------------------------------------------------
 
-labels = None
-means = []
-covs = []
-for pklpath in args.pklpaths:
+models = []
+for hdf5path in args.hdf5paths:
     if args.verbose:
-        print('reading: '+pklpath)
-    xlabel, ylabel, x, mean, cov = gp.pklload(pklpath)
+        print('reading: '+hdf5path)
+    models.append(gp.hdf5load(hdf5path))
 
-    if labels==None:
-        labels = xlabel, ylabel
-        x_obs = x
-
-    else:
-        assert labels==(xlabel,ylabel), 'labels must match in all pkl files!'
-        assert np.all(x_obs==x), 'all pkl files must be evaluated at the same x-values!'
-
-    means.append(mean)
-    covs.append(cov)
-
-Nx = len(x_obs)
+### create combinatorically many possible matchings between all models
+inds = zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in models])])
+Ninds = len(inds)
 
 #-------------------------------------------------
 
-if args.verbose:
-    print('computing modeling uncertainty at each x-value')
-
-### reshape resampled vectors into 1D arrays
-means_1d = np.concatenate(means)
-xs_1d = np.concatenate([x_obs for _ in means])
-Nobs = len(xs_1d)
-
-### add in "theory model noise" as diagonal components based on variance of means at each pressure
-if args.stitch:
-    covs_2d = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
-else:
-    covs_2d = np.zeros((Nobs,Nobs), dtype=float)
-
-### iterate through pressure samples and compute theory variance of each
-for i in xrange(Nx):
-    ### variance for this pressure sample
-    var = np.var([m[i] for m in means]) + np.sum([c[i,i] for c in covs])
-
-    # multiply this sample by some factor (hyper-parameter)
-    var *= args.model_multiplier
-
-    # fill in big array as needed
-    for j in xrange(Npkl):
-        ind = j*Nx + i
-        covs_2d[ind,ind] += var ### variance goes on the diagonal
-
-### iterate over regression covariances and fill in the matrix
-### this includes off-diagonal correlations within each resampling
-i=0
-for ind in xrange(Npkl):
-    j = i+Nx
-    covs_2d[i:j,i:j] += covs[ind]
-    i = j
-
-#-------------------------------------------------
-
-### perform the "altogether" regression
+### set up the evaluation points, which are use repeatedly within the following loop
 if args.verbose:
     print('evaluating f at %d points within [%.3e, %.3e] dyn/cm^2'%((args.num_points,)+tuple(args.pressure_bounds)))
 x_evaluate = np.linspace(
     np.log(args.pressure_bounds[0]),
     np.log(args.pressure_bounds[1]),
     args.num_points,
-)
+)   
 x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
 
+### add stitching stuff
 if args.stitch: ### set up stitching conditions
     if args.verbose:
-        print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f at %d points within  [%.3e, %.3e] dyn/cm^2'%((args.stitch_mean, args.stitch_pressure, args.stitch_index, args.stitch_num_points)+tuple(args.stitch_pressure_bounds)))
+        print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f at %d points within  [%.3e, %.3e] dyn/cm^2'%\
+            ((args.stitch_mean, args.stitch_pressure, args.stitch_index, args.stitch_num_points)+tuple(args.stitch_pressure_bounds)))
     x_stitch = np.linspace(
         np.log(args.stitch_pressure_bounds[0]),
         np.log(args.stitch_pressure_bounds[1]),
         args.stitch_num_points,
     )
     x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
-    xs_1d = np.concatenate((xs_1d, x_stitch))
-    means_1d = np.concatenate((means_1d, np.ones(args.stitch_num_points, dtype=float)*args.stitch_mean))
-    covs_2d[Nobs:,Nobs:] = np.diag(np.exp(x_stitch - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### add the stitching white-noise kernel
+    f_stitch = np.ones(args.stitch_num_points, dtype=float)*args.stitch_mean
+    cov_stitch = np.diag(np.exp(x_stitch - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### the stitching white-noise kernel
 
-if args.verbose:
-    if args.stitch:
-        print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.stitch_num_points))
-    else:
-        print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
-mean, cov = gp.gpr_altogether(
-    x_evaluate,
-    means_1d,
-    xs_1d,
-    covs_2d,
-    degree=args.poly_degree,
-    guess_sigma2=args.sigma**2,
-    guess_l2=args.l**2,
-    guess_sigma2_obs=args.sigma_obs**2,
-)
+#------------------------
 
-### save the result
-pklpath = os.path.join(args.output_dir, 'gpr_gpr%s.pkl'%args.tag)
+hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
 if args.verbose:
-    print('writing process to: '+pklpath)
-gp.pkldump(pklpath, labels[0], labels[1], x_evaluate, mean, cov)
+    print('iterating over %d combinations of input mixture models\nwriting process to: %s'%(Ninds, hdf5path))
+with h5py.File(hdf5path, 'w') as obj:
+
+    ### place-holder for when we iterate over many possible hyperparam values
+    poly_degree = args.poly_degree
+
+    sigma = args.sigma
+    sigma2 = args.sigma**2
+
+    l = args.l
+    l2 = args.l**2
+
+    sigma_obs = args.sigma_obs
+    sigma_obs2 = args.sigma_obs**2
+
+    logweights = [] ### holder for all weights before we normalize them
+    tmp = '%'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
+    for ind, indecies in enumerate(inds):
+        if args.Verbose:
+            print(tmp%(ind+1))
+
+        ### iterate over the models included here and extract the relevant parameters for this combination of models
+        if args.Verbose:
+            print('    extracting data from each model included in this combination')
+        x_obs = []
+        f_obs = []
+        xlabel = models[0][0]['labels']['xlabel']
+        flabel = models[0][0]['labels']['flabel']
+        for model, j in zip(models, indecies):
+            assert xlabel==model[j]['labels']['xlabel'], 'xlabel must match for all models!'
+            assert flabel==model[j]['labels']['flabel'], 'flabel must match for all models!'
+            x_obs.append(model[j]['x'])
+            f_obs.append(model[j]['f'])
+        x_obs = np.concatenate(x_obs)
+        f_obs = np.concatenate(f_obs)
+
+        ### compute the big uncertainty estimate between all the models
+        Nobs = len(x_obs)
+
+        ### add in "theory model noise" as diagonal components based on variance of means at each pressure
+        if args.Verbose:
+            print('    assembling measurement uncertainty covariance')
+        if args.stitch:
+            covs = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
+
+            x_obs = np.concatenate((x_obs, x_stitch)) ### add in stitching data
+            f_obs = np.concatenate((f_obs, f_stitch))
+            covs[Nobs:,Nobs:] = cov_stitch
+
+        else:
+            covs = np.zeros((Nobs,Nobs), dtype=float)
+
+        ### add block-diagonal components
+        if args.Verbose:
+            print('    adding block-diagonal contributions')
+        start = 0
+        for model, j in zip(models, indecies):
+            stop = start+len(model[j]['x']) ### the number of points in this model
+            covs[start:stop,start:stop] = model[j]['cov'] ### fill in block-diagonal component
+            start = stop
+
+        ### iterate through pressure samples and compute theory variance of each
+        if args.verbose:
+            print('    adding modeling uncertainty at each x-value')
+
+        ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
+        truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
+        for x in set(x_obs): # iterate over all included x-points
+
+            truth[:] = False ### re-set this
+
+            sample = [] # set up holders for the values from each model that covers this pressure point
+            sample_covs = []
+
+            ### iterate over each model, checking to see whether it has this x-value
+            start = 0
+            for model, j in zip(models, indecies):
+                n = len(model[j]['x'])
+                i = np.arange(n)[x==model[j]['x']]
+                if len(i): ### there's a match
+                    i = i[0]
+                    truth[start+i] = True ### we update this index in the big covariance matrix
+                    sample.append(model[j]['f'][i]) ### record the mean
+                    sample_covs.append(model[j]['cov'][i,i]) ### and the covariance
+                start += n ### bump this
+
+            ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
+            covs[truth,truth] = (np.var(sample) + np.sum(sample_covs))*args.model_multiplier
+
+        #-------------------------------------------------
+
+        if args.verbose:
+            if args.stitch:
+                print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.stitch_num_points))
+            else:
+                print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
+        mean, cov, logweight = gp.gpr_altogether(
+            x_evaluate,
+            f_obs,
+            x_obs,
+            covs,
+            degree=poly_degree,
+            guess_sigma2=sigma2,
+            guess_l2=l2,
+            guess_sigma2_obs=sigma_obs2,
+        )
+
+        ### include the prior weights from each mixture model
+        for model, j in zip(models, indecies):
+            logweight += np.log(model[j]['weight'])
+        logweights.append(logweight)
+
+        ### create hdf5 group for this conditioned process
+        if args.Verbose:
+            print('    creating hdf5 group')
+        gp.create_process_group(
+            obj.create_group(str(ind)),
+            poly_degree,
+            sigma,
+            l,
+            sigma_obs,
+            x_evaluate,
+            mean,
+            cov,
+            xlabel=xlabel,
+            flabel=flabel,
+            weight=1., ### will be over-written in short order
+        )
+
+    ### update weights for each conditioned model after normalizing all of them
+    if args.verbose:
+        print('updating weights for all conditioned models so they are normalized')
+    logweights = np.array(logweights)
+    weights = np.exp(logweights-np.max(logweights))
+    weights /= np.sum(weights)
+
+    for ind, w in enumerate(weights): ### update attributes in hdf5 groups
+        obj[str(ind)].attrs['weight'] = w
 
 ### plot the result
 if args.plot:
+
+    raise NotImplementedError('figure out how to plot this monstrosity!')
+
     cr_obs = []
     for m, c in zip(means, covs):
         c = np.diag(c)**0.5

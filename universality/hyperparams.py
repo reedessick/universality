@@ -92,7 +92,7 @@ def samples2gpr_f_dfdx(
         cov_obs_obs += weight*gp._cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     # delegate to perform GPR
-    mean, cov = gp.gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+    mean, cov, logweight = gp.gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
 
     ### slice the resulting arrays and return
     ### relies on the ordering we constructed within our covariance matricies!

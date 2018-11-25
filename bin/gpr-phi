@@ -144,7 +144,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         raise Warning, 'no samples found with requested range. Skipping this EOS'
         continue
 
-    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx, logweight = gp.gpr_resample_f_dfdx(
         logp_resample[truth],
         loge_obs,
         logp_obs,
@@ -287,7 +287,7 @@ logp_evaluate -= 2*np.log(utils.c)
 
 if args.verbose:
     print('regressing %d values from %d noisy observations'%(args.evaluate_pressure_num, Nobs))
-mean, cov = gp.gpr_altogether(
+mean, cov, logweight = gp.gpr_altogether(
     logp_evaluate,
     means_1d,
     logps_1d,

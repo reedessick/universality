@@ -40,6 +40,19 @@ def draw(mean, std, size=1, bounds=None):
     else:
         return np.random.normal(mean, std, size)
 
+def draw_from_weights(weights, size=1):
+    """
+    return indecies corresponding to the weights chosen herein
+    we draw with replacement
+    """
+    N = len(weights)
+    weights = np.array(weights)
+    order = weights.argsort()
+    weights = weights[order]
+
+    # compute a cdf and draw from it
+    return order[np.ceil(np.interp(np.random.random(size), np.cumsum(weights), np.arange(N))).astype(int)]
+
 #-------------------------------------------------
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------

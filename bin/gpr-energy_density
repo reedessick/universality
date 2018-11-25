@@ -139,7 +139,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         raise Warning, 'no samples found with requested range. Skipping this EOS'
         continue
             
-    mean, cov = gp.gpr_resample(
+    mean, cov, logweight = gp.gpr_resample(
         logp_resample[truth],
         loge_obs,
         logp_obs,
@@ -229,7 +229,7 @@ logp_evaluate -= 2*np.log(utils.c)
 
 if args.verbose:
     print('regressing %d values from %d noisy observations'%(args.evaluate_pressure_num, Nobs))
-mean, cov = gp.gpr_altogether(
+mean, cov, logweight = gp.gpr_altogether(
     logp_evaluate,
     means_1d,
     logps_1d,

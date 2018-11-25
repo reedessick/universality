@@ -4,6 +4,7 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import numpy as np
+import h5py
 import pickle
 
 import time
@@ -59,6 +60,26 @@ def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_t
 
     means = group.create_dataset('mean', data=np.array(zip(x_tst, f_tst), dtype=[(xlabel, 'float'), (flabel, 'float')]))
     cov = group.create_dataset('cov', data=cov_f_f)
+
+def hdf5load(path):
+    model = []
+    with h5py.File(path, 'r') as obj:
+        for key in obj.keys(): ### iterate over groups
+            weight, x, f, cov, (xlabel, flabel), (p, s, l, S) = parse_process_group(obj[key])
+            model.append({
+                'weight':weight,
+                'x':x,
+                'f':f,
+                'cov':cov,
+                'labels':{'xlabel':xlabel, 'flabel':flabel},
+                'hyperparams':{
+                    'poly_degree':p,
+                    'sigma':s,
+                    'length_scale':l,
+                    'sigma_obs':S,
+                },
+            })
+    return model
 
 def parse_process_group(group):
     """helper function to read stuff out of our hdf5 data structures
@@ -149,8 +170,9 @@ def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
     ### do some matrix multiplcation here
     mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
     cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst))
+    logweight = _logLike(f_obs, invcov_obs_obs) ### the logweight associated with the observed data assuming this covariance matrix
 
-    return mean, cov
+    return mean, cov, logweight
 
 def _cov(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
@@ -181,7 +203,7 @@ def _dcov_dsigma2_obs(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DE
     '''
     return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
 
-def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, timeit=False, degree=1):
+def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, degree=1):
     '''
     computes the logLikelihood and jacobian thereof based on the covariance between observation points
     the covariance is constructed given the hyper parameters just as it is for gpr_f and gpr_dfdx
@@ -202,22 +224,20 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     N = len(x_obs)
 
     # compute components separately because they each require different techniques to stabilize them numerically
-    obs = -0.5*np.dot(f_obs-f_fit, np.dot(np.linalg.inv(cov), f_obs-f_fit))
+    return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
-    nrm = -0.5*N*np.log(2*np.pi)
+def _logLike(f_obs, invcov):
+    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))
+
+    nrm = -0.5*len(f_obs)*np.log(2*np.pi)
 
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
-    sign, det = np.linalg.slogdet(cov)
+    sign, det = np.linalg.slogdet(invcov)
     if sign<0:
-        det = -np.infty ### rule this out by setting logLike -> -infty
+        det = +np.infty ### rule this out by setting logLike -> -infty
 #        raise ValueError, 'unphysical covariance matrix!'
     else:
-        det *= -0.5
-
-#    print 'obs: %.3e\nnrm: %.3e\ndet: %.3e\nsgn: %.1f\nlnL: %.3e'%(obs, nrm, det, sign, obs+nrm+det)
-
-    if timeit:
-        print time.time()-t0
+        det *= 0.5
 
     return obs + det + nrm ### assemble components and return
 
@@ -302,12 +322,12 @@ def gpr_f_dfdx(x_tst, f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2
     cov_obs_obs = _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     ### delegate to compute conditioned process
-    mean, cov = gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+    mean, cov, logweight = gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
 
     ### slice the resulting arrays and return
     ### relies on the ordering we constructed within our covariance matricies!
     #        mean_f      mean_dfdx       cov_f_f          cov_f_dfdx        cov_dfdx_f      cov_dfdx_dfdx
-    return mean[:Ntst], mean[Ntst:], cov[:Ntst,:Ntst], cov[:Ntst,Ntst:], cov[Ntst:,:Ntst], cov[:Ntst,:Ntst]
+    return mean[:Ntst], mean[Ntst:], cov[:Ntst,:Ntst], cov[:Ntst,Ntst:], cov[Ntst:,:Ntst], cov[:Ntst,:Ntst], logweight
 
 #-------------------------------------------------
 # specific utilities for "one-stop shop" scripts
@@ -356,10 +376,10 @@ def gpr_resample(x_tst, f_obs, x_obs, degree=1, guess_sigma2=DEFAULT_SIGMA2, gue
     sigma2_obs = guess_sigma2_obs
 
     ### perform GPR with best hyperparameters to infer the function at x_tst
-    mean, cov = gpr_f(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+    mean, cov, logweight = gpr_f(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
     mean += f_tst ### add the polyfit model back in 
 
-    return mean, cov
+    return mean, cov, logweight
 
 def gpr_resample_f_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2):
     '''
@@ -377,13 +397,13 @@ def gpr_resample_f_dfdx(x_tst, f_obs, x_obs, degree=1, guess_sigma2=DEFAULT_SIGM
     sigma2_obs = guess_sigma2_obs
 
     ### perform GPR with best hyperparameters to infer the function at x_tst
-    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gpr_f_dfdx(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+    mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx, logweight = gpr_f_dfdx(x_tst, f_obs-f_fit, x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
 
     # add the polyfit model back in
     mean_f += f_tst
     mean_dfdx += dfdx_tst
 
-    return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx
+    return mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx, logweight
 
 def mean_phi(x_tst, mean_f, mean_dfdx):
     '''
@@ -454,7 +474,7 @@ def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=DEFAUL
     cov_obs_obs = cov_noise + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs) ### NOTE, we just add the know "noise" along with the GPR kernel
 
     ### and now we delgeate
-    mean, cov = gpr(f_obs-f_fit, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
+    mean, cov, logweight = gpr(f_obs-f_fit, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
     mean += f_tst ### add the polyfit model back in
 
-    return mean, cov
+    return mean, cov, logweight

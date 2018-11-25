@@ -192,7 +192,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 if args.Verbose:
                     print('resampling %d observations to %d+%d points with (s=%.3e, l=%.3f, S=%.3e, p=%d) and weight=%.3e'%(len(loge_obs), args.num_points, args.num_points, s, l, S, p, w))
 
-                mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx = gp.gpr_resample_f_dfdx(
+                mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_dfdx_dfdx, logweight = gp.gpr_resample_f_dfdx(
                     logp_resample[truth],
                     loge_obs,
                     logp_obs,

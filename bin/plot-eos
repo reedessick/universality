@@ -135,8 +135,6 @@ fig = plot.overlay(
     ratios=args.ratios,
     logx=args.xcolumn in args.logcolumn,
     logy=args.ycolumn in args.logcolumn,
-    logx=args.logx,
-    logy=args.logy,
     grid=args.grid,
 )
 

@@ -63,7 +63,7 @@ logp = np.log(p)
 if args.verbose:
     print('computing conditioned distribution for de/dp')
 slope, intercept = np.polyfit(logp, loge, args.poly_degree) ### polynomial fit
-mean, cov = gp.gpr_dfdx(logp, loge-(intercept+slope*logp), logp, sigma2=args.sigma**2, l2=args.l**2, sigma2_obs=args.sigma_obs**2)
+mean, cov, logweight = gp.gpr_dfdx(logp, loge-(intercept+slope*logp), logp, sigma2=args.sigma**2, l2=args.l**2, sigma2_obs=args.sigma_obs**2)
 mean += slope ### add back in the slope
 
 ### convert back to dedp from dlogedlogp

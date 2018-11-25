@@ -159,7 +159,7 @@ for i in xrange(args.poly_degree+1):
 if args.verbose:
     print('computing conditioned process for %s as a function of %s'%tuple(labels[::-1]))
     print('using %d observed points and %d test points'%(len(Xobs), len(Xtest)))
-mean, cov = gp.gpr_f(Xtest, Yobs-Y_mean, Xobs, sigma2=args.sigma**2, l2=args.l**2, sigma2_obs=args.sigma_obs**2)
+mean, cov, logweight = gp.gpr_f(Xtest, Yobs-Y_mean, Xobs, sigma2=args.sigma**2, l2=args.l**2, sigma2_obs=args.sigma_obs**2)
 mean += Y_test ### add back in the mean you've subtracted
 
 pklpath = os.path.join(args.output_dir, 'gpr_foo-%s-%s%s.pkl'%tuple(labels+[args.tag]))

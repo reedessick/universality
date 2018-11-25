@@ -74,13 +74,7 @@ N = len(data)
 if args.verbose:
     print('drawing %d samples (with replacement)'%args.num_samples)
 
-# sort the data
-order = weights.argsort()
-data = data[order]
-weights = weights[order]
-
-# compute a cdf and draw from it
-inds = np.ceil(np.interp(np.random.random(args.num_samples), np.cumsum(weights), np.arange(N))).astype(int)
+inds = utils.draw_from_weights(weights, size=args.num_samples)
 
 if (not args.force) and (len(set(inds)) < 0.95*args.num_samples):
     raise RuntimeWarning('your subset has more than 5% repeated samples '+'(%d unique sample out of %d attempts). I do not think this is what you actually want. If it is, re-run with --force.'%(len(set(inds)), args.num_samples))
