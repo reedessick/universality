@@ -166,7 +166,10 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
         figname = pklpath[:-3]+'png'
         if args.verbose:
             print('saving: '+figname)
-        fig = plot.sanity_check(logp_resample[truth], mean, np.diag(cov)**0.5, [logp_obs], [loge_obs])[0]
+
+        raise NotImplementedError('use updated plotting routines!')
+#        fig = plot.sanity_check(logp_resample[truth], mean, np.diag(cov)**0.5, [logp_obs], [loge_obs])[0]
+
         fig.suptitle(os.path.basename(path)[:-4])
         fig.savefig(figname)
         plot.plt.close(fig)
@@ -251,6 +254,9 @@ if args.evaluate_plot:
     figname = pklpath[:-3]+'png'
     if args.verbose:
         print('saving: '+figname)
-    fig = plot.sanity_check(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)[0]
+
+    raise NotImplementedError('use updated plotting routines!')
+#    fig = plot.sanity_check(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)[0]
+
     fig.savefig(figname)
     plot.plt.close(fig)
