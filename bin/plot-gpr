@@ -25,7 +25,7 @@ parser = ArgumentParser(description=__doc__)
 rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('xcolumn', type=str)
 rgroup.add_argument('ycolumn', type=str)
-rgroup.add_argument('pklpath', type=str)
+rgroup.add_argument('hdf5path', type=str)
 rgroup.add_argument('eospaths', nargs='+', type=str)
 
 ### verbosity options
@@ -34,10 +34,7 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 ### data pre-conditioning
 pgroup = parser.add_argument_group('pre-conditioning options')
-pgroup.add_argument('--log-x', default=False, action='store_true',
-    help='fit using log(x_column) instead of x_column')
-pgroup.add_argument('--log-y', default=False, action='store_true',
-    help='fit using log(y_column) instead of y_column')
+pgroup.add_argument('--logcolumn', default=[], type=str, action='append')
 
 pgroup.add_argument('--poly-degree', default=None, type=int,
     help='the order of the polynomial fit used to model data before plotting. \
@@ -84,33 +81,21 @@ ax = fig.gca()
 
 ### read in process from pkl
 if args.verbose:
-    print('reading process from: '+args.pklpath)
-with open(args.pklpath, 'r') as file_obj:
-    labels = pickle.load(file_obj)
-    Xtest = pickle.load(file_obj)
-    mean = pickle.load(file_obj)
-    cov = pickle.load(file_obj)
-    std = np.diag(cov)**0.5
+    print('reading process from: '+args.hdf5path)
+model = gp.hdf5load(args.hdf5path)
 
 # sanity check data for consistency
-if args.log_x:
+if xcol in args.logcolumn:
     assert labels[0] == 'log'+xcol
 else:
     assert labels[0] == xcol
 
-if args.log_y:
+if ycol in args.logcolumn:
     assert labels[1] == 'log'+ycol
 else:
     assert labels[1] == ycol
 
-# precondition data if needed
-if args.poly_degree!=None:
-    poly = np.polyfit(Xtest, mean, args.poly_degree)
-    mean_fit = np.zeros_like(mean, dtype='float')
-    for i in xrange(args.poly_degree+1):
-        mean_fit += poly[-1-i]*Xtest**i
-else:
-    mean_fit = np.zeros_like(mean)
+raise NotImplementedError('need to adopt the same plotting solution as used in things like gpr-gpr to plot this mixture-model monstrosity!')
 
 # actually plot the process
 if args.verbose:
