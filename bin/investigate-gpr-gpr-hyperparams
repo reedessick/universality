@@ -356,7 +356,8 @@ if args.grid:
         weights = np.exp(logLikes-np.max(logLikes))
         weights /= np.sum(weights)
 
-        truth = weights>1e-2/len(weights)
+#        truth = weights>1e-2/len(weights)
+        truth = np.ones(len(weights), dtype=bool)
 
         if args.verbose:
             print('    plotting')

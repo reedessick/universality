@@ -248,7 +248,8 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
         weights = np.exp(grid['logLike']-np.max(grid['logLike']))
         weights /= np.sum(weights)
 
-        truth = weights>1e-2/len(weights)
+#        truth = weights>1e-2/len(weights)
+        truth = np.ones(len(weights), dtype=bool)
 
         if args.verbose:
             print('    plotting')
