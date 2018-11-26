@@ -62,6 +62,8 @@ We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
 DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
 
 ### bounds on hyperparams
+parser.add_argument('--poly-degree', default=1, type=int)
+
 parser.add_argument('--min-sigma', default=hp.DEFAULT_MIN_SIGMA, type=float,
     help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
 parser.add_argument('--max-sigma', default=hp.DEFAULT_MAX_SIGMA, type=float,
@@ -86,13 +88,13 @@ parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
     help='the number of grid points in each dimension. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-#parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
-#    help='the number of samples to draw in mcmc. \
-#DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
-#
-#parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
-#    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
-#
+parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
+    help='the number of samples to draw in mcmc. \
+DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
+
+parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
+    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
+
 #parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
 #    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
 #
@@ -105,7 +107,7 @@ parser.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=st
 parser.add_argument('--m-prior', default=hp.DEFAULT_M_PRIOR, type=str)
 
 parser.add_argument('--grid', default=False, action='store_true')
-#parser.add_argument('--mcmc', default=False, action='store_true')
+parser.add_argument('--mcmc', default=False, action='store_true')
 #parser.add_argument('--maxL', default=False, action='store_true')
 
 parser.add_argument('--strip-mcmc', default=0, type=int,
@@ -117,12 +119,16 @@ parser.add_argument('-p', '--plot', default=False, action='store_true')
 
 parser.add_argument('--log-sigmas', default=False, action='store_true')
 parser.add_argument('--include-logL', default=False, action='store_true')
+
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
+parser.add_argument('--figtype', default=[], type=str, action='append')
+parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
 args = parser.parse_args()
 
-assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
+#assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --maxL'
+assert np.any((args.grid, args.mcmc)), 'please specify at least one of: --grid, --mcmc'
 
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
@@ -149,7 +155,13 @@ models = []
 for hdf5path in args.hdf5paths:
     if args.verbose:
         print('reading: '+hdf5path)
-    models.append(gp.hdf5load(hdf5path))
+    model = gp.hdf5load(hdf5path)
+    if args.Verbose:
+        if len(model)==1:
+            print('    found mixture model with 1 element')
+        else:
+            print('    found mixture model with %d elements'%len(model))
+    models.append(model)
 
 ### create combinatorically many possible matchings between all models
 inds = zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in models])])
@@ -217,7 +229,11 @@ if args.grid:
 
     ### perform the actual iteration, which will be expensive as all get out
     logLikes = []
-    for s, l, S, m in zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER):
+    tmp = '    %d / '+'%d'%len(SIGMA)
+    for ind, (s, l, S, m) in enumerate(zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER)):
+        if args.Verbose:
+            print(tmp%(ind+1))
+
         s2 = s**2
         l2 = l**2
         S2 = S**2
@@ -226,7 +242,7 @@ if args.grid:
         for indecies in inds:
             ### iterate over the models included here and extract the relevant parameters for this combination of models
             if args.Verbose:
-                print('    extracting data from each model included in this combination')
+                print('        extracting data from each model included in this combination')
             x_obs = []
             f_obs = []
             xlabel = models[0][0]['labels']['xlabel']
@@ -244,7 +260,7 @@ if args.grid:
 
             ### add in "theory model noise" as diagonal components based on variance of means at each pressure
             if args.Verbose:
-                print('    assembling measurement uncertainty covariance')
+                print('        assembling measurement uncertainty covariance')
             if args.stitch:
                 covs = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
 
@@ -257,7 +273,7 @@ if args.grid:
 
             ### add block-diagonal components
             if args.Verbose:
-                print('    adding block-diagonal contributions')
+                print('        adding block-diagonal contributions')
             start = 0
             for model, j in zip(models, indecies):
                 stop = start+len(model[j]['x']) ### the number of points in this model
@@ -266,7 +282,7 @@ if args.grid:
 
             ### iterate through pressure samples and compute theory variance of each
             if args.verbose:
-                print('    adding modeling uncertainty at each x-value')
+                print('        adding modeling uncertainty at each x-value')
 
             ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
             truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
@@ -298,6 +314,8 @@ if args.grid:
             #-------------------------------------------------
 
             ### compute likelihood
+            if args.Verbose:
+                print('        computing logLike for this set of conditioned values and hyperparams')
             f_fit, _ = gp.poly_model(np.array([]), f_obs, x_obs, degree=args.poly_degree)
             logweight = gp._logLike(f_obs-f_fit, np.linalg.inv(covs)) ### compute logLike for seeing the data on which we condition
 
@@ -350,10 +368,7 @@ if args.grid:
             truths=truths[include] if truths is not None else None,
             color='b',
         )
-        figname = '%s/investigate-gpr-gpr-hyperparams-grid%s.png'%(args.output_dir, args.tag)
-        if args.verbose:
-            print('    saving: '+figname)
-        fig.savefig(figname)
+        plot.save('investigate-gpr-gpr-hyperparams-grid%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
         ### add to overlay plot
@@ -376,8 +391,5 @@ if args.mcmc:
 #--- wrap up overlay plot
 
 if args.plot and (overlayfig is not None):
-    figname = '%s/investigate-gpr-gpr-hyperparams%s.png'%(args.output_dir, args.tag)
-    if args.verbose:
-        print('saving: '+figname)
-    overlayfig.savefig(figname)
+    plot.save('investigate-gpr-gpr-hyperparams%s'%args.tag, overlayfig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
     plot.plt.close(overlayfig)
