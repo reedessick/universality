@@ -229,7 +229,7 @@ if args.grid:
 
     ### perform the actual iteration, which will be expensive as all get out
     logLikes = []
-    tmp = '    %d / '+'%d'%len(SIGMA)
+    tmp = '    %'+str(int(np.floor(np.log10(len(SIGMA)))))+'d / '+'%d'%len(SIGMA)
     for ind, (s, l, S, m) in enumerate(zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER)):
         if args.Verbose:
             print(tmp%(ind+1))
