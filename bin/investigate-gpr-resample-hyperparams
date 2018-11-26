@@ -58,11 +58,11 @@ DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
 parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
     help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
-parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
-    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
-
-parser.add_argument('--maxL-tol', default=hp.DEFAULT_TOL, type=float,
-    help='DEFAULT=%s'%hp.DEFAULT_TOL)
+#parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
+#    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
+#
+#parser.add_argument('--maxL-tol', default=hp.DEFAULT_TOL, type=float,
+#    help='DEFAULT=%s'%hp.DEFAULT_TOL)
 
 parser.add_argument('--l-prior', default=hp.DEFAULT_L_PRIOR, type=str)
 parser.add_argument('--sigma-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
@@ -70,7 +70,7 @@ parser.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=st
 
 parser.add_argument('--grid', default=False, action='store_true')
 parser.add_argument('--mcmc', default=False, action='store_true')
-parser.add_argument('--maxL', default=False, action='store_true')
+#parser.add_argument('--maxL', default=False, action='store_true')
 
 parser.add_argument('--strip-mcmc', default=0, type=int,
     help='the number of burn in samples to reject from the mcmc sampler')
@@ -86,7 +86,8 @@ parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
-assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
+#assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --maxL'
+assert np.any((args.grid, args.mcmc)), 'please specify at least one of: --grid, --mcmc'
 
 xcolumn, ycolumn = columns = [args.xcolumn, args.ycolumn]
 
@@ -153,6 +154,7 @@ if args.plot:
         labels.append('$\log\mathcal{L}$')
     labels = np.array(labels)
 
+"""
 if args.maxL:
     if args.verbose:
         print('finding maxLikelihood with method=%s'%args.maxL_method)
@@ -187,6 +189,8 @@ logL = %.3e'''%tuple(maxL[0]))
 
 else:
     truths = None
+"""
+truths = None
 
 #---
 
@@ -215,7 +219,7 @@ l     = %.3f
 sigma_obs = %.3e
 logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
 
-    path = "%s/investigate-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
+    path = "%s/investigate-gpr-resample-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
     tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in grid.dtype.names)
@@ -251,7 +255,7 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
             truths=truths[include] if truths is not None else None,
             color='b',
         )
-        figname = '%s/investigate_hyperparams-grid%s.png'%(args.output_dir, args.tag)
+        figname = '%s/investigate-gpr-resample-hyperparams-grid%s.png'%(args.output_dir, args.tag)
         if args.verbose:
             print('    saving: '+figname)
         fig.savefig(figname)
@@ -290,7 +294,7 @@ if args.mcmc:
         print('discarding %d samples as burn in'%args.strip_mcmc)
     mcmc = mcmc[args.strip_mcmc:]
 
-    path = "%s/investigate-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
+    path = "%s/investigate-gpr-resample-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
     tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in mcmc.dtype.names)
@@ -319,7 +323,7 @@ if args.mcmc:
             truths=truths[include],
             color='r',
         )
-        figname = '%s/investigate_hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
+        figname = '%s/investigate-gpr-resample-hyperparams-mcmc%s.png'%(args.output_dir, args.tag)
         if args.verbose:
             print('    saving: '+figname)
         fig.savefig(figname)
@@ -341,7 +345,7 @@ if args.mcmc:
 #--- wrap up overlay plot
 
 if args.plot and (overlayfig is not None):
-    figname = '%s/investigate_hyperparams%s.png'%(args.output_dir, args.tag)
+    figname = '%s/investigate-gpr-resample-hyperparams%s.png'%(args.output_dir, args.tag)
     if args.verbose:
         print('saving: '+figname)
     overlayfig.savefig(figname)

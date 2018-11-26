@@ -32,8 +32,12 @@ DEFAULT_MAX_SIGMA = 1.0
 DEFAULT_MIN_L = 0.1
 DEFAULT_MAX_L = 5.0
 
+DEFAULT_MIN_M = 0.1
+DEFAULT_MAX_M = 10.0
+
 DEFAULT_SIGMA_PRIOR = 'log'
 DEFAULT_L_PRIOR = 'lin'
+DEFAULT_M_PRIOR = 'lin'
 
 #-------------------------------------------------
 ### methods useful for a basic squared-exponential kernel
@@ -123,6 +127,18 @@ def samples2resample_f_dfdx(
 
 #------------------------
 
+def param_grid(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
+    if minimum==maximum:
+        param = [minimum]
+    else:
+        if prior=='log':
+            param = np.logspace(np.log10(minimum), np.log10(maximum), size)
+        elif prior=='lin':
+            param = np.linspace(minimum, maximum, size)
+        else:
+            raise ValueError, 'unknown prior='+prior
+    return param
+
 def logLike_grid(
         f_obs,
         x_obs,
@@ -143,35 +159,9 @@ def logLike_grid(
     We space points logarithmically for sigma and sigma_obs, linearly for l
     '''
     ### compute grid
-    if min_sigma==max_sigma: ### fix this value
-        sigma = [min_sigma]
-    else:
-        if sigma_prior=='log':
-            sigma = np.logspace(np.log10(min_sigma), np.log10(max_sigma), num_sigma)
-        elif sigma_prior=='lin':
-            sigma = np.linspace(min_sigma, max_sigma, num_sigma)
-        else:
-            raise ValueError, 'unknown sigma_prior='+sigma_prior
-
-    if min_l==max_l: ### fix this value
-        l = [min_l]
-    else:
-        if l_prior=='log':
-            l = np.logspace(np.log10(min_l), np.log10(max_l), num_l)
-        elif l_prior=='lin':
-            l = np.linspace(min_l, max_l, num_l)
-        else:
-            raise ValueError, 'unkown l_prior='+l_prior
-
-    if min_sigma_obs==max_sigma_obs:
-        sigma_obs = [min_sigma_obs]
-    else:
-        if sigma_obs_prior=='log':
-            sigma_obs = np.logspace(np.log10(min_sigma_obs), np.log10(max_sigma_obs), num_sigma_obs)
-        elif sigma_obs_prior=='lin':
-            sigma_obs = np.linspace(min_sigma_obs, max_sigma_obs, num_sigma_obs)
-        else:
-            raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
+    sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
+    l = param_grid(min_l, max_l, size=num_l, prior=l_prior)
+    sigma_obs = param_grid(min_sigma_obs, max_sigma_obs, size=num_sigma_obs, prior=sigma_obs_prior)
 
     SIGMA, L, SIGMA_NOISE = np.meshgrid(sigma, l, sigma_obs, indexing='ij')
 

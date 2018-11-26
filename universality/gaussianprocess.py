@@ -210,9 +210,6 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
 
     return logL, (dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs)
     '''
-    if timeit:
-        t0 = time.time()
-
     if (sigma2<=0) or (l2<=0) or (sigma2_obs<=0):
         return np.infty
 

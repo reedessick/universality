@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 ### non-standard
 from universality import utils
 from universality import gaussianprocess as gp
+from universality import hyperparams as hp
 from universality import plot
 
 #-------------------------------------------------
@@ -39,39 +40,6 @@ vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
-### options for evaluation
-ggroup = parser.add_argument_group('Gaussian Process options')
-ggroup.add_argument('--pressure-bounds', default=(DEFAULT_MIN, DEFAULT_MAX), nargs=2, type=float,
-    help='min max values for evaluation bounds. Specified in the same units used in the supplied pkl. \
-DEFAULT=%.3e %.3e'%(DEFAULT_MIN, DEFAULT_MAX))
-ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
-    help='evaluate at this number of points. \
-DEFAULT=%d'%gp.DEFAULT_NUM)
-
-ggroup.add_argument('--hyperparampath', default=None, type=str,
-    help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
-If supplied, we ignore values of --sigma, --length-scale, --sigma-obs and build a mixture-model hdf5 file based on the weights contained in the csv.')
-ggroup.add_argument('--max-num-models', default=None, type=int,
-    help='if supplied, only include up to this many models in the mixture, selecting those with the largest weights first')
-
-ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
-    help='the degree of the polynomial used to model eos before GPR as part of evaluation. \
-DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
-
-ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
-    help='used as a guess for the optimizer. \
-DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
-ggroup.add_argument('-l', '--length-scale', dest='l', default=gp.DEFAULT_L, type=float,
-    help='used as a guess for the optimizer. \
-DEFAULT=%.3e'%gp.DEFAULT_L)
-ggroup.add_argument('-S', '--sigma-obs', default=gp.DEFAULT_SIGMA, type=float,
-    help='used as a guess for the optimizer. \
-DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
-
-ggroup.add_argument('-m', '--model-multiplier', default=gp.DEFAULT_MODEL_MULTIPLIER, type=float,
-    help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
-Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
-
 ### options for stitching
 sgroup = parser.add_argument_group('stitching options')
 sgroup.add_argument('--stitch', default=False, action='store_true')
@@ -93,28 +61,68 @@ sgroup.add_argument('--stitch-index', default=DEFAULT_STITCH_INDEX, type=float,
 We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
 DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
 
-### plotting options
-pgroup = parser.add_argument_group('plotting options')
-pgroup.add_argument('-p', '--plot', default=False, action='store_true')
-pgroup.add_argument('--fractions', default=False, action='store_true')
-pgroup.add_argument('--residuals', default=False, action='store_true')
-pgroup.add_argument('--ratios', default=False, action='store_true')
+### bounds on hyperparams
+parser.add_argument('--min-sigma', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+parser.add_argument('--max-sigma', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_SIGMA)
 
-pgroup.add_argument('--ylabel', default='$\phi$', type=str)
+parser.add_argument('--min-l', default=hp.DEFAULT_MIN_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_L)
+parser.add_argument('--max-l', default=hp.DEFAULT_MAX_L, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_L)
 
-pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
-pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+parser.add_argument('--min-sigma_obs', default=hp.DEFAULT_MIN_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_SIGMA)
+parser.add_argument('--max-sigma_obs', default=hp.DEFAULT_MAX_SIGMA, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_SIGMA)
 
-pgroup.add_argument('--grid', default=False, action='store_true')
+parser.add_argument('--min-m', default=hp.DEFAULT_MIN_M, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MIN_M)
+parser.add_argument('--max-m', default=hp.DEFAULT_MAX_M, type=float,
+    help='DEFAULT=%.3f'%hp.DEFAULT_MAX_M)
 
-### output options
-ogroup = parser.add_argument_group('output options')
-ogroup.add_argument('-o', '--output-dir', default='.', type=str)
-ogroup.add_argument('-t', '--tag', default='', type=str)
-ogroup.add_argument('--figtype', default=[], type=str, action='append')
-ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
+    help='the number of grid points in each dimension. \
+DEFAULT=%d'%gp.DEFAULT_NUM)
+
+#parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
+#    help='the number of samples to draw in mcmc. \
+#DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
+#
+#parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
+#    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
+#
+#parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
+#    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
+#
+#parser.add_argument('--maxL-tol', default=hp.DEFAULT_TOL, type=float,
+#    help='DEFAULT=%s'%hp.DEFAULT_TOL)
+
+parser.add_argument('--l-prior', default=hp.DEFAULT_L_PRIOR, type=str)
+parser.add_argument('--sigma-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
+parser.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
+parser.add_argument('--m-prior', default=hp.DEFAULT_M_PRIOR, type=str)
+
+parser.add_argument('--grid', default=False, action='store_true')
+#parser.add_argument('--mcmc', default=False, action='store_true')
+#parser.add_argument('--maxL', default=False, action='store_true')
+
+parser.add_argument('--strip-mcmc', default=0, type=int,
+    help='the number of burn in samples to reject from the mcmc sampler')
+
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
+
+parser.add_argument('-p', '--plot', default=False, action='store_true')
+
+parser.add_argument('--log-sigmas', default=False, action='store_true')
+parser.add_argument('--include-logL', default=False, action='store_true')
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
+
+assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of --grid, --mcmc, --maxL'
 
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
@@ -137,39 +145,6 @@ args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
-# figure out the hyperparameters we'll use
-if args.hyperparampath:
-    polydeg, sigma, length_scale, sigma_obs, model_multiplier, weights = utils.load(args.hyperparampath, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'multiplier', 'logLike'])[0].transpose()
-    polydeg = polydeg.astype(int)
-
-    if args.max_num_models is not None: ### truncate the number of models considered
-        truth = weights.argsort()[::-1][:args.max_num_models]
-        polydeg = polydeg[truth]
-        sigma = sigma[truth]
-        length_scale = length_scale[truth]
-        sigma_obs = sigma_obs[truth]
-        weights = weights[truth]
-
-    weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
-
-    truth = weights > 0 ### throw away anything that won't ever matter
-    polydeg = polydeg[truth]
-    sigma = sigma[truth]
-    length_scale = length_scale[truth]
-    sigma_obs = sigma_obs[truth]
-    weights = weights[truth]
-
-else:
-    polydeg = [args.poly_degree]
-    sigma = [args.sigma]
-    length_scale = [args.l]
-    sigma_obs = [args.sigma_obs]
-    model_multiplier = [args.model_multiplier]
-    weights = [1.]
-
-#-------------------------------------------------
-
 models = []
 for hdf5path in args.hdf5paths:
     if args.verbose:
@@ -181,16 +156,6 @@ inds = zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in m
 Ninds = len(inds)
 
 #-------------------------------------------------
-
-### set up the evaluation points, which are use repeatedly within the following loop
-if args.verbose:
-    print('evaluating f at %d points within [%.3e, %.3e] dyn/cm^2'%((args.num_points,)+tuple(args.pressure_bounds)))
-x_evaluate = np.linspace(
-    np.log(args.pressure_bounds[0]),
-    np.log(args.pressure_bounds[1]),
-    args.num_points,
-)   
-x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
 
 ### add stitching stuff
 if args.stitch: ### set up stitching conditions
@@ -208,25 +173,57 @@ if args.stitch: ### set up stitching conditions
 
 #------------------------
 
-hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
-if args.verbose:
-    print('iterating over %d combinations of input mixture models\nwriting process to: %s'%(Ninds, hdf5path))
-with h5py.File(hdf5path, 'w') as obj:
+#--- now do some logLikelihood stuff!
 
-    ### place-holder for when we iterate over many possible hyperparam values
-    ind = 0 ### counter for each element of the mixture model
+if args.plot:
+    overlayfig = None
 
-    for p, s, l, S, m, w in zip(poly_degre, sigma, length_scale, sigma_obs, model_multiplier, weights):
+    if args.log_sigmas:
+        labels = ['$\log_{10}\sigma$', '$l$', '$\log_{10}\sigma_\mathrm{obs}$', '$\log_{10}m$']
+    else:
+        labels = ['$\sigma$', '$l$', '$\sigma_\mathrm{obs}$', '$m$']
+    if args.include_logL:
+        labels.append('$\log\mathcal{L}$')
+    labels = np.array(labels)
+
+    include = np.ones(5 if args.include_logL else 4, dtype=bool)
+    if args.min_sigma==args.max_sigma:
+        include[0] = False
+    if args.min_l==args.max_l:
+        include[1] = False
+    if args.min_sigma_obs==args.max_sigma_obs:
+        include[2] = False
+    if args.min_m==args.max_m:
+        include[3] = False
+
+truths = None
+
+#---
+
+if args.grid:
+    if args.verbose:
+        print('evaluating on a %s grid'%("x".join('%d'%args.num_grid for _ in xrange(np.sum(include)-args.include_logL))))
+
+    sigma = hp.param_grid(args.min_sigma, args.max_sigma, size=args.num_grid, prior=args.sigma_prior)
+    length_scale = hp.param_grid(args.min_l, args.max_l, size=args.num_grid, prior=args.l_prior)
+    sigma_obs = hp.param_grid(args.min_sigma_obs, args.max_sigma_obs, size=args.num_grid, prior=args.sigma_obs_prior)
+    model_multiplier = hp.param_grid(args.min_m, args.max_m, size=args.num_grid, prior=args.m_prior)
+
+    SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER = np.meshgrid(sigma, length_scale, sigma_obs, model_multiplier, indexing='ij')
+    SIGMA = SIGMA.flatten()
+    LENGTH_SCALE = LENGTH_SCALE.flatten()
+    SIGMA_OBS = SIGMA_OBS.flatten()
+    MODEL_MULTIPLIER = MODEL_MULTIPLIER.flatten()
+
+    ### perform the actual iteration, which will be expensive as all get out
+    logLikes = []
+    for s, l, S, m in zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER):
         s2 = s**2
         l2 = l**2
         S2 = S**2
 
         logweights = [] ### holder for all weights before we normalize them
-        tmp = '%'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
         for indecies in inds:
-            if args.Verbose:
-                print(tmp%(ind+1))
-
             ### iterate over the models included here and extract the relevant parameters for this combination of models
             if args.Verbose:
                 print('    extracting data from each model included in this combination')
@@ -276,7 +273,7 @@ with h5py.File(hdf5path, 'w') as obj:
             for x in set(x_obs): # iterate over all included x-points
 
                 truth[:] = False ### re-set this
-    
+
                 sample = [] # set up holders for the values from each model that covers this pressure point
                 sample_covs = []
 
@@ -295,91 +292,92 @@ with h5py.File(hdf5path, 'w') as obj:
                 ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
                 covs[truth,truth] = (np.var(sample) + np.sum(sample_covs))*m
 
+            ### add the squared-exponential covariance kernel
+            covs += gp._cov(x_obs, sigma2=s2, l2=l2, sigma2_obs=S2)
+
             #-------------------------------------------------
 
-            if args.verbose:
-                if args.stitch:
-                    print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.stitch_num_points))
-                else:
-                    print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
-            mean, cov, logweight = gp.gpr_altogether(
-                x_evaluate,
-                f_obs,
-                x_obs,
-                covs,
-                degree=p,
-                guess_sigma2=s2,
-                guess_l2=l2,
-                guess_sigma2_obs=S2,
-            )
-    
+            ### compute likelihood
+            f_fit, _ = gp.poly_model(np.array([]), f_obs, x_obs, degree=args.poly_degree)
+            logweight = gp._logLike(f_obs-f_fit, np.linalg.inv(covs)) ### compute logLike for seeing the data on which we condition
+
             ### include the prior weights from each mixture model
             for model, j in zip(models, indecies):
                 logweight += np.log(model[j]['weight'])
 
-            logweight += np.log(w) ### add weight for this set of hyperparams
             logweights.append(logweight)
 
-            ### create hdf5 group for this conditioned process
-            if args.Verbose:
-                print('    creating hdf5 group')
-            gp.create_process_group(
-                obj.create_group(str(ind)),
-                p,
-                s,
-                l,
-                S,
-                x_evaluate,
-                mean,
-                cov,
-                xlabel=xlabel,
-                flabel=flabel,
-                weight=1., ### will be over-written in short order
-            )
+        ### sum over models in the mixture to compute the logLike of this whole thing
+        logweights = np.array(logweights)
+        maximum = np.max(logweights)
+        logLikes.append(np.log(np.sum(np.exp(logweights-maximum)))+maximum) ### sum over models to get the overall loglike
 
-            ind += 1 ### bump the index for each element of the mixture model  
-
-    ### update weights for each conditioned model after normalizing all of them
+    logLikes = np.array(logLikes)
+    ### write the results to disk
+    path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
-        print('updating weights for all conditioned models so they are normalized')
-    logweights = np.array(logweights)
-    weights = np.exp(logweights-np.max(logweights))
-    weights /= np.sum(weights)
+        print('writing: '+path)
+    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
+    with open(path, 'w') as file_obj:
+        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
+        for tup in zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER, logLikes):
+            print >> file_obj, tmp%tup
 
-    for ind, w in enumerate(weights): ### update attributes in hdf5 groups
-        obj[str(ind)].attrs['weight'] = w
+    if args.plot:
+        if args.include_logL:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLER), logLikes])
+            else:
+                data = np.transpose([SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER, logLikes])
+        else:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLIER)])
+            else:
+                data = np.transpose([SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER])
 
-### plot the result
-if args.plot:
+        weights = np.exp(logLikes-np.max(logLikes))
+        weights /= np.sum(weights)
 
-    raise NotImplementedError('figure out how to plot this monstrosity!')
+        truth = weights>1e-2/len(weights)
 
-    cr_obs = []
-    for m, c in zip(means, covs):
-        c = np.diag(c)**0.5
-        cr_obs.append( (m-c, m+c) )
+        if args.verbose:
+            print('    plotting')
 
-    fig = plot.gpr_overlay(
-        np.exp(x_evaluate),
-        mean,
-        (mean-np.diag(cov)**0.5, mean+np.diag(cov)**0.5),
-        [np.exp(x_obs)]*Npkl,
-        means,
-        cr_obs=cr_obs,
-        linestyle_obs='-',
-        linestyle_tst='-',
-        color_tst='k',
-        color_obs=['r']*Npkl,
-        logx=True,
-        logy=False,
-        xlabel='$p/c^2$',
-        ylabel=args.ylabel,
-        fractions=args.fractions,
-        residuals=args.residuals,
-        ratios=args.ratios,
-        figwidth=args.figwidth,
-        figheight=args.figheight,
-        grid=args.grid,
-    )
-    plot.save('gpr-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-    plot.plt.close(fig)
+        fig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            truths=truths[include] if truths is not None else None,
+            color='b',
+        )
+        figname = '%s/investigate-gpr-gpr-hyperparams-grid%s.png'%(args.output_dir, args.tag)
+        if args.verbose:
+            print('    saving: '+figname)
+        fig.savefig(figname)
+        plot.plt.close(fig)
+
+        ### add to overlay plot
+        overlayfig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            color='b',
+            truths=truths[include] if truths is not None else None,
+            fig=overlayfig,
+        )
+
+#---
+
+if args.mcmc:
+    if args.verbose:
+        print('running MCMC for %d steps with %d walkers'%(args.num_mcmc, args.num_walkers))
+    raise NotImplementedError
+
+#--- wrap up overlay plot
+
+if args.plot and (overlayfig is not None):
+    figname = '%s/investigate-gpr-gpr-hyperparams%s.png'%(args.output_dir, args.tag)
+    if args.verbose:
+        print('saving: '+figname)
+    overlayfig.savefig(figname)
+    plot.plt.close(overlayfig)

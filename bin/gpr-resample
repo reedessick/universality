@@ -46,15 +46,15 @@ DEFAULT=%d'%gp.DEFAULT_NUM)
 ggroup.add_argument('--truncate', default=False, action='store_true',
     help='truncate the range of the resampling to match what is in the csv')
 
-ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
-    help='the degree of the polynomial used to model eos before GPR as part of resampling. \
-DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
-
 ggroup.add_argument('--hyperparampath', default=None, type=str,
     help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
 If supplied, we ignore values of --sigma, --length-scale, --sigma-obs and build a mixture-model hdf5 file based on the weights contained in the csv.')
 ggroup.add_argument('--max-num-models', default=None, type=int,
     help='if supplied, only include up to this many models in the mixture, selecting those with the largest weights first')
+
+ggroup.add_argument('--poly-degree', default=gp.DEFAULT_POLY_DEGREE, type=int,
+    help='the degree of the polynomial used to model eos before GPR as part of resampling. \
+DEFAULT=%d'%gp.DEFAULT_POLY_DEGREE)
 
 ggroup.add_argument('-s', '--sigma', default=gp.DEFAULT_SIGMA, type=float,
     help='used as a guess for the optimizer. \
@@ -114,9 +114,6 @@ args.verbose |= args.Verbose
 if args.hyperparampath:
     polydeg, sigma, length_scale, sigma_obs, weights = utils.load(args.hyperparampath, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'logLike'])[0].transpose()
     polydeg = polydeg.astype(int)
-    sigma = sigma
-    length_scale = length_scale
-    sigma_obs = sigma_obs
 
     if args.max_num_models is not None: ### truncate the number of models considered
         truth = weights.argsort()[::-1][:args.max_num_models]
