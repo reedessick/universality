@@ -216,7 +216,7 @@ with h5py.File(hdf5path, 'w') as obj:
     ### place-holder for when we iterate over many possible hyperparam values
     ind = 0 ### counter for each element of the mixture model
 
-    for p, s, l, S, m, w in zip(poly_degre, sigma, length_scale, sigma_obs, model_multiplier, weights):
+    for p, s, l, S, m, w in zip(polydeg, sigma, length_scale, sigma_obs, model_multiplier, weights):
         s2 = s**2
         l2 = l**2
         S2 = S**2

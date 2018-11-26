@@ -64,6 +64,7 @@ if not args.figtype:
 if args.verbose:
     print('reading process from: '+args.hdf5path)
 model = gp.hdf5load(args.hdf5path)
+assert len(model), 'mixture model must have at least 1 element!'
 weights = np.array([m['weight'] for m in model])
 
 if args.plot:
