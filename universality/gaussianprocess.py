@@ -224,17 +224,15 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
 def _logLike(f_obs, invcov):
-    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))
-
-    nrm = -0.5*len(f_obs)*np.log(2*np.pi)
 
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
     sign, det = np.linalg.slogdet(invcov)
-    if sign<0:
-        det = +np.infty ### rule this out by setting logLike -> -infty
-#        raise ValueError, 'unphysical covariance matrix!'
-    else:
-        det *= 0.5
+    if sign<0: # do this first so we don't waste time computing other stuff that won't matter
+        return -np.infty ### rule this out by setting logLike -> -infty
+
+    det *= 0.5
+    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))
+    nrm = -0.5*len(f_obs)*np.log(2*np.pi)
 
     return obs + det + nrm ### assemble components and return
 

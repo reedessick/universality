@@ -326,11 +326,16 @@ if args.grid:
             logweights.append(logweight)
 
         ### sum over models in the mixture to compute the logLike of this whole thing
-        logweights = np.array(logweights)
-        maximum = np.max(logweights)
-        logLikes.append(np.log(np.sum(np.exp(logweights-maximum)))+maximum) ### sum over models to get the overall loglike
+        if len(logweights) == 1: ### no need to sum
+            logLikes.append(logweights[0])
+
+        else: # sum over components of the mixture model
+            logweights = np.array(logweights)
+            maximum = np.max(logweights)
+            logLikes.append(np.log(np.sum(np.exp(logweights-maximum)))+maximum) ### sum over models to get the overall loglike
 
     logLikes = np.array(logLikes)
+
     ### write the results to disk
     path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
