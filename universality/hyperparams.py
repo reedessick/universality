@@ -39,6 +39,8 @@ DEFAULT_SIGMA_PRIOR = 'log'
 DEFAULT_L_PRIOR = 'lin'
 DEFAULT_M_PRIOR = 'lin'
 
+DEFAULT_TEMPERATURE = 1.
+
 #-------------------------------------------------
 ### methods useful for a basic squared-exponential kernel
 #-------------------------------------------------
