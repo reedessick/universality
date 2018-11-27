@@ -353,7 +353,7 @@ if args.grid:
     if args.plot:
         if args.include_logL:
             if args.log_sigmas:
-                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLER), logLikes])
+                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLIER), logLikes])
             else:
                 data = np.transpose([SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER, logLikes])
         else:
