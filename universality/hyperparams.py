@@ -155,6 +155,7 @@ def logLike_grid(
         l_prior='lin',
         degree=1,
         num_proc=utils.DEFAULT_NUM_PROC,
+        temperature=DEFAULT_TEMPERATURE,
     ):
     '''
     compute logLike on a grid and return "samples" with associated logLike values corresponding to each grid point
@@ -174,7 +175,7 @@ def logLike_grid(
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core
-        ans = _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree)
+        ans = _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=temperature)
 
     else: ### divide up work and parallelize
 
@@ -188,7 +189,7 @@ def logLike_grid(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_logLike_worker, args=(f_obs, x_obs, SIGMA[truth], L[truth], SIGMA_NOISE[truth], degree), kwargs={'conn':conn2})
+            proc = mp.Process(target=_logLike_worker, args=(f_obs, x_obs, SIGMA[truth], L[truth], SIGMA_NOISE[truth], degree), kwargs={'conn':conn2, 'temperature':temperature})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -203,14 +204,15 @@ def logLike_grid(
 
     return ans
 
-def _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, conn=None):
+def _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=DEFAULT_TEMPERATURE, conn=None):
+    beta = 1./temperature
     if conn is not None:
         conn.send(
-            np.array([(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)])
+            np.array([(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)*beta) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)])
         )
     else:
         return np.array(
-            [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
+            [(s, l, sn, gp.logLike(f_obs, x_obs, sigma2=s**2, l2=l**2, sigma2_obs=sn**2, degree=degree)*beta) for s, l, sn in zip(SIGMA, L, SIGMA_NOISE)],
             dtype=SAMPLES_DTYPE,
         )
 
@@ -228,6 +230,7 @@ def logLike_mcmc(
         sigma_obs_prior='log',
         l_prior='lin',
         degree=1,
+        temperature=DEFAULT_TEMPERATURE,
     ):
     '''
     draw samples from the target distribution defined by logLike using emcee
@@ -254,7 +257,8 @@ def logLike_mcmc(
     else:
         raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
 
-    foo = lambda args: gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=1) \
+    beta = 1./temperature
+    foo = lambda args: gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=1)*beta \
         + ln_sigma_prior(args[0]) \
         + ln_l_prior(args[1]) \
         + ln_sigma_obs_prior(args[2])

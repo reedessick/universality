@@ -68,6 +68,10 @@ parser.add_argument('--l-prior', default=hp.DEFAULT_L_PRIOR, type=str)
 parser.add_argument('--sigma-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
 parser.add_argument('--sigma_obs-prior', default=hp.DEFAULT_SIGMA_PRIOR, type=str)
 
+parser.add_argument('--temperature', default=hp.DEFAULT_TEMPERATURE, type=float,
+    help='the temperature used to flatten the likelihood a la parallel tempering. \
+DEFAULT=%.3f'%hp.DEFAULT_TEMPERATURE)
+
 parser.add_argument('--grid', default=False, action='store_true')
 parser.add_argument('--mcmc', default=False, action='store_true')
 #parser.add_argument('--maxL', default=False, action='store_true')
@@ -217,6 +221,7 @@ if args.grid:
         sigma_obs_prior=args.sigma_obs_prior,
         degree=args.poly_degree,
         num_proc=args.num_proc,
+        temperature=args.temperature,
     )
     print('''\
 sigma = %.3e
@@ -292,6 +297,7 @@ if args.mcmc:
         sigma_prior=args.sigma_prior,
         sigma_obs_prior=args.sigma_obs_prior,
         degree=args.poly_degree,
+        temperature=args.temperature,
     )
     if args.verbose:
         print('discarding %d samples as burn in'%args.strip_mcmc)
