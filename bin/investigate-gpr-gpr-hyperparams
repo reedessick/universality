@@ -338,7 +338,7 @@ if args.grid:
             maximum = np.max(logweights)
             logLikes.append(np.log(np.sum(np.exp(logweights-maximum)))+maximum) ### sum over models to get the overall loglike
 
-    logLikes = np.array(logLikes)**(1./args.temperature) ### flatten likelihoods with an inverse temperature
+    logLikes = np.array(logLikes)*(1./args.temperature) ### flatten likelihoods with an inverse temperature a la parallel tempering
 
     ### write the results to disk
     path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
