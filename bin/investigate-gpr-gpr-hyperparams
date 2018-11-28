@@ -310,7 +310,7 @@ if args.grid:
                     start += n ### bump this
 
                 ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
-                covs[truth,truth] = (np.var(sample) + np.sum(sample_covs))*m
+                covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))*m
 
             ### add the squared-exponential covariance kernel
             covs += gp._cov(x_obs, sigma2=s2, l2=l2, sigma2_obs=S2)

@@ -293,7 +293,7 @@ with h5py.File(hdf5path, 'w') as obj:
                     start += n ### bump this
 
                 ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
-                covs[truth,truth] = (np.var(sample) + np.sum(sample_covs))*m
+                covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))*m
 
             #-------------------------------------------------
 
