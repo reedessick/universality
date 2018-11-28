@@ -125,5 +125,5 @@ if args.verbose:
 
 if args.plot:
     ax.set_xlim(xmin=xmin, xmax=xmax)
-    plot.save('draw-foo%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+    plot.save('draw-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
     plot.plt.close(fig)

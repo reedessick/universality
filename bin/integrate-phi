@@ -78,7 +78,6 @@ if args.stitch_below_reference_pressure:
 ### throw away pressures corresponding to negative energy densities!
 truth = energy_densityc2 >= 0
 
-data = data[truth,:]
 pressurec2 = pressurec2[truth]
 energy_densityc2 = energy_densityc2[truth]
 
@@ -98,6 +97,6 @@ if args.stitch_below_reference_pressure:
 if args.verbose:
     print('writing: '+args.outpath)
 with open(args.outpath, 'w') as obj:
-    print >> obj, ','.join(columns+['pressurec2', 'energy_densityc2', 'baryon_density'])
-    for sample, p, e, rho in zip(data, pressurec2, energy_densityc2, baryon_density):
-        print >> obj, ','.join('%.9e'%_ for _ in list(sample)+[p, e, rho])
+    print >> obj, ','.join(['pressurec2', 'energy_densityc2', 'baryon_density'])
+    for tup in zip(pressurec2, energy_densityc2, baryon_density):
+        print >> obj, ','.join('%.9e'%_ for _ in tup)
