@@ -223,7 +223,8 @@ if args.grid:
         num_proc=args.num_proc,
         temperature=args.temperature,
     )
-    print('''\
+    if args.verbose:
+        print('''\
 sigma = %.3e
 l     = %.3f
 sigma_obs = %.3e
@@ -266,7 +267,7 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
             truths=truths[include] if truths is not None else None,
             color='b',
         )
-        plot.save('investigate-gpr-resample-hyperparams-grid%s'%args.tag, overlayfig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+        plot.save('investigate-gpr-resample-hyperparams-grid%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
         ### add to overlay plot
@@ -332,7 +333,7 @@ if args.mcmc:
             truths=truths[include],
             color='r',
         )
-        plot.save('investigate-gpr-resample-hyperparams-mcmc%s'%args.tag, overlayfig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+        plot.save('investigate-gpr-resample-hyperparams-mcmc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
         N = len(data)

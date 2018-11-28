@@ -340,6 +340,16 @@ if args.grid:
 
     logLikes = np.array(logLikes)*(1./args.temperature) ### flatten likelihoods with an inverse temperature a la parallel tempering
 
+    ### print maximum likelihood parameters
+    maxind = logLikes.argsort()[-1] ### the biggest one
+    if args.verbose:
+        print('''\
+sigma = %.3e
+l     = %.3f
+sigma_obs = %.3e
+model_multiplier = %.3e
+logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MULTIPLIER[maxind], logLikes[maxind]))
+
     ### write the results to disk
     path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
