@@ -66,6 +66,7 @@ if args.verbose:
 model = gp.hdf5load(args.hdf5path)
 assert len(model), 'mixture model must have at least 1 element!'
 weights = np.array([m['weight'] for m in model])
+max_weight = np.max(weights)
 
 if args.plot:
     fig = plot.plt.figure()
@@ -77,8 +78,8 @@ if args.plot:
         x_tst = m['x']
         mean = m['f']
         s = np.diag(m['cov'])**0.5 ### plot 1-sigma regions
-        ax.fill_between(x_tst, mean+s, mean-s, color='grey', alpha=0.5)
-        ax.plot(x_tst, mean, color='k')
+        ax.fill_between(x_tst, mean+s, mean-s, color='grey', alpha=0.25*m['weight']/max_weight)
+        ax.plot(x_tst, mean, color='k', alpha=m['weight']/max_weight)
 
         xmin = min(xmin, np.min(x_tst))
         xmax = max(xmax, np.max(x_tst))
@@ -93,23 +94,23 @@ if args.plot:
 
 ### draw a bunch of realizations of the process
 path = os.path.join(args.output_dir, 'draw-gpr'+args.tag+'-%06d.csv') # for generating filenames
-tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: '+path         # for reporting progress
+tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
 header = '%s,%s'%(xlabel, flabel)                                     # for writing file contents
 row = '%.9e,%.9e'
 
 for i, ind in enumerate(utils.draw_from_weights(weights, size=args.num_draws)):
+    csvpath = path%i
     if args.verbose:
-        sys.stdout.write(tmp%(i+1, i))
+        sys.stdout.write(tmp%(i+1, path))
         sys.stdout.flush()
 
     # draw the realization
     m = model[ind]
     x_txt = m['x']
-    
+
     y_tst = np.random.multivariate_normal(m['f'], m['cov'])
 
     # write the realization to disk
-    csvpath = path%i
     np.savetxt(csvpath, zip(x_tst, y_tst), header=header, comments='', delimiter=',')
 #    with open(csvpath, 'w') as file_obj:
 #        print >> file_obj, header

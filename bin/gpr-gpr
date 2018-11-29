@@ -216,12 +216,13 @@ with h5py.File(hdf5path, 'w') as obj:
     ### place-holder for when we iterate over many possible hyperparam values
     ind = 0 ### counter for each element of the mixture model
 
+    logweights = [] ### holder for all weights before we normalize them
     for p, s, l, S, m, w in zip(polydeg, sigma, length_scale, sigma_obs, model_multiplier, weights):
         s2 = s**2
         l2 = l**2
         S2 = S**2
 
-        logweights = [] ### holder for all weights before we normalize them
+        logLikes = []
         tmp = '%'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
         for indecies in inds:
             if args.Verbose:
@@ -317,8 +318,7 @@ with h5py.File(hdf5path, 'w') as obj:
             for model, j in zip(models, indecies):
                 logweight += np.log(model[j]['weight'])
 
-            logweight += np.log(w) ### add weight for this set of hyperparams
-            logweights.append(logweight)
+            logLikes.append(logweight)
 
             ### create hdf5 group for this conditioned process
             if args.Verbose:
@@ -335,9 +335,25 @@ with h5py.File(hdf5path, 'w') as obj:
                 xlabel=xlabel,
                 flabel=flabel,
                 weight=1., ### will be over-written in short order
+                model_multiplier=m,
             )
 
             ind += 1 ### bump the index for each element of the mixture model  
+
+        ### normalize the weights for each component of mixture model at this set of hyperparams
+        if len(logLikes)==1:
+            logLikes = np.array([1]) ### handle things like infty/infty gracefully here
+        else:
+            logLikes = np.array(logLikes)
+            maximum = np.max(logLikes)
+            logLikes = np.exp(logLikes-np.max(logLikes))
+            logLikes /= np.sum(logLikes) ### normalize this
+
+        ### add hyperparam weight here!
+        logLikes += np.log(w) ### add weight for this set of hyperparams
+
+        ### add these to the overall counter
+        logweights += list(logLikes)
 
     ### update weights for each conditioned model after normalizing all of them
     if args.verbose:
