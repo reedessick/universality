@@ -48,13 +48,16 @@ def pklload(path):
 # hdf5 process files
 #-------------------------------------------------
 
-def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_tst, f_tst, cov_f_f, xlabel='xl', flabel='f', weight=1.):
+def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_tst, f_tst, cov_f_f, xlabel='xl', flabel='f', weight=1., model_multiplier=None):
     """helper funtion to record the data about a process in a mixture model"""
     group.attrs.create('weight', weight)
     group.attrs.create('poly_degree', poly_degree)
     group.attrs.create('sigma', sigma)
     group.attrs.create('length_scale', length_scale)
     group.attrs.create('sigma_obs', sigma_obs)
+    if model_multiplier is not None:
+        group.attrs.create('model_multiplier', model_multiplier)
+
     group.attrs.create('xlabel', xlabel)
     group.attrs.create('flabel', flabel)
 
@@ -65,7 +68,7 @@ def hdf5load(path):
     model = []
     with h5py.File(path, 'r') as obj:
         for key in obj.keys(): ### iterate over groups
-            weight, x, f, cov, (xlabel, flabel), (p, s, l, S) = parse_process_group(obj[key])
+            weight, x, f, cov, (xlabel, flabel), (p, s, l, S, m) = parse_process_group(obj[key])
             model.append({
                 'weight':weight,
                 'x':x,
@@ -95,13 +98,14 @@ def parse_process_group(group):
     sigma = attrs['sigma']
     length_scale = attrs['length_scale']
     sigma_obs = attrs['sigma_obs']
+    m = attrs['model_multiplier'] if ('model_multiplier' in attrs.keys()) else None
 
     x_tst = group['mean'][xlabel]
     f_tst = group['mean'][flabel]
 
     cov_f_f = group['cov'][...]
 
-    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs)
+    return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs, m)
 
 #-------------------------------------------------
 # convenience functions for sanity checking
