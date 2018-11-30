@@ -17,6 +17,7 @@ from argparse import ArgumentParser
 from universality import utils
 from universality import gaussianprocess as gp
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -74,12 +75,12 @@ if args.plot:
 
     xmin = np.infty
     xmax = -np.infty
-    for m in model:
+    for m, color in zip(model, plot.weights2color([m['weight'] for m in model], 'grey', prefact=1., minimum=0)):
         x_tst = m['x']
         mean = m['f']
         s = np.diag(m['cov'])**0.5 ### plot 1-sigma regions
-        ax.fill_between(x_tst, mean+s, mean-s, color='grey', alpha=0.25*m['weight']/max_weight)
-        ax.plot(x_tst, mean, color='k', alpha=m['weight']/max_weight)
+        ax.fill_between(x_tst, mean+s, mean-s, color=color)
+#        ax.plot(x_tst, mean, color='grey', alpha=0.25*m['weight']/max_weight)
 
         xmin = min(xmin, np.min(x_tst))
         xmax = max(xmax, np.max(x_tst))
@@ -98,7 +99,7 @@ tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for repo
 header = '%s,%s'%(xlabel, flabel)                                     # for writing file contents
 row = '%.9e,%.9e'
 
-for i, ind in enumerate(utils.draw_from_weights(weights, size=args.num_draws)):
+for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
     csvpath = path%i
     if args.verbose:
         sys.stdout.write(tmp%(i+1, path))
@@ -119,7 +120,7 @@ for i, ind in enumerate(utils.draw_from_weights(weights, size=args.num_draws)):
 
     # add to plot
     if args.plot:
-        ax.plot(x_tst, y_tst, color='b', alpha=min(0.25, 10./args.num_draws))
+        ax.plot(x_tst, y_tst, color=color)
 
 if args.verbose:
     sys.stdout.write('\n')

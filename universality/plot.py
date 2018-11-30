@@ -77,18 +77,18 @@ def corner(*args, **kwargs):
         raise ImportError('could not import corner')
     return _corner(*args, **kwargs)
 
-def weights2color(weights, basecolor, prefact=750.):
+def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
     Nsamp = len(weights)
     scatter_color = np.empty((Nsamp, 4), dtype=float)
     scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(basecolor)
     mw, Mw = np.min(weights), np.max(weights)
     if np.all(weights==Mw):
-        scatter_color[:,3] = max(min(1., prefact/Nsamp), 0.001) ### equal weights
+        scatter_color[:,3] = max(min(1., prefact/Nsamp), minimum) ### equal weights
     else:
         scatter_color[:,3] = weights/np.max(weights)
         scatter_color[:,3] *= prefact/neff(weights)
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
-        scatter_color[scatter_color[:,3]<0.001,3] = 0.001 ### give reasonable bounds
+        scatter_color[scatter_color[:,3]<minimum,3] = minimum ### give reasonable bounds
     return scatter_color
 
 def kde_corner(
