@@ -218,6 +218,82 @@ def _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=DEF
 
 #------------------------
 
+def param_grid(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
+    if minimum==maximum:
+        param = [minimum]
+    else:
+        if prior=='log':
+            minimum = np.log(minimum)
+            maximum = np.log(maximum)
+            param = np.exp(minimum + (maximum-minimum)*np.random.rand(size))
+        elif prior=='lin':
+            param = minimum + (maximum-minimum)*np.random.rand(size)
+        else:
+            raise ValueError, 'unknown prior='+prior
+    return param
+
+def logLike_mc(
+        f_obs,
+        x_obs,
+        (min_sigma, max_sigma),
+        (min_l, max_l),
+        (min_sigma_obs, max_sigma_obs),
+        num_samples=gp.DEFAULT_NUM,
+        sigma_prior='log',
+        sigma_obs_prior='log',
+        l_prior='lin',
+        degree=1,
+        num_proc=utils.DEFAULT_NUM_PROC,
+        temperature=DEFAULT_TEMPERATURE,
+    ):
+    '''
+    draw samples from priors and return associated logLikes
+    '''
+    ### draw hyperparameters from hyperpriors
+    sigma = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
+    l = param_mc(min_l, max_l, size=num_samples, prior=l_prior)
+    sigma_obs = param_mc(min_sigma_obs, max_sigma_obs, size=num_samples, prior=sigma_obs_prior)
+
+    SIGMA, L, SIGMA_NOISE = np.meshgrid(sigma, l, sigma_obs, indexing='ij')
+
+    # flatten for ease of iteration
+    SIGMA = SIGMA.flatten()
+    L = L.flatten()
+    SIGMA_NOISE = SIGMA_NOISE.flatten()
+
+    ### iterate over grid points and copmute logLike for each
+    if num_proc==1: ### do this on a single core
+        ans = _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=temperature)
+
+    else: ### divide up work and parallelize
+
+        Nsamp = len(SIGMA)
+        ans = np.empty((Nsamp, 4), dtype=float)
+
+        # partition work amongst the requested number of cores
+        sets = utils._define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logLike_worker, args=(f_obs, x_obs, SIGMA[truth], L[truth], SIGMA_NOISE[truth], degree), kwargs={'conn':conn2, 'temperature':temperature})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            ans[truth,:] = conni.recv()
+
+        # cast ans to the correct structured array
+        ans = np.array(zip(ans[:,0], ans[:,1], ans[:,2], ans[:,3]), dtype=SAMPLES_DTYPE) ### do this because numpy arrays are stupid and don't cast like I want
+
+    return ans
+
+#------------------------
+
 def logLike_mcmc(
         f_obs,
         x_obs,
