@@ -50,6 +50,9 @@ def draw_from_weights(weights, size=1):
     order = weights.argsort()
     weights = weights[order]
 
+    ### make sure weights are normalized
+    weights /= np.sum(weights)
+
     # compute a cdf and draw from it
     return order[np.ceil(np.interp(np.random.random(size), np.cumsum(weights), np.arange(N))).astype(int)]
 

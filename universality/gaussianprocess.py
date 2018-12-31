@@ -80,6 +80,7 @@ def hdf5load(path):
                     'sigma':s,
                     'length_scale':l,
                     'sigma_obs':S,
+                    'model_multiplier':m,
                 },
             })
     return model
