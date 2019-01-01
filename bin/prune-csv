@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import os
+import numpy as np
+from collections import defaultdict
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser()
+
+parser.add_argument('input_csv', type=str)
+parser.add_argument('output_csv', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('--include', nargs=3, type=str, action='append', default=[],
+    help="the field along with min and max values for what should be kept (eg: '--include distance 30 40'). This can be repeated to specify bounds for multiple fields. It can also be repeated to specify multiple bounds for a single field (ie: disconnected regions that both should be kept). If a field is not specified with this option, we do not filter based on that field.")
+
+args = parser.parse_args()
+
+bounds = defaultdict(list)
+for field, m, M in args.include:
+    bounds[field].append((float(m), float(M)))
+
+if not os.path.exists(os.path.dirname(args.output_csv)):
+    os.makedirs(os.path.dirname(args.output_csv))
+
+#-------------------------------------------------
+
+### load data
+if args.verbose:
+    print('reading samples from: '+args.input_csv)
+data = np.genfromtxt(args.input_csv, names=True, delimiter=',')
+N = len(data)
+if args.verbose:
+    print('found %d samples'%N)
+
+### filter data
+global_truth = np.ones(N, dtype=bool)
+local_truth = np.empty(N, dtype=bool)
+for field, segs in bounds.items():
+    local_truth[:] = False
+    datum = data[field]
+    for m, M in segs:
+        local_truth[:] = np.logical_or(local_truth, (m<=datum)*(datum<=M))
+    global_truth[:] = np.logical_and(global_truth, local_truth)
+
+if args.verbose:
+    print('retaining %d samples'%(np.sum(global_truth)))
+data = data[global_truth] ### downsample
+
+### write out new data
+if args.verbose:
+    print('writing retained samples to: '+args.output_csv)
+np.savetxt(args.output_csv, data, delimiter=',', comments='', header=','.join(data.dtype.names))
