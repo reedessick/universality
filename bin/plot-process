@@ -101,6 +101,8 @@ pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='
 parser.add_argument('--quantile', default=[], type=float, action='append',
     help='plot these quantiles. We plot the quantile specified along with 1-quantile. \
 DEFAULT=[0.1]')
+parser.add_argument('--filled', default=False, action='store_true',
+    help='fill in the region between quantiles')
 parser.add_argument('--alpha', default=0.25, type=float,
     help='DEFAULT=0.25')
 
@@ -406,11 +408,22 @@ if args.verbose:
 for ind, label in enumerate(names):
     # add quantiles
     for i in xrange(Nquantiles/2): ### fill between pairs of quantiles
-        ax.fill_between(x_test, y[ind,2*i,:], y[ind,2*i+1,:], alpha=args.alpha, color=colors[label])
+        if args.filled: ### fill in inter-quantile regions
+            ax.fill_between(x_test, y[ind,2*i,:], y[ind,2*i+1,:], alpha=args.alpha, color=colors[label])
+            if args.residuals:
+                ax_res.fill_between(x_test, y[ind,2*i,:]-y_reference, y[ind,2*i+1,:]-y_reference, alpha=args.alpha, color=colors[label])
+            elif args.ratios:
+                ax_res.fill_between(x_test, y[ind,2*i,:]/y_reference, y[ind,2*i+1,:]/y_reference, alpha=args.alpha, color=colors[label])
+
+        ### plot quantile boundaries
+        ax.plot(x_test, y[ind,2*i,:], alpha=args.alpha, color=colors[label])
+        ax.plot(x_test, y[ind,2*i+1,:], alpha=args.alpha, color=colors[label])
         if args.residuals:
-            ax_res.fill_between(x_test, y[ind,2*i,:]-y_reference, y[ind,2*i+1,:]-y_reference, alpha=args.alpha, color=colors[label])
+            ax_res.plot(x_test, y[ind,2*i,:]-y_reference, alpha=args.alpha, color=colors[label])
+            ax_res.plot(x_test, y[ind,2*i+1,:]-y_reference, alpha=args.alpha, color=colors[label])
         elif args.ratios:
-            ax_res.fill_between(x_test, y[ind,2*i,:]/y_reference, y[ind,2*i+1,:]/y_reference, alpha=args.alpha, color=colors[label])
+            ax_res.plot(x_test, y[ind,2*i,:]/y_reference, alpha=args.alpha, color=colors[label])
+            ax_res.plot(x_test, y[ind,2*i+1,:]/y_reference, alpha=args.alpha, color=colors[label])
 
     # add median
     ax.plot(x_test, y_median[ind,:], color=colors[label], alpha=1.0) ### plot the median
