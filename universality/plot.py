@@ -111,6 +111,8 @@ def kde_corner(
         filled=False,
         scatter=False,
         rotate=True,
+        rotate_xticklabels=0,
+        rotate_yticklabels=0,
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
@@ -262,15 +264,15 @@ def kde_corner(
 
             if row!=col:
                 ax.set_ylim(range[row])
-#                plt.setp(ax.get_yticklabels(), rotation=45)
                 ax.set_xlim(range[col])
-#                plt.setp(ax.get_xticklabels(), rotation=45)
+                plt.setp(ax.get_yticklabels(), rotation=rotate_yticklabels)
+                plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             elif rotate and row==(Ncol-1):
                 ax.set_ylim(range[row])            
-#                plt.setp(ax.get_xticklabels(), rotation=45)
+                plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             else:
                 ax.set_xlim(range[col])
-#                plt.setp(ax.get_xticklabels(), rotation=45)
+                plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
 
             # add Truth annotations
             if truths[col] is not None:
@@ -317,6 +319,8 @@ def curve_corner(
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
         verbose=False,
+        rotate_xticklabels=0,
+        rotate_yticklabels=0,
     ):
     """
     plot curves defined in data on the corner plot
@@ -373,10 +377,10 @@ def curve_corner(
             ax.grid(grid, which='both')
 
             ax.set_xlim(range[col])
-#            plt.setp(ax.get_xticklabels(), rotation=45)
+            plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             if row!=col:
                 ax.set_ylim(range[row])
-#                plt.setp(ax.get_yticklabels(), rotation=45)
+                plt.setp(ax.get_yticklabels(), rotation=rotate_yticklabels)
 
             # add Truth annotations
             if truths[col] is not None:

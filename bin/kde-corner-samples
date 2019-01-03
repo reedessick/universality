@@ -94,6 +94,10 @@ pgroup.add_argument('--hist1D', default=False, action='store_true',
 pgroup.add_argument('--no-scatter', default=False, action='store_true')
 pgroup.add_argument('--rotate', default=False, action='store_true',
     help='rotate the last 1D histogram')
+pgroup.add_argument('--rotate-xticklabels', default=0, type=float,
+    help='the number of degrees by which to rotate the xticklabels')
+pgroup.add_argument('--rotate-yticklabels', default=0, type=float,
+    help='the number of degrees by which to rotate the yticklabels')
 
 pgroup.add_argument('--legend', default=False, action='store_true')
 pgroup.add_argument('--include-neff', default=False, action='store_true',
@@ -259,6 +263,8 @@ for ind, (label, path) in enumerate(args.samples):
         filled=args.filled,
         scatter=not args.no_scatter,
         rotate=args.rotate,
+        rotate_xticklabels=args.rotate_xticklabels,
+        rotate_yticklabels=args.rotate_yticklabels,
         figwidth=args.figwidth,
         figheight=args.figheight,
         fig=fig,
@@ -290,6 +296,8 @@ for i, (label, path) in enumerate(args.reference):
         figheight=args.figheight,
         fig=fig,
         grid=args.grid,
+        rotate_xticklabels=args.rotate_xticklabels,
+        rotate_yticklabels=args.rotate_yticklabels,
     )
 
     if args.reference_legend:
