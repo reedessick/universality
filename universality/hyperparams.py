@@ -234,7 +234,7 @@ def param_grid(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
 
 def param_mc(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
     if minimum==maximum:
-        param = [minimum]
+        param = np.ones(size, dtype=float)*minimum
     else:
         if prior=='log':
             minimum = np.log(minimum)
@@ -264,16 +264,9 @@ def logLike_mc(
     draw samples from priors and return associated logLikes
     '''
     ### draw hyperparameters from hyperpriors
-    sigma = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
-    l = param_mc(min_l, max_l, size=num_samples, prior=l_prior)
-    sigma_obs = param_mc(min_sigma_obs, max_sigma_obs, size=num_samples, prior=sigma_obs_prior)
-
-    SIGMA, L, SIGMA_NOISE = np.meshgrid(sigma, l, sigma_obs, indexing='ij')
-
-    # flatten for ease of iteration
-    SIGMA = SIGMA.flatten()
-    L = L.flatten()
-    SIGMA_NOISE = SIGMA_NOISE.flatten()
+    SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
+    L = param_mc(min_l, max_l, size=num_samples, prior=l_prior)
+    SIGMA_NOISE = param_mc(min_sigma_obs, max_sigma_obs, size=num_samples, prior=sigma_obs_prior)
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core

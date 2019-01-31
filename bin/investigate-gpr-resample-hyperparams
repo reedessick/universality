@@ -332,7 +332,7 @@ if args.mc:
         fig = plot.corner(
             data[:,include],
             labels=labels[include],
-            truths=truths[include],
+            truths=truths[include] if truths is not None else None,
             color='r',
         )
         plot.save('investigate-gpr-resample-hyperparams-mc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
