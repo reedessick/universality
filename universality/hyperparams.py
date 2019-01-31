@@ -5,8 +5,15 @@ __author__ = "reed.essick@ligo.org"
 
 import numpy as np
 
-import emcee
-from scipy import optimize
+try:
+    import emcee
+except ImportError:
+    emcee = None
+
+try:
+    from scipy import optimize
+except ImportError:
+    optimize = None
 
 import multiprocessing as mp
 
@@ -319,6 +326,9 @@ def logLike_mcmc(
     draw samples from the target distribution defined by logLike using emcee
     return samples with associated values of logLike
     '''
+    if emcee is None:
+        raise ImportError('could not import emcee')
+
     if sigma_prior=='log':
         ln_sigma_prior = lambda sigma: 1./sigma if min_sigma<sigma<max_sigma else -np.infty
     elif sigma_prior=='lin':
@@ -382,6 +392,9 @@ def logLike_maxL(
     find the maximum logLikelihood as a function of hyperparamters.
     return a single "sample" with associated logLike
     '''
+    if optimize is None:
+        raise ImportError('could not import scipy.optimize')
+
     min_sigma2 = min_sigma**2
     max_sigma2 = max_sigma**2
     min_l2 = min_l**2
