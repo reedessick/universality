@@ -260,13 +260,15 @@ if args.grid:
         weights = np.exp(grid['logLike']-np.max(grid['logLike']))
         weights /= np.sum(weights)
 
+        truth = weights >= np.max(weights)/100.
+
         if args.verbose:
             print('    plotting')
 
         fig = plot.corner(
-            data[:,include],
+            data[truth][:,include],
             labels=labels[include],
-            weights=weights,
+            weights=weights[truth],
             truths=truths[include] if truths is not None else None,
             color='b',
         )
@@ -276,9 +278,9 @@ if args.grid:
 
         ### add to overlay plot
         overlayfig = plot.corner(
-            data[:,include],
+            data[truth][:,include],
             labels=labels[include],
-            weights=weights,
+            weights=weights[truth],
             color='b',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
@@ -335,11 +337,13 @@ if args.mc:
         weights = np.exp(mc['logLike']-np.max(mc['logLike']))
         weights /= np.sum(weights)
 
+        truth = weights >= np.max(weights)/100.
+
         if args.verbose:
             print('    plotting')
         fig = plot.corner(
-            data[:,include],
-            weights=weights,
+            data[truth][:,include],
+            weights=weights[truth],
             labels=labels[include],
             truths=truths[include] if truths is not None else None,
             color='r',
@@ -350,9 +354,9 @@ if args.mc:
 
         ### add to overlay plot
         overlayfig = plot.corner(
-            data[:,include],
+            data[truth][:,include],
             labels=labels[include],
-            weights=weights,
+            weights=weights[truth],
             color='g',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
@@ -421,14 +425,10 @@ if args.mcmc:
         plot.save('investigate-gpr-resample-hyperparams-mcmc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
-        N = len(data)
-        weights = np.ones(N, dtype='float')/N
-
         ### add to overlay plot
         overlayfig = plot.corner(
             data[:,include],
             labels=labels[include],
-            weights=weights,
             color='r',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
