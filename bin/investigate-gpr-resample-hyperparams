@@ -16,6 +16,7 @@ from universality import gaussianprocess as gp
 from universality import hyperparams as hp
 from universality import utils
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -269,6 +270,7 @@ if args.grid:
             truths=truths[include] if truths is not None else None,
             color='b',
         )
+        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
         plot.save('investigate-gpr-resample-hyperparams-grid%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
@@ -342,6 +344,7 @@ if args.mc:
             truths=truths[include] if truths is not None else None,
             color='r',
         )
+        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
         plot.save('investigate-gpr-resample-hyperparams-mc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
@@ -414,6 +417,7 @@ if args.mcmc:
             truths=truths[include],
             color='r',
         )
+        fig.text(0.75, 0.75, '%d samples'%len(data), ha='center', va='center')
         plot.save('investigate-gpr-resample-hyperparams-mcmc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
 
