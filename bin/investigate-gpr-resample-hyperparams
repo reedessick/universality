@@ -184,10 +184,10 @@ if args.maxL:
         degree=args.poly_degree,
     )
     print('''\
-sigma = %.3e
-l     = %.3f
-sigma_obs = %.3e
-logL = %.3e'''%tuple(maxL[0]))
+    sigma = %.3e
+    l     = %.3f
+    sigma_obs = %.3e
+    logL = %.3e'''%tuple(maxL[0]))
 
     ### add to overlay plot
     if args.plot:
@@ -230,10 +230,10 @@ if args.grid:
     )
     if args.verbose:
         print('''\
-sigma = %.3e
-l     = %.3f
-sigma_obs = %.3e
-logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
+    sigma = %.3e
+    l     = %.3f
+    sigma_obs = %.3e
+    logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
 
     path = "%s/investigate-gpr-resample-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
@@ -259,16 +259,13 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
         weights = np.exp(grid['logLike']-np.max(grid['logLike']))
         weights /= np.sum(weights)
 
-#        truth = weights>1e-2/len(weights)
-        truth = np.ones(len(weights), dtype=bool)
-
         if args.verbose:
             print('    plotting')
 
         fig = plot.corner(
-            data[truth][:,include],
+            data[:,include],
             labels=labels[include],
-            weights=weights[truth],
+            weights=weights,
             truths=truths[include] if truths is not None else None,
             color='b',
         )
@@ -277,9 +274,9 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
 
         ### add to overlay plot
         overlayfig = plot.corner(
-            data[truth][:,include],
+            data[:,include],
             labels=labels[include],
-            weights=weights[truth],
+            weights=weights,
             color='b',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
@@ -305,6 +302,12 @@ if args.mc:
         num_proc=args.num_proc,
         temperature=args.temperature,
     )
+    if args.verbose:
+        print('''\
+    sigma = %.3e
+    l     = %.3f
+    sigma_obs = %.3e
+    logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
 
     path = "%s/investigate-gpr-resample-hyperparams-mc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
@@ -327,19 +330,20 @@ if args.mc:
             else:
                 data = np.transpose([mc['sigma'], mc['l'], mc['sigma_obs']])
 
+        weights = np.exp(mc['logLike']-np.max(mc['logLike']))
+        weights /= np.sum(weights)
+
         if args.verbose:
             print('    plotting')
         fig = plot.corner(
             data[:,include],
+            weights=weights,
             labels=labels[include],
             truths=truths[include] if truths is not None else None,
             color='r',
         )
         plot.save('investigate-gpr-resample-hyperparams-mc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.plt.close(fig)
-
-        N = len(data)
-        weights = np.ones(N, dtype='float')/N
 
         ### add to overlay plot
         overlayfig = plot.corner(
@@ -374,6 +378,12 @@ if args.mcmc:
     if args.verbose:
         print('discarding %d samples as burn in'%args.strip_mcmc)
     mcmc = mcmc[args.strip_mcmc:]
+    if args.verbose:
+        print('''\
+    sigma = %.3e
+    l     = %.3f
+    sigma_obs = %.3e
+    logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
 
     path = "%s/investigate-gpr-resample-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
