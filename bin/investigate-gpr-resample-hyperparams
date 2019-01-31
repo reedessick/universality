@@ -98,7 +98,7 @@ parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 #assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --maxL'
-assert np.any((args.grid, args.mcmc)), 'please specify at least one of: --grid, --mcmc'
+assert np.any((args.mc, args.grid, args.mcmc)), 'please specify at least one of: --mc, --grid, --mcmc'
 
 xcolumn, ycolumn = columns = [args.xcolumn, args.ycolumn]
 

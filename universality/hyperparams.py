@@ -229,7 +229,21 @@ def param_grid(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
         elif prior=='lin':
             param = minimum + (maximum-minimum)*np.random.rand(size)
         else:
-            raise ValueError, 'unknown prior='+prior
+            raise ValueError('unknown prior='+prior)
+    return param
+
+def param_mc(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
+    if minimum==maximum:
+        param = [minimum]
+    else:
+        if prior=='log':
+            minimum = np.log(minimum)
+            maximum = np.log(maximum)
+            param = np.exp(minimum+np.random.rand(size)*(maximum-minimum))
+        elif prior=='lin':
+            param = minimum + np.random.rand(size)*(maximum-minimum)
+        else:
+            raise ValueError('unknown prior='+prior)
     return param
 
 def logLike_mc(
