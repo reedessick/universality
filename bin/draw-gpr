@@ -96,8 +96,14 @@ if args.plot:
 ### draw a bunch of realizations of the process
 path = os.path.join(args.output_dir, 'draw-gpr'+args.tag+'-%06d.csv') # for generating filenames
 tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
-header = '%s,%s'%(xlabel, flabel)                                     # for writing file contents
-row = '%.9e,%.9e'
+row = '%.9e,%.9e'                                                     # for writing file contents
+header = header+'%d%s,%s'''%(xlabel, flabel)                                     #
+footer = '''\
+# poly_degree = %(poly_degree)d
+# sigma = %(sigma).9f
+# length_scale = %(length_scale).9f
+# sigma_obs = %(sigma_obs).9f)
+# model_multiplier = %(model_multiplier).9f'''
 
 for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
     csvpath = path%i
@@ -112,7 +118,7 @@ for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.
     y_tst = np.random.multivariate_normal(m['f'], m['cov'])
 
     # write the realization to disk
-    np.savetxt(csvpath, zip(x_tst, y_tst), header=header, comments='', delimiter=',')
+    np.savetxt(csvpath, zip(x_tst, y_tst), header=header, footer=footer%m['hyperparams'], comments='', delimiter=',')
 #    with open(csvpath, 'w') as file_obj:
 #        print >> file_obj, header
 #        for sample in zip(x_tst, y_tst):
