@@ -84,6 +84,10 @@ parser.add_argument('--min-m', default=hp.DEFAULT_MIN_M, type=float,
 parser.add_argument('--max-m', default=hp.DEFAULT_MAX_M, type=float,
     help='DEFAULT=%.3f'%hp.DEFAULT_MAX_M)
 
+parser.add_argument('--num-mc', default=gp.DEFAULT_NUM, type=int,
+    help='the number of monte carlo draws through the hyperparameter priors. \
+DEFAULT=%d'%gp.DEFAULT_NUM)
+
 parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
     help='the number of grid points in each dimension. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
@@ -110,6 +114,7 @@ parser.add_argument('--temperature', default=hp.DEFAULT_TEMPERATURE, type=float,
     help='the temperature used to flatten the likelihood a la parallel tempering. \
 DEFAULT=%.3f'%hp.DEFAULT_TEMPERATURE)
 
+parser.add_argument('--mc', default=False, action='store_true')
 parser.add_argument('--grid', default=False, action='store_true')
 parser.add_argument('--mcmc', default=False, action='store_true')
 #parser.add_argument('--maxL', default=False, action='store_true')
@@ -132,7 +137,7 @@ parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 #assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --maxL'
-assert np.any((args.grid, args.mcmc)), 'please specify at least one of: --grid, --mcmc'
+assert np.any((args.mc, args.grid, args.mcmc)), 'please specify at least one of: --mc, --grid, --mcmc'
 
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
@@ -400,6 +405,13 @@ logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MU
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
         )
+
+#---
+
+if args.mc:
+    if args.verbose:
+        print('generating %d Monte-Carlo samples from the hyperprio'%args.num_mc)
+    raise NotImplementedError
 
 #---
 
