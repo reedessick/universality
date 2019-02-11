@@ -97,7 +97,7 @@ if args.plot:
 path = os.path.join(args.output_dir, 'draw-gpr'+args.tag+'-%06d.csv') # for generating filenames
 tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
 row = '%.9e,%.9e'                                                     # for writing file contents
-header = header+'%d%s,%s'''%(xlabel, flabel)                                     #
+header = '%s,%s'''%(xlabel, flabel)                          
 footer = '''\
 # poly_degree = %(poly_degree)d
 # sigma = %(sigma).9f
