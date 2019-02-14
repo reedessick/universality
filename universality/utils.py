@@ -562,7 +562,7 @@ def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
 def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
     """
     integrate the first law of thermodynamics
-        dmu = rho/(mu+p) drho
+        dvarepsilon = rho/(varepsilon+p) drho
     """
     baryon_density = np.ones_like(pressurec2, dtype='float')
 
