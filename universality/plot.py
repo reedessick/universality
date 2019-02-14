@@ -632,7 +632,7 @@ def gpr_overlay(
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
 
-    if (residuals or ratios) and (Nobs > 0):
+    if (residuals or ratios or fractions) and (Nobs > 0):
         rs.set_xscale(ax.get_xscale())
         rs.set_xlim(ax.get_xlim())
 
