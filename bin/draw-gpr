@@ -94,7 +94,7 @@ if args.plot:
     ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
-path = os.path.join(args.output_dir, 'draw-gpr'+args.tag+'-%06d.csv') # for generating filenames
+path = os.path.join(args.output_dir, 'DRAW-%{moddraw}', 'draw-gpr'+args.tag+'-%{draw}06d.csv') # for generating filenames
 tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
 row = '%.9e,%.9e'                                                     # for writing file contents
 header = '%s,%s'''%(xlabel, flabel)                          
@@ -106,7 +106,7 @@ footer = '''\
 # model_multiplier = %(model_multiplier).9f'''
 
 for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
-    csvpath = path%i
+    csvpath = path%{'draw':i, 'moddraw':i//1e3} ### only allow 1000 EoSs within each subdirectory
     if args.verbose:
         sys.stdout.write(tmp%(i+1, path))
         sys.stdout.flush()
