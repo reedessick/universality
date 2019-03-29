@@ -93,7 +93,7 @@ else:
 ### compute the quantile with approximate error bars
 c = np.sum(logscores<=logscore_target) ### the number less likely than the target
 f = 1.*c/args.num_draws
-print('gpr-gpr-quantil = %.3e (%d out of %d realizations less likely than %s given %s'%(\
+print('gpr-gpr-quantile = %.3e (%d out of %d realizations less likely than %s given %s'%(\
     f,
     c,
     args.num_draws,
