@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+
+__description__ = "read in a target process from disk and compute the associated 'quantile' according to another process read from disk."
+__author__ = "reed.essick@ligo.org"
+
+#---------------------------------------------------------------------------------------------------
+
+import os
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard
+from universality import utils
+from universality import gaussianprocess as gp
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+### required arguments
+parser.add_argument_group('required arguments')
+parser.add_argument('target_hdf5path', nargs='+', type=str,
+    help='path to the hdf5 mixture model for which we want to compute the quantile with respect to source_hdf5path')
+parser.add_argument('source_hdf5path', nargs='+', type=str,
+    help='path to the hdf5 mixture model we will use to compute the quantile associated with target_hdf5path')
+
+### verbosity options
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+wgroup = parser.add_argument_group('workflow argument')
+wgroup.add_argument('--num-draws', default=gp.DEFAULT_NUM, type=int,
+    help='the maximum number of samples that will be drawn to estimate the quantile. \
+DEFAULT=%d'%gp.DEFAULT_NUM)
+
+ogroup = parser.add_argument_group('output arguments')
+ogroup.add_argument('-p', '--plot', default=False, action='store_true')
+
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading target model from: '+args.target_hdf5path)
+target = gp.hdf5load(args.target_hdf5path)
+
+if args.verbose:
+    print('loading source model from: '+args.source_hdf5path)
+source = gp.hdf5load(args.source_hdf5path)
+
+#-------------------------------------------------
+
+### compute the score for the target|source
+if args.verbose:
+    print('computing the logprob of target|source')
+logscore_target = gp.model_logprob(target, source)
+
+if args.plot:
+    fig = plot.plt.figure()
+    raise NotImplementedError('plot the target process and the source process: use plot.gpr_overlay')
+
+### compute the background distribution of scores
+if args.verbose:
+    print('drawing %d realizations from the source model'%args.num_draws)
+if args.plot:
+    logscores, realizations = gp.draw_logprob(source, size=args.num_draws, return_realizations=True)
+    for realization in realizations:
+        raise NotImplementedError('overlay the realization on the plot')
+
+    plot.save('gpr-gpr-quantile-process%s'%args.tag, overlayfig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+    plot.plt.close(fig)
+
+else:
+    logscores = gp.draw_logprob(source, size=args.num_draws)
+
+### compute the quantile with approximate error bars
+c = np.sum(logscores<=logscore_target) ### the number less likely than the target
+f = 1.*c/args.num_draws
+print('gpr-gpr-quantil = %.3e (%d out of %d realizations less likely than %s given %s'%(\
+    f,
+    c,
+    args.num_draws,
+    os.path.basename(args.target_hdf5path),
+    os.path.basename(args.source_hdf5path),
+))
+
+### plot cumulative distribution and 
+if args.plot:
+    fig = plot.figure() ### do this outside of a standard function because it's so simple...
+    ax = fig.gca()
+
+    # plot cumulative normalized histogram
+    ax.hist(logscores, bins=max(10, args.num_draws**0.5), histtype=step, cumulative=1, normed=True, label='realizations')
+    ax.set_ylim(ymin=-0.01, ymax=1.01)
+
+    # annotate with target score
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+
+    ax.plot([logscore_target]*2, ylim, color='r', label='target') ### plot cross-hairs to denote where target lives
+    ax.plot(xlim, [f]*2, color='r')
+
+    ax.set_ylim(ylim)
+    ax.set_xlim(xlim)
+
+    # decorate
+    ax.set_xlabel('logprob(f|source)')
+    ax.set_ylabel('cumulative fraction')
+
+    ax.grid(True, which='both')
+    ax.set_title('P(%s | %s)'%(os.path.basename(args.target_hdf5path), os.path.basename(args.source_hdf5path)))
+
+    # save
+    plot.save('gpr-gpr-quantile-cdf%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+    plot.plt.close(fig)

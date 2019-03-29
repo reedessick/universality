@@ -158,55 +158,72 @@ def cov_df1dx1_df2dx2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
     return (l2 - (X1-X2)**2)/l2**2 * cov_f1_f2(x1, x2, sigma2=sigma2, l2=l2)
 
 #-------------------------------------------------
-# GPR via conditioning given a set of observation and a covariance matrix
+# GPR likelihoods and jacobians thereof
 #-------------------------------------------------
 
-def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
+def logprob(f_obs, f_prb, cov_prb, cov_obs=None):
     '''
-    constructs the parameters for the conditional distribution: f_tst|f_obs,x_obs,x_text based on cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs
-        cov_tst_tst : (N_tst, N_tst) the covariance matrix between test samples in the joint distribution
-        cov_tst_obs : (N_tst, N_obs) the covariance matrix between test samples and observed samples in the joint distribution
-        cov_obs_obs : (N_obs, N_obs) the covariance matrix between observed samples in the joint distribution
-    returns the mean_tst, cov_tst_tst
-    '''
-    ### invert matix only once. This is the expensive part
-    invcov_obs_obs = np.linalg.inv(cov_obs_obs)
+    compute the probablity of seeing f_obs (measurement uncertainty encapsulated in cov_obs) given a process described by (f_prob, cov_prob)
+    assumes f_obs and f_prob are sampled at the same abscissa
 
-    ### do some matrix multiplcation here
-    mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
-    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst))
-    logweight = _logLike(f_obs, invcov_obs_obs) ### the logweight associated with the observed data assuming this covariance matrix
+    note, the default assumes f_obs is perfectly measured (cov_obs=None). If this is not the case, specify the covariance matrix for f_obs via the cov_obs kwarg
+    '''
+    return _logprob(f_obs, f_prb, np.linalg.inv(cov_prb), invcov_obs=None if cov_obs is None else np.linalg.inv(cov_obs))
 
-    return mean, cov, logweight
+def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
+    if invcov_obs is None:
+        incov = incov_prb
+    else:
+        incov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
+    return _loglike(f_obs-f_prb, invcov)
 
-def _cov(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+def model_logprob(model_obs, model_prb):
     '''
-    a helper function that computes the covariance matrix for observed points
-    '''
-    cov_obs_obs = cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
-    cov_obs_obs += np.diag(np.ones(len(x_obs)))*sigma2_obs
-    return cov_obs_obs
+    a convenience function to do the combinatorics stuff to marginalize over the weights stored in the models
 
-def _dcov_dsigma2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    NOTE: assumes models have properly normalized weights
     '''
-    a helper function for the derivative of cov_obs_obs with respect to sigma2
-    '''
-    X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
-    return np.exp(-0.5*(X1-X2)**2/l2) ### simple derivative of cov_f1_f2
+    # invert all matricies only once
+    obs = [(obs['f'], np.linalg.inv(obs['cov']) if obs['cov'] is not None else None, np.log(obs['weight'])) for obs in model_obs]
+    prb = [(prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model_prb]
 
-def _dcov_dl2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
-    '''
-    a helper function for the derivative of cov_obs_obs with respect to l2
-    '''
-    X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
-    Z = 0.5*(X1-X2)**2/l2
-    return sigma2*np.exp(-Z)*Z/l2 ### simple derivative of cov_f1_f2
+    logscore = -np.infty
+    for f_obs, invcov_obs, logw_obs in obs:
+        for f_prb, invcov_prb, logw_prb in prb:
+            _logscore = _logprob(f_obs, f_prb, invcov_prb, invcov_obs=invcov_obs) + logw_obs + logw_prb ### the conditioned probability multiplied by the 2 weights
+            m = max(logscore, _logscore)
+            logscore = np.log(np.exp(logscore-m) + np.exp(_logscore-m)) + m
 
-def _dcov_dsigma2_obs(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    return logscore
+
+def draw_logprob(model, size=1, return_realizations=False):
     '''
-    a helper function for the derivative of cov_obs_obs with respect to sigma2_obs
+    a convenience function to compute the probability of a bunch of realizations from a model
     '''
-    return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
+    logscores = []
+    if return_realizations:
+        realizations = []
+    prb = [(prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model] ### only invert the matricies once
+    for ind in utils.draw_from_weights(np.array([m['weight'] for m in model]), size=size): ### draw a realization from the set of weights
+        m = source[ind]
+        f_obs = np.random.multivariate_normal(m['f'], m['cov']), ### draw the realization
+        if return_realizations:
+            realizations.append(f_obs)
+
+        ### compute the score
+        logscore = 0.
+        for f_prb, incov_prb, logw_prb in prb:
+            _logscore = _logprob(f_obs, f_prb, invcov_prb) + logw_prb ### the conditioned probability multiplied by the 2 weights
+            m = max(logscore, _logscore)
+            logscore = np.log(np.exp(logscore-m) + np.exp(_logscore-m)) + m
+
+        logscores.append(logscore)
+
+    logscores = np.array(logscores)
+    if return_realizations:
+        return logscores, realizations
+    else:
+        return logscores
 
 def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, degree=1):
     '''
@@ -263,6 +280,57 @@ def grad_logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=
     dlogL_dsigma2_obs = 0.5*np.trace(np.dot(m, _dcov_dsigma2_obs(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)))
 
     return dlogL_dsigma2, dlogL_dl2, dlogL_dsigma2_obs
+
+#-------------------------------------------------
+# GPR via conditioning given a set of observation and a covariance matrix
+#-------------------------------------------------
+
+def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
+    '''
+    constructs the parameters for the conditional distribution: f_tst|f_obs,x_obs,x_text based on cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs
+        cov_tst_tst : (N_tst, N_tst) the covariance matrix between test samples in the joint distribution
+        cov_tst_obs : (N_tst, N_obs) the covariance matrix between test samples and observed samples in the joint distribution
+        cov_obs_obs : (N_obs, N_obs) the covariance matrix between observed samples in the joint distribution
+    returns the mean_tst, cov_tst_tst
+    '''
+    ### invert matix only once. This is the expensive part
+    invcov_obs_obs = np.linalg.inv(cov_obs_obs)
+
+    ### do some matrix multiplcation here
+    mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
+    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst))
+    logweight = _logLike(f_obs, invcov_obs_obs) ### the logweight associated with the observed data assuming this covariance matrix
+
+    return mean, cov, logweight
+
+def _cov(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    '''
+    a helper function that computes the covariance matrix for observed points
+    '''
+    cov_obs_obs = cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
+    cov_obs_obs += np.diag(np.ones(len(x_obs)))*sigma2_obs
+    return cov_obs_obs
+
+def _dcov_dsigma2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    '''
+    a helper function for the derivative of cov_obs_obs with respect to sigma2
+    '''
+    X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
+    return np.exp(-0.5*(X1-X2)**2/l2) ### simple derivative of cov_f1_f2
+
+def _dcov_dl2(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    '''
+    a helper function for the derivative of cov_obs_obs with respect to l2
+    '''
+    X1, X2 = np.meshgrid(x_obs, x_obs, indexing='ij')
+    Z = 0.5*(X1-X2)**2/l2
+    return sigma2*np.exp(-Z)*Z/l2 ### simple derivative of cov_f1_f2
+
+def _dcov_dsigma2_obs(x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
+    '''
+    a helper function for the derivative of cov_obs_obs with respect to sigma2_obs
+    '''
+    return np.diag(np.ones(len(x_obs))) ### derivative of diagonal, white noise
 
 def gpr_f(x_tst, f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2):
     '''
