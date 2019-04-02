@@ -3,11 +3,14 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import sys
 import numpy as np
 import h5py
 import pickle
 
 import time
+
+from universality import utils
 
 #-------------------------------------------------
 
@@ -172,10 +175,11 @@ def logprob(f_obs, f_prb, cov_prb, cov_obs=None):
 
 def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
     if invcov_obs is None:
-        incov = incov_prb
+        invcov = invcov_prb
     else:
-        incov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
-    return _loglike(f_obs-f_prb, invcov)
+        invcov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
+
+    return _logLike(f_obs-f_prb, invcov)
 
 def model_logprob(model_obs, model_prb):
     '''
@@ -196,28 +200,40 @@ def model_logprob(model_obs, model_prb):
 
     return logscore
 
-def draw_logprob(model, size=1, return_realizations=False):
+def draw_logprob(model, size=1, return_realizations=False, verbose=False):
     '''
     a convenience function to compute the probability of a bunch of realizations from a model
     '''
     logscores = []
     if return_realizations:
         realizations = []
+
     prb = [(prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model] ### only invert the matricies once
+    if verbose:
+        tmp = '\r %'+'%d'%(np.int(np.log10(size))+1)+'d / '+'%d'%size
+        i = 1
     for ind in utils.draw_from_weights(np.array([m['weight'] for m in model]), size=size): ### draw a realization from the set of weights
-        m = source[ind]
-        f_obs = np.random.multivariate_normal(m['f'], m['cov']), ### draw the realization
+        if verbose:
+            sys.stdout.write(tmp%i)
+            sys.stdout.flush()
+            i += 1
+
+        m = model[ind]
+        f_obs = np.random.multivariate_normal(m['f'], m['cov']) ### draw the realization
         if return_realizations:
             realizations.append(f_obs)
 
         ### compute the score
-        logscore = 0.
-        for f_prb, incov_prb, logw_prb in prb:
+        logscore = -np.infty
+        for f_prb, invcov_prb, logw_prb in prb:
             _logscore = _logprob(f_obs, f_prb, invcov_prb) + logw_prb ### the conditioned probability multiplied by the 2 weights
             m = max(logscore, _logscore)
             logscore = np.log(np.exp(logscore-m) + np.exp(_logscore-m)) + m
 
         logscores.append(logscore)
+
+    if verbose:
+        sys.stdout.write('\n')
 
     logscores = np.array(logscores)
     if return_realizations:
@@ -245,16 +261,26 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     # compute components separately because they each require different techniques to stabilize them numerically
     return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
-def _logLike(f_obs, invcov):
+def _logLike(f_obs, invcov, epsilon=0, eigenbasis=True):
 
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
     sign, det = np.linalg.slogdet(invcov)
     if sign<0: # do this first so we don't waste time computing other stuff that won't matter
         return -np.infty ### rule this out by setting logLike -> -infty
-
     det *= 0.5
-    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))
     nrm = -0.5*len(f_obs)*np.log(2*np.pi)
+
+    if eigenbasis: ### compute the inner product in the eigenbasis, stripping out small eigenvalues
+        # let's strip out small eigenvalues
+        val, vect = np.linalg.eig(0.5*(invcov+invcov.T)) ### only keep the symmetric part
+        val[val<epsilon] = epsilon
+        invcov = np.diag(val)
+        f_obs = np.dot(np.transpose(vect), f_obs)
+
+    # now compute inner product in the diagonal basis
+    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs)) ### FIXME: this must give a negative number!
+    if obs > 0:
+        raise ValueError('unphysical value for inner product: %.6e (s=%d logdet=%.6e)'%(obs, sign, det))
 
     return obs + det + nrm ### assemble components and return
 
@@ -298,7 +324,7 @@ def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
 
     ### do some matrix multiplcation here
     mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
-    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst))
+    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst)) ### NOTE: may not be positive semidefinite due to floating point errors!
     logweight = _logLike(f_obs, invcov_obs_obs) ### the logweight associated with the observed data assuming this covariance matrix
 
     return mean, cov, logweight
