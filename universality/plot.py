@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 plt.rcParams['font.family'] = 'serif'
-plt.rcParams['text.usetex'] = True
+#plt.rcParams['text.usetex'] = True
 
 try:
     from corner import corner as _corner
@@ -63,6 +63,9 @@ AXES_POSITION = [
 ]
 
 #-------------------------------------------------
+
+def figure(*args, **kwargs):
+    return plt.figure(*args, **kwargs)
 
 def save(basename, fig, figtypes=DEFAULT_FIGTYPES, directory=DEFAULT_DIRECTORY, verbose=False, **kwargs):
     template = os.path.join(directory, basename+'.%s')
