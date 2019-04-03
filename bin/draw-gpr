@@ -22,6 +22,7 @@ from universality import stats
 #-------------------------------------------------
 
 DEFAULT_NUM_DRAWS = 1
+DEFAULT_NUM_PER_DIRECTORY = 1000
 
 #-------------------------------------------------
 
@@ -39,6 +40,9 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 wgroup = parser.add_argument_group('workflow options')
 wgroup.add_argument('-n', '--num-draws', default=DEFAULT_NUM_DRAWS, type=int,
     help='DEFAULT=%d'%DEFAULT_NUM_DRAWS)
+wgroup.add_argument('-N', '--num-per-directory', default=DEFAULT_NUM_PER_DIRECTORY, type=int,
+    help='DEFAULT=%d'%DEFAULT_NUM_PER_DIRECTORY)
+
 wgroup.add_argument('-p', '--plot', default=False, action='store_true')
 
 ### output options
@@ -106,7 +110,7 @@ footer = '''\
 # model_multiplier = %(model_multiplier).9f'''
 
 for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
-    csvpath = path%{'draw':i, 'moddraw':i//1e3} ### only allow 1000 EoSs within each subdirectory
+    csvpath = path%{'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
     if args.verbose:
         sys.stdout.write(tmp%(i+1, path))
         sys.stdout.flush()
