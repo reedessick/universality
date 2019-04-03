@@ -428,7 +428,7 @@ def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheig
     vax = plt.subplot(1,2,2)
 
     x = model[0]['x']
-    assert np.all(np.all(x==m['x']) for m in model[1:]), 'x-values must match identically for every component of the mixture model'
+    assert np.all([len(x)==len(m['x']) and np.all(x==m['x']) for m in model[1:]]), 'x-values must match identically for every component of the mixture model'
 
     n = len(x)
     c = np.zeros((n,n), dtype=float)
@@ -624,7 +624,7 @@ def overlay_model(
         ylabel = model[0]['labels']['flabel']
 
     f = np.zeros_like(x, dtype=float)
-    assert np.all(np.all(x==m['x']) for m in model[1:]), 'x-values must match identically for every component of the mixture model'
+    assert np.all([len(x)==len(m['x']) and np.all(x==m['x']) for m in model[1:]]), 'x-values must match identically for every component of the mixture model'
 
     sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
 

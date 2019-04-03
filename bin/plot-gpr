@@ -60,6 +60,9 @@ pgroup.add_argument('--min-y', default=None, type=float,
 pgroup.add_argument('--max-y', default=None, type=float,
     help='only plot data below this value.')
 
+pgroup.add_argument('--title', default=False, action='store_true',
+    help='include a title in the plot')
+
 ### output formatting
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -134,21 +137,22 @@ if args.csvpaths:
 
 ### decorate 
 fig = figtup[0]
-fig.suptitle(os.path.basename(args.hdf5path)[:-5])
+if args.title:
+    fig.suptitle(os.path.basename(args.hdf5path)[:-5])
 
 for ax in figtup[1:]:
     ax.grid(True, which='both')
 
     if args.min_x!=None:
-        ax.set_xlim(xmin=np.log(args.min_x) if args.log_x else args.min_x)
+        ax.set_xlim(xmin=args.min_x)
     if args.max_x!=None:
-        ax.set_xlim(xmax=np.log(args.max_x) if args.log_x else args.max_x)
+        ax.set_xlim(xmax=args.max_x)
 
 ax = figtup[1]
 if args.min_y!=None:
-    ax.set_ylim(ymin=np.log(args.min_y) if args.log_y else args.min_y)
+    ax.set_ylim(ymin=args.min_y)
 if args.max_y!=None:
-    ax.set_ylim(ymax=np.log(args.max_y) if args.log_y else args.max_y)
+    ax.set_ylim(ymax=args.max_y)
 
 if args.csvpaths:
     ax.legend(loc='best')

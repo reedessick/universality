@@ -37,6 +37,9 @@ pgroup.add_argument('--figheight', default=plot.DEFAULT_COV_FIGHEIGHT, type=floa
 pgroup.add_argument('--colormap', default=plot.DEFAULT_COLORMAP, type=str,
     help='DEFAULT='+plot.DEFAULT_COLORMAP)
 
+pgroup.add_argument('--title', default=False, action='store_true',
+    help='include a title in the plot')
+
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
 ogroup.add_argument('-t', '--tag', default='', type=str)

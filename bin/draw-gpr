@@ -74,27 +74,7 @@ weights = np.array([m['weight'] for m in model])
 max_weight = np.max(weights)
 
 if args.plot:
-    fig = plot.plt.figure()
-    ax = fig.gca()
-
-    xmin = np.infty
-    xmax = -np.infty
-    for m, color in zip(model, plot.weights2color([m['weight'] for m in model], 'grey', prefact=1., minimum=0)):
-        x_tst = m['x']
-        mean = m['f']
-        s = np.diag(m['cov'])**0.5 ### plot 1-sigma regions
-        ax.fill_between(x_tst, mean+s, mean-s, color=color)
-#        ax.plot(x_tst, mean, color='grey', alpha=0.25*m['weight']/max_weight)
-
-        xmin = min(xmin, np.min(x_tst))
-        xmax = max(xmax, np.max(x_tst))
-
-    xlabel = m['labels']['xlabel'] ### assume everything here has the same xlabel and flabel
-    flabel = m['labels']['flabel']
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(flabel)
-
+    fig, ax = plot.overlay_model(model)
     ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
@@ -123,14 +103,10 @@ for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.
 
     # write the realization to disk
     np.savetxt(csvpath, zip(x_tst, y_tst), header=header, footer=footer%m['hyperparams'], comments='', delimiter=',')
-#    with open(csvpath, 'w') as file_obj:
-#        print >> file_obj, header
-#        for sample in zip(x_tst, y_tst):
-#            print >> file_obj, row%sample
 
     # add to plot
     if args.plot:
-        ax.plot(x_tst, y_tst, color=color)
+        plot.overlay([(x_tst, y_tst, str(i))], color=color, figtup=(fig, ax))
 
 if args.verbose:
     sys.stdout.write('\n')
