@@ -176,10 +176,12 @@ def logprob(f_obs, f_prb, cov_prb, cov_obs=None):
 def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
     if invcov_obs is None:
         invcov = invcov_prb
+    elif np.all(invcov_prb==invcov_obs): ### take a shortcut to avoid matrix inverses
+        invcov = 0.5*invcov_prb
     else:
         invcov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
 
-    return _logLike(f_obs-f_prb, invcov)
+    return _logLike(f_obs-f_prb, invcov, eigenbasis=True)
 
 def model_logprob(model_obs, model_prb):
     '''
@@ -261,24 +263,35 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     # compute components separately because they each require different techniques to stabilize them numerically
     return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
-def _logLike(f_obs, invcov, epsilon=0, eigenbasis=True):
-
-    # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
-    sign, det = np.linalg.slogdet(invcov)
-    if sign<0: # do this first so we don't waste time computing other stuff that won't matter
-        return -np.infty ### rule this out by setting logLike -> -infty
-    det *= 0.5
-    nrm = -0.5*len(f_obs)*np.log(2*np.pi)
+def _logLike(f_obs, invcov, eigenbasis=False):
+    n = len(f_obs)
+    nrm = -0.5*n*np.log(2*np.pi)
 
     if eigenbasis: ### compute the inner product in the eigenbasis, stripping out small eigenvalues
         # let's strip out small eigenvalues
-        val, vect = np.linalg.eig(0.5*(invcov+invcov.T)) ### only keep the symmetric part
-        val[val<epsilon] = epsilon
+        invcov = 0.5*(invcov+invcov.T)
+        maxval = np.max(invcov) ### try normalizing before we do any linear algebra
+        invcov /= maxval
+
+        val, vect = np.linalg.eig(invcov) ### only keep the symmetric part
+        val[val<0] = 0 ### set anything that is tiny compared to the max to a small number
+
         invcov = np.diag(val)
         f_obs = np.dot(np.transpose(vect), f_obs)
 
+        det = 0.5*np.sum(np.log(val[val>0]*maxval)) ### handle this with care. We know we're truncating stuff, so act like it
+
+    else:
+        maxval = 1. ### used in inner product below
+
+        # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
+        sign, det = np.linalg.slogdet(invcov)
+        if sign<0: # do this first so we don't waste time computing other stuff that won't matter
+            return -np.infty ### rule this out by setting logLike -> -infty
+        det *= 0.5
+
     # now compute inner product in the diagonal basis
-    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs)) ### FIXME: this must give a negative number!
+    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))*maxval
     if obs > 0:
         raise ValueError('unphysical value for inner product: %.6e (s=%d logdet=%.6e)'%(obs, sign, det))
 
@@ -311,6 +324,15 @@ def grad_logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=
 # GPR via conditioning given a set of observation and a covariance matrix
 #-------------------------------------------------
 
+def posdef(cov):
+    '''
+    identifies the nearest positive semi-definite symmetric matrix and returns it
+    '''
+    cov[:] = 0.5*(cov+cov.T) ### re-use memory and symmetrize this thing to try to average away numerical errors
+    if np.linalg.slogdet(cov)[0]!=1:
+        print('***WARNING*** non-physical conditioned covariance matrix detected!')
+    return cov
+
 def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
     '''
     constructs the parameters for the conditional distribution: f_tst|f_obs,x_obs,x_text based on cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs
@@ -324,7 +346,8 @@ def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
 
     ### do some matrix multiplcation here
     mean = np.dot(cov_tst_obs, np.dot(invcov_obs_obs, f_obs))
-    cov  = cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst)) ### NOTE: may not be positive semidefinite due to floating point errors!
+    # NOTE: may not be positive semidefinite due to floating point errors! so we run it through a routine to clean this up
+    cov  = posdef(cov_tst_tst - np.dot(cov_tst_obs, np.dot(invcov_obs_obs, cov_obs_tst)))
     logweight = _logLike(f_obs, invcov_obs_obs) ### the logweight associated with the observed data assuming this covariance matrix
 
     return mean, cov, logweight

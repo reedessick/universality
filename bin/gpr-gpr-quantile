@@ -116,10 +116,10 @@ if args.plot:
 
     # annotate with target score
     ylim = ax.get_ylim()
-    xmin, xmax = ax.get_xlim()
-    xmin = min(logscore_target, xmin)
-    xmax = max(logscore_target, xmax)
-    xlim = (xmin, xmax)
+    xmin = min(logscore_target, min(logscores))
+    xmax = max(logscore_target, max(logscores))
+    dx = (xmax-xmin)*0.05
+    xlim = (xmin-dx, xmax+dx)
 
     ax.plot([logscore_target]*2, ylim, color='r', label='target') ### plot cross-hairs to denote where target lives
     ax.plot(xlim, [f]*2, color='r')
