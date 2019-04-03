@@ -24,6 +24,7 @@ def nkde(weights):
 
 def neff(weights):
     """the effective number of samples based on a set of weights"""
+    weights = np.array(weights)
     truth = weights > 0
     weights /= np.sum(weights)
     return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
