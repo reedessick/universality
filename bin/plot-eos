@@ -102,8 +102,7 @@ if not args.figtype:
 #-------------------------------------------------
 
 ### iterate and load data
-x = []
-y = []
+curves = []
 for label, path in args.samples:
     if args.verbose:
         print('reading EOS data from: '+path)
@@ -117,12 +116,10 @@ for label, path in args.samples:
         m, M = ranges[args.ycolumn]
         truth *= (m<=d[:,1])*(d[:,1]<=M)
 
-    x.append(d[truth,0])
-    y.append(d[truth,1])
+    curves.append((d[truth,0],d[truth,1],label))
 
 fig = plot.overlay(
-    x,
-    y,
+    curves,
     colors=colors,
     alphas=alphas,
     linestyles=linestyles,

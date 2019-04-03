@@ -6,6 +6,7 @@ __author__ = "reed.essick@ligo.org"
 import os
 
 import numpy as np
+from scipy.special import erfinv
 
 import matplotlib
 matplotlib.use("Agg")
@@ -28,14 +29,21 @@ from . import gaussianprocess as gp
 DEFAULT_LEVELS=[0.5, 0.9]
 DEFAULT_NUM_POINTS = 25
 DEFAULT_BANDWIDTH = utils.DEFAULT_BANDWIDTH
-DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 12
+DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 8
+
+DEFAULT_COV_FIGWIDTH = 10
+DEFAULT_COV_FIGHEIGHT = 4
 
 DEFAULT_COLOR1 = 'k'
 DEFAULT_COLOR2 = 'r'
+DEFAULT_COLORMAP = 'RdGy_r'
+
 DEFAULT_TRUTH_COLOR = 'b'
 
 DEFAULT_LINEWIDTH = 1.
-DEFAULT_LINESTYLE = '-'
+DEFAULT_LINESTYLE = 'solid'
+DEFAULT_MARKER = None
+DEFAULT_ALPHA = 1.0
 
 DEFAULT_FIGTYPES = ['png']
 DEFAULT_DPI = 100
@@ -75,11 +83,6 @@ def save(basename, fig, figtypes=DEFAULT_FIGTYPES, directory=DEFAULT_DIRECTORY, 
             print('saving: '+figname)
         fig.savefig(figname,  **kwargs)
 
-def corner(*args, **kwargs):
-    if _corner is None:
-        raise ImportError('could not import corner')
-    return _corner(*args, **kwargs)
-
 def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
     Nsamp = len(weights)
     scatter_color = np.empty((Nsamp, 4), dtype=float)
@@ -93,6 +96,13 @@ def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
         scatter_color[scatter_color[:,3]<minimum,3] = minimum ### give reasonable bounds
     return scatter_color
+
+#-------------------------------------------------
+
+def corner(*args, **kwargs):
+    if _corner is None:
+        raise ImportError('could not import corner')
+    return _corner(*args, **kwargs)
 
 def kde_corner(
         data,
@@ -119,7 +129,7 @@ def kde_corner(
         fig=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
-        alpha=1.0,
+        alpha=DEFAULT_ALPHA,
     ):
     """
     should be mostly equivalent to corner.corner, except we build our own KDEs and the like
@@ -314,7 +324,7 @@ def curve_corner(
         range=None,
         truths=None,
         color=None, ### let matplotlib pick this for you automatically
-        alpha=1.0,
+        alpha=DEFAULT_ALPHA,
         grid=True,
         linestyle=DEFAULT_LINESTYLE,
         linewidth=DEFAULT_LINEWIDTH,
@@ -410,72 +420,127 @@ def curve_corner(
 
 #-------------------------------------------------
 
+def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheight=DEFAULT_COV_FIGHEIGHT):
+    """plot the covariance matrix averaged over the components of the mixture model
+    """
+    fig = plt.figure(figsize=(figwidth, figheight))
+    eax = plt.subplot(1,2,1)
+    vax = plt.subplot(1,2,2)
+
+    x = model[0]['x']
+    assert np.all(np.all(x==m['x']) for m in model[1:]), 'x-values must match identically for every component of the mixture model'
+
+    n = len(x)
+    c = np.zeros((n,n), dtype=float)
+    c2 = np.zeros((n,n), dtype=float)
+    w = 0.
+    for m in model:
+        c += m['weight']*m['cov']
+        c2 += m['weight']*m['cov']**2
+        w += m['weight']
+    c /= w
+    c2 /= w
+    c2 = (c2 - c**2)**0.5
+    m = np.max(np.abs(c))
+
+    for ax, thing, lim, label in [(eax, c, (-m, m), '$\mu_\mathrm{Cov}$'), (vax, c2, (0, max(np.max(c2), 0.001)), '$\sigma_\mathrm{Cov}$')]:
+        plt.sca(ax)
+        cb = fig.colorbar(
+            ax.imshow(thing, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
+            orientation='vertical',
+            shrink=0.90,
+        )
+        cb.set_label(label)
+
+        ax.set_xticks(x, minor=True)
+        ax.set_yticks(x, minor=True)
+
+    plt.subplots_adjust(
+        left=0.05,
+        right=0.93,
+        bottom=0.05,
+        top=0.93,
+    )
+
+    return fig
+
+#-------------------------------------------------
+
 def overlay(
-        x,
-        f,
+        curves,
         colors=None,
         alphas=None,
         linestyles=None,
-        xlabel='x',
-        ylabel='f',
+        markers=None,
+        xlabel=None,
+        ylabel=None,
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
+        reference_curve=None,
         fractions=False,
         residuals=False,
         ratios=False,
         logx=False,
         logy=False,
         grid=True,
+        figtup=None,
     ):
-    if np.ndim(x)==1:
-        x_obs = [x]
-        f_obs = [f]
-    N = len(x)
+    ### set up figure, axes
+    if figtup is None:
+        fig = plt.figure(figsize=(figwidth, figheight))
+        if subax:
+            ax = fig.add_axes(MAIN_AXES_POSITION)
+            rs = fig.add_axes(RESIDUAL_AXES_POSITION)
 
+        else:
+            ax = fig.add_axes(AXES_POSITION)
+    else:
+        if subax:
+            fig, ax, rs = figtup
+        else:
+            fig, ax = figtup
+
+    N = len(curves)
     if colors is None:
         colors = [DEFAULT_COLOR2 for _ in range(N)]
 
     if alphas is None:
-        alphas = [1.0 for _ in range(N)]
+        alphas = [DEFAULT_ALPHA for _ in range(N)]
 
     if linestyles is None:
         linestyles = [DEFAULT_LINESTYLE for _ in range(N)]
 
-    ### set up figure, axes
-    fig = plt.figure(figsize=(figwidth, figheight))
-    if fractions or residuals or ratios:
-        ax = fig.add_axes(MAIN_AXES_POSITION)
-        rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+    if markers is None:
+        markers = [DEFAULT_MARKER for _ in range(N)]
 
-    else:
-        ax = fig.add_axes(AXES_POSITION)
-
-    xmin = np.min([np.min(_) for _ in x])
-    xmax = np.max([np.max(_) for _ in x])
-    ymin = np.min([np.min(_) for _ in f])
-    ymax = np.max([np.max(_) for _ in f])
+    xmin = np.min([np.min(x) for x, _ in curves])
+    xmax = np.max([np.max(x) for x, _ in curves])
+    ymin = np.min([np.min(f) for _, f in curves])
+    ymax = np.max([np.max(f) for _, f in curves])
 
     # plot the observed data
-    for x, f, c, l in zip(x, f, colors, linestyles):
-        ax.plot(x, f, l, color=c)
+    for (x, f, label), c, l, m in zip(curves, colors, linestyles, markers):
+        ax.plot(x, f, linestyle=l, color=c, marker=m, label=label)
 
     # plot residuals, etc
-    if residuals or ratios:
-        x_ref = x[0]
-        f_ref = f[0]
+    if subax:
+        if reference_curve is None:
+            x_ref, f_ref = curves[0]
+        else:
+            x_ref, f_ref = reference_curve
 
         # plot the observed data
-        for x, f, c, l, a in zip(x, f, colors, linestyles, alphas):
+        for (x, f, _), c, l, a, m in zip(curves, colors, linestyles, alphas, markers):
             f = np.interp(x_ref, x, f)
 
             if fractions:
-                rs.plot(x_ref, (f-f_ref)/f_ref, l, color=c, alpha=a)
+                rs.plot(x_ref, (f-f_ref)/f_ref, linestyle=l, color=c, alpha=a, marker=m)
 
             elif residuals:
-                rs.plot(x_ref, f-f_ref, l, color=c, alpha=a)
+                rs.plot(x_ref, f-f_ref, linestyle=l, color=c, alpha=a, marker=m)
 
             elif ratios:
-                rs.plot(x_ref, f/f_ref, l, color=c, alpha=a)
+                rs.plot(x_ref, f/f_ref, linestyle=l, color=c, alpha=a, marker=m)
 
     # decorate
     ax.grid(grid, which='both')
@@ -484,7 +549,141 @@ def overlay(
     ax.set_xlim(xmin=xmin, xmax=xmax)
     ax.set_ylim(ymin=ymin, ymax=ymax)
 
-    if residuals or ratios:
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+    if subax:
+        rs.set_xscale(ax.get_xscale())
+        rs.set_xlim(ax.get_xlim())
+
+        rs.grid(grid, which='both')
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+        if xlabel is not None:
+            rs.set_xlabel(xlabel)
+
+        if fractions:
+            rs.set_ylabel('$(%s - %s_{\mathrm{ref}})/%s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
+
+        elif residuals:
+            rs.set_ylabel('$%s - %s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$')))
+
+        elif ratios:
+            rs.set_yscale(ax.get_xscale())
+            rs.set_ylabel('$%s/%s_{\mathrm{ref}$'%(ylabel.strip('$'), ylabel.strip('$')))
+
+        return fig, ax, rs
+
+    else:
+        if xlabel is not None:
+            ax.set_xlabel(xlabel)
+        return fig, ax
+
+def overlay_model(
+        model,
+        color=DEFAULT_COLOR1,
+        alpha=DEFAULT_ALPHA,
+        linestyle=DEFAULT_LINESTYLE,
+        marker=DEFAULT_MARKER,
+        levels=DEFAULT_LEVELS, ### the confidence levels to include in shading
+        figwidth=DEFAULT_FIGWIDTH,
+        figheight=DEFAULT_FIGHEIGHT,
+        xlabel=None,
+        ylabel=None,
+        reference_curve=None,
+        fractions=False,
+        residuals=False,
+        ratios=False,
+        logx=False,
+        logy=False,
+        grid=True,
+        figtup=None,
+    ):
+    ### set up figure, axes
+    subax = fractions or residuals or ratios
+    if figtup is None:
+        fig = plt.figure(figsize=(figwidth, figheight))
+        if subax:
+            ax = fig.add_axes(MAIN_AXES_POSITION)
+            rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+
+        else:
+            ax = fig.add_axes(AXES_POSITION)
+    else:
+        if subax:
+            fig, ax, rs = figtup
+        else:
+            fig, ax = figtup
+
+    ### plot the confidence regions
+    x = model[0]['x']
+    xmin = np.min(x)
+    xmax = np.max(x)
+    if xlabel is None:
+        xlabel = model[0]['labels']['xlabel']
+    if ylabel is None:
+        ylabel = model[0]['labels']['flabel']
+
+    f = np.zeros_like(x, dtype=float)
+    assert np.all(np.all(x==m['x']) for m in model[1:]), 'x-values must match identically for every component of the mixture model'
+
+    sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
+
+    weights = [m['weight'] for m in model]
+    colors = weights2color(weights, color, prefact=alpha/(len(sigmas)*2.), minimum=0.002)
+
+    for m, c, w in zip(model, colors, weights):
+        _f = m['f']
+        _s = np.diag(m['cov'])**0.5
+        for sigma in sigmas:
+            ax.fill_between(m['x'], _f+_s*sigma, _f-_s*sigma, color=c, linewidth=0) ### plot uncertainty
+        f += w*_f
+    f /= np.sum(weights) ### plot the mean of the means
+    ax.plot(x, f, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
+
+    # plot residuals, etc
+    if subax:
+        if reference_curve is not None:
+            x_ref, f_ref = reference_curve
+        else:
+            x_ref = x
+            f_ref = f
+
+        for m, c in zip(model, colors):
+            _f = np.interp(x_ref, x, m['f'])
+            _s = np.interp(x_ref, x, np.diag(m['cov'])**0.5)
+            hgh = [_f+_s*sigma for sigma in sigmas]
+            low = [_f-_s*sigma for sigma in sigmas]
+
+            if fractions:
+                for hgh, low in zip(hgh, low):
+                    rs.fill_between(x_ref, (hgh-f_ref)/f_ref, (low-f_ref)/f_ref, color=c, linewidth=0)
+
+            elif residuals:
+                for hgh, low in zip(hgh, low):
+                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=c, linewidth=0)
+
+            elif ratios:
+                for hgh, low in zip(hgh, low):
+                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=c, linewidth=0)
+
+        f = np.interp(x_ref, x, f)
+        if fractions:
+            rs.fill_between(x_ref, (f-f_ref)/f_ref, (f-f_ref)/f_ref, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
+
+        elif residuals:
+            rs.fill_between(x_ref, f-f_ref, f-f_ref, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
+
+        elif ratios:
+            rs.fill_between(x_ref, f/f_ref, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
+
+    # decorate
+    ax.grid(grid, which='both')
+    ax.set_yscale('log' if logy else 'linear')
+    ax.set_xscale('log' if logx else 'linear')
+    ax.set_xlim(xmin=xmin, xmax=xmax)
+
+    ax.set_ylabel(ylabel)
+    if subax:
         rs.set_xscale(ax.get_xscale())
         rs.set_xlim(ax.get_xlim())
 
@@ -502,168 +701,7 @@ def overlay(
             rs.set_yscale(ax.get_xscale())
             rs.set_ylabel('$%s/%s_{\mathrm{ref}$'%(ylabel.strip('$'), ylabel.strip('$')))
 
+        return fig, ax, rs 
     else:
         ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-
-    return fig
-
-def gpr_overlay(
-        x_tst,
-        f_tst,
-        cr_tst,
-        x_obs=None,
-        f_obs=None,
-        cr_obs=None,
-        linestyle_tst=DEFAULT_LINESTYLE,
-        linestyle_obs=DEFAULT_LINESTYLE,
-        xlabel='x',
-        ylabel='f',
-        figwidth=DEFAULT_FIGWIDTH,
-        figheight=DEFAULT_FIGHEIGHT,
-        fractions=False,
-        residuals=False,
-        ratios=False,
-        color_tst=DEFAULT_COLOR1,
-        color_obs=None,
-        logx=False,
-        logy=False,
-        grid=True,
-    ):
-    ### set up input arguments
-    if x_obs is not None:
-        if isinstance(x_obs[0], (int, float)): ### possibly different length arrays in each element of the list
-            x_obs = [x_obs]
-            f_obs = [f_obs]
-            cr_obs = [cr_obs]
-        Nobs = len(x_obs)
-
-        if color_obs is None:
-            color_obs = [DEFAULT_COLOR2 for _ in range(Nobs)]
-
-    else:
-        Nobs = 0
-
-    xmin, xmax = np.min(x_tst), np.max(x_tst)
-
-    ### set up figure, axes
-    fig = plt.figure(figsize=(figwidth, figheight))
-    if (fractions or residuals or ratios) and (Nobs > 0):
-        ax = fig.add_axes(MAIN_AXES_POSITION)
-        rs = fig.add_axes(RESIDUAL_AXES_POSITION)
-
-    else:
-        ax = fig.add_axes(AXES_POSITION)
-
-    # plot the test points
-    ax.fill_between(x_tst, cr_tst[0], cr_tst[1], color=color_tst, alpha=0.25)
-    ax.plot(x_tst, f_tst, linestyle_tst, color=color_tst)
-
-    # plot the observed data
-    if Nobs > 0:
-        for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
-            truth = (xmin<=x)*(x<=xmax)
-            if cr is not None:
-                ax.fill_between(x[truth], cr[0][truth], cr[1][truth], color=color, alpha=0.25)
-            ax.plot(x[truth], f[truth], linestyle_obs, color=color)
-
-    # plot residuals, etc
-    if (fractions or residuals or ratios) and (Nobs > 0):
-        if Nobs==1:
-            x_ref = x_obs[0]
-            f_ref = f_obs[0]
-            cr_ref = cr_obs[0]
-        else:
-            x_ref = x_tst
-            f_ref = f_tst
-            cr_ref = cr_tst
-        truth = (xmin<=x_ref)*(x_ref<=xmax)
-
-        f_tst_interp = np.interp(x_ref, x_tst, f_tst)
-        hgh = np.interp(x_ref, x_tst, cr_tst[1])
-        low = np.interp(x_ref, x_tst, cr_tst[0])
-
-        if fractions:
-            rs.fill_between(x_ref, (hgh-f_ref)/f_ref, (low-f_ref)/f_ref, color=color_tst, alpha=0.25)
-            rs.plot(x_ref, (f_tst_interp-f_ref)/f_ref, linestyle_tst, color=color_tst)
-
-            rs.set_ylim(ymin=np.min(((low-f_ref)/f_ref)[truth]), ymax=np.max(((hgh-f_ref)/f_ref)[truth]))
-
-        elif residuals:
-            rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color_tst, alpha=0.25)
-            rs.plot(x_ref, f_tst_interp-f_ref, linestyle_tst, color=color_tst)
-
-            rs.set_ylim(ymin=np.min((low-f_ref)[truth]), ymax=np.max((hgh-f_ref)[truth]))
-
-        elif ratios:
-            rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color_tst, alpha=0.25)
-            rs.plot(x_ref, f_tst_interp/f_ref, linestyle_tst, color=color_tst)
-
-            rs.set_ylim(ymin=np.min((low/f_ref)[truth]), ymax=np.max((hgh/f_ref)[truth]))
-
-        # plot the observed data
-        for x, f, cr, color in zip(x_obs, f_obs, cr_obs, color_obs):
-            f = np.interp(x_ref, x, f)
-
-            if fractions:
-                if cr is not None:
-                    hgh = np.interp(x_ref, x, cr[1])
-                    low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, (hgh-f_ref)/f_ref, (low-f_ref)/f_ref, color=color, alpha=0.25)
-
-                rs.plot(x_ref, (f-f_ref)/f_ref, linestyle_obs, color=color)
-
-            elif residuals:
-                if cr is not None:
-                    hgh = np.interp(x_ref, x, cr[1])
-                    low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh-f_ref, low-f_ref, color=color, alpha=0.25)
-
-                rs.plot(x_ref, f-f_ref, linestyle_obs, color=color)
-
-            elif ratios:
-                if cr is not None:
-                    hgh = np.interp(x_ref, x, cr[1])
-                    low = np.interp(x_ref, x, cr[0])
-                    rs.fill_between(x_ref, hgh/f_ref, low/f_ref, color=color, alpha=0.25)
-
-                rs.plot(x_ref, f/f_ref, linestyle_obs, color=color)
-
-    # decorate
-    ax.grid(grid, which='both')
-    ax.set_yscale('log' if logy else 'linear')
-    ax.set_xscale('log' if logx else 'linear')
-    ax.set_xlim(xmin=xmin, xmax=xmax)
-
-    if (residuals or ratios or fractions) and (Nobs > 0):
-        rs.set_xscale(ax.get_xscale())
-        rs.set_xlim(ax.get_xlim())
-
-        rs.grid(grid, which='both')
-        plt.setp(ax.get_xticklabels(), visible=False)
-
-        rs.set_xlabel(xlabel)
-        if fractions:
-            if Nobs==1:
-                rs.set_ylabel('$(%s - %s_{\\ast})/%s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
-            else:
-                rs.set_ylabel('$(%s_{\\ast} - %s)/%s$'%(ylabel.strip('$'), ylabel.strip('$'), ylabel.strip('$')))
-
-        elif residuals:
-            if Nobs==1:
-                rs.set_ylabel('$%s - %s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$')))
-            else:
-                rs.set_ylabel('$%s_{\\ast} - %s$'%(ylabel.strip('$'), ylabel.strip('$')))
-
-        elif ratios:
-            rs.set_yscale(ax.get_xscale())
-            if Nobs==1:
-                rs.set_ylabel('$%s/%s_{\\ast}$'%(ylabel.strip('$'), ylabel.strip('$')))
-            else:
-                rs.set_ylabel('$%s_{\\ast}/%s$'%(ylabel.strip('$'), ylabel.strip('$')))
-       
-    else:
-        ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-
-    return fig
+        return fig, ax

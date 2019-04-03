@@ -181,8 +181,6 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
 
     fpath = os.path.join(args.output_dir, 'gpr_f-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
     ppath = os.path.join(args.output_dir, 'gpr_phi-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
-    if args.verbose:
-        print('saving mixture models of processes to:\n    %s\n    %s'%(fpath, ppath))
     with h5py.File(fpath, 'w') as fobj:
         with h5py.File(ppath, 'w') as pobj:
             for ind, (p, s, l, S, w) in enumerate(zip(polydeg, sigma, length_scale, sigma_obs, weights)):
@@ -269,8 +267,13 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                     ptst.append(mean_phi)
                     pbnd.append((mean_phi-np.diag(cov_phi_phi)**0.5, mean_phi+np.diag(cov_phi_phi)**0.5))
 
+    if args.verbose:
+        print('saved mixture models of processes to:\n    %s\n    %s'%(fpath, ppath))
+
     # for plotting purposes
     if args.plot_energy_densityc2 or args.plot_phi:
+        raise NotImplementedError
+
         truth = (logp_obs>=np.min(logp_resample))*(np.max(logp_resample)>=logp_obs) ### only keep samples below the max tabulated value
         if len(weights)==1:
             colors = [plot.matplotlib.colors.ColorConverter().to_rgb(plot.DEFAULT_COLOR1)+(0.25,)]
@@ -279,6 +282,8 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
 
     ### plot the result
     if args.plot_energy_densityc2:
+        raise NotImplementedError
+
         obs = np.exp(loge_obs[truth])
         fig = plot.gpr_overlay(
             np.exp(logp_obs[truth]),
@@ -330,6 +335,8 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 
     if args.plot_phi:
+        raise NotImplementedError
+
         obs = np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1)
         truth *= obs==obs
         obs = obs[truth]

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that plots the result of gpr_foo"
+__doc__ = "a script that plots the result of gpr_*"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -23,23 +23,32 @@ parser = ArgumentParser(description=__doc__)
 
 ### required options
 rgroup = parser.add_argument_group('required arguments')
-rgroup.add_argument('xcolumn', type=str)
-rgroup.add_argument('ycolumn', type=str)
 rgroup.add_argument('hdf5path', type=str)
-rgroup.add_argument('eospaths', nargs='+', type=str)
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity options')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
-### data pre-conditioning
-pgroup = parser.add_argument_group('pre-conditioning options')
-pgroup.add_argument('--logcolumn', default=[], type=str, action='append')
+### reference options
+dgroup = parser.add_argument_group('reference arguments')
+dgroup.add_argument('--csvpaths', nargs='+', type=str)
+dgroup.add_argument('--xcolumn', type=str, default=None)
+dgroup.add_argument('--ycolumn', type=str, default=None)
+dgroup.add_argument('--logcolumn', default=[], type=str, action='append')
 
-pgroup.add_argument('--poly-degree', default=None, type=int,
-    help='the order of the polynomial fit used to model data before plotting. \
-This essentially serves as the "mean" of the fit about which the GP models variations. \
-DEFAULT=No fit applied')
+### plotting arguments
+pgroup = parser.add_argument_group('plotting arguments')
+pgroup.add_argument('--level', default=[], type=float, action='append',
+    help='the confidence level to use when plotting marginal uncertainty. \
+Can be repeated to specify more than one confidence level.')
+
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+
+pgroup.add_argument('--xlabel', default=None, type=str,
+    help='if supplied, will override what is in the hdf5 model')
+pgroup.add_argument('--ylabel', default=None, type=str,
+    help='if supplied, will override what is in the hdf5 model')
 
 pgroup.add_argument('--min-x', default=None, type=float,
     help='only plot data above this value.')
@@ -60,7 +69,10 @@ ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
 args = parser.parse_args()
 
-xcol, ycol = columns = args.xcolumn, args.ycolumn
+if args.csvpaths:
+    assert args.xcolumn is not None, 'must supply --xcolumn with csvpaths'
+    assert args.ycolumn is not None, 'must supply --ycolumn with csvpaths'
+    columns = args.xcolumn, args.ycolumn
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
@@ -71,108 +83,76 @@ if args.tag:
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
+
 #-------------------------------------------------
-
-### set up figure
-fig = plot.plt.figure()
-ax = fig.gca()
-
-#------------------------
 
 ### read in process from pkl
 if args.verbose:
     print('reading process from: '+args.hdf5path)
 model = gp.hdf5load(args.hdf5path)
 
-# sanity check data for consistency
-if xcol in args.logcolumn:
-    assert labels[0] == 'log'+xcol
-else:
-    assert labels[0] == xcol
-
-if ycol in args.logcolumn:
-    assert labels[1] == 'log'+ycol
-else:
-    assert labels[1] == ycol
-
-raise NotImplementedError('need to adopt the same plotting solution as used in things like gpr-gpr to plot this mixture-model monstrosity!')
-
 # actually plot the process
 if args.verbose:
     print('plotting process')
-ax.fill_between(Xtest, mean-std-mean_fit, mean+std-mean_fit, color='k', alpha=0.25)
-ax.plot(Xtest, mean-mean_fit, color='k')
+figtup = plot.overlay_model(
+    model,
+    levels=args.level,
+    xlabel=args.xlabel,
+    ylabel=args.ylabel,
+    figwidth=args.figwidth,
+    figheight=args.figheight,
+)
 
 #------------------------
 
-### read in EOS data
-for path in args.eospaths:
-    if args.verbose:
-        print('reading: '+path)
-    data, _ = utils.load(path, columns)
-    x = data[:,0]
-    y = data[:,1]
-
-    truth = np.ones_like(x, dtype=bool)
-    if args.min_x!=None:
-        truth *= args.min_x<=x    
-    if args.max_x!=None:
-        truth *= x<=args.max_x
-    if args.min_y!=None:
-        truth *= args.min_y<=y
-    if args.max_y!=None:
-        truth *= y<=args.max_y
-
-    if np.any(truth):
-        x = x[truth]
-        y = y[truth]
-    else:
+### read in CSV data
+if args.csvpaths:
+    curves = []
+    for path in args.csvpaths:
         if args.verbose:
-            print('    no data found within requested bounds! skipping this eos')
-        continue ### skip this eos
+            print('loading csv from: '+path)
+        data, _ = utils.load(path, columns)
+        x = data[:,0]
+        y = data[:,1]
 
-    ### transform data as needed
+        # take logs of data if requested
+        if args.log_x:
+            x = np.log(x)
+        if args.log_y:
+            y = np.log(y)
+
+        curves.append((x, y, os.path.basename(path)[:-4]))
+
+    # actually plot the curves
     if args.verbose:
-        print('precondidtioning data')
-
-    # take logs of data if requested
-    if args.log_x:
-        x = np.log(x)
-    if args.log_y:
-        y = np.log(y)
-
-    if args.poly_degree!=None:
-        y_fit = np.zeros_like(y, dtype='float')
-        for i in xrange(args.poly_degree+1):
-            y_fit += poly[-1-i]*x**i
-    else:
-        y_fit = np.zeros_like(y)
-
-    # actually plot the data
-    ax.plot(x, y-y_fit, '.-', label=os.path.basename(path)[:-4])
+        print('plotting csv data')
+    figtup = plot.overlay(curves, figtup=figtup, xlabel=args.xlabel, ylabel=args.ylabel)
 
 #------------------------
 
 ### decorate 
-ax.set_xlabel(labels[0])
-if args.poly_degree!=None:
-    ax.set_ylabel(labels[1]+' - poly(%d)'%args.poly_degree)
-else:
-    ax.set_ylabel(labels[1])
+fig = figtup[0]
+fig.suptitle(os.path.basename(args.hdf5path)[:-5])
 
-ax.grid(True, which='both')
+for ax in figtup[1:]:
+    ax.grid(True, which='both')
 
-if args.min_x!=None:
-    ax.set_xlim(xmin=np.log(args.min_x) if args.log_x else args.min_x)
-if args.max_x!=None:
-    ax.set_xlim(xmax=np.log(args.max_x) if args.log_x else args.max_x)
+    if args.min_x!=None:
+        ax.set_xlim(xmin=np.log(args.min_x) if args.log_x else args.min_x)
+    if args.max_x!=None:
+        ax.set_xlim(xmax=np.log(args.max_x) if args.log_x else args.max_x)
+
+ax = figtup[1]
 if args.min_y!=None:
     ax.set_ylim(ymin=np.log(args.min_y) if args.log_y else args.min_y)
 if args.max_y!=None:
     ax.set_ylim(ymax=np.log(args.max_y) if args.log_y else args.max_y)
 
-#ax.legend(loc='best')
+if args.csvpaths:
+    ax.legend(loc='best')
 
 ### save
-plot.save('plot_foo-%s-%s%s'%tuple(labels+[args.tag]), fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+plot.save('plot_gpr%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.plt.close(fig)

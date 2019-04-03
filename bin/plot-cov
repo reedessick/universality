@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that plots the result of gpr_*"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import pickle
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import gaussianprocess as gp
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+### required options
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('hdf5path', type=str)
+
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+### output formatting
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_COV_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_COV_FIGHEIGHT, type=float)
+
+pgroup.add_argument('--colormap', default=plot.DEFAULT_COLORMAP, type=str,
+    help='DEFAULT='+plot.DEFAULT_COLORMAP)
+
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+#-------------------------------------------------
+
+### set up figure
+fig = plot.plt.figure()
+ax = fig.gca()
+
+#------------------------
+
+### read in process from pkl
+if args.verbose:
+    print('reading process from: '+args.hdf5path)
+model = gp.hdf5load(args.hdf5path)
+
+#------------------------
+
+# actually plot the process
+if args.verbose:
+    print('plotting covariance')
+fig = plot.cov(model, colormap=args.colormap, figwidth=args.figwidth, figheight=args.figheight)
+
+if args.title:
+    fig.suptitle(os.path.basename(args.hdf5path)[:-5])
+
+### save
+plot.save('plot_cov%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+plot.plt.close(fig)
