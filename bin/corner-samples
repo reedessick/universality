@@ -214,4 +214,4 @@ for ind, (label, path) in enumerate(args.samples):
 
 ### save
 plot.save('corner-samples%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
-plot.plt.close(fig)
+plot.close(fig)

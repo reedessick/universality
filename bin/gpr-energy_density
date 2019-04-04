@@ -172,7 +172,7 @@ for ind, path in enumerate(args): ### iterate over supplied EOS, resample, and f
 
         fig.suptitle(os.path.basename(path)[:-4])
         fig.savefig(figname)
-        plot.plt.close(fig)
+        plot.close(fig)
 
 if args.verbose:
     print('computing modeling uncertainty at each pressure')
@@ -259,4 +259,4 @@ if args.evaluate_plot:
 #    fig = plot.sanity_check(logp_evaluate, mean, np.diag(cov)**0.5, logps, means)[0]
 
     fig.savefig(figname)
-    plot.plt.close(fig)
+    plot.close(fig)

@@ -75,10 +75,6 @@ pgroup.add_argument('-p', '--plot-all', default=False, action='store_true')
 pgroup.add_argument('--plot-energy_densityc2', default=False, action='store_true')
 pgroup.add_argument('--plot-phi', default=False, action='store_true')
 
-pgroup.add_argument('--fractions', default=False, action='store_true')
-pgroup.add_argument('--residuals', default=False, action='store_true')
-pgroup.add_argument('--ratios', default=False, action='store_true')
-
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
@@ -168,16 +164,9 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
 
     ### run gpr to resample this eos
     if args.plot_energy_densityc2 or args.plot_phi:
-        f_xtst = [] ### holders for plotting
-        ftxt = []
-        fbnd = []
-
-        dftst = []
-        dfbnd = []
-
-        p_xtst = []
-        ptst = []
-        pbnd = []
+        fmodel = [] ### holders for plotting
+        dfmodel = []
+        pmodel = []
 
     fpath = os.path.join(args.output_dir, 'gpr_f-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
     ppath = os.path.join(args.output_dir, 'gpr_phi-%s%s.hdf5'%(os.path.basename(path)[:-4], args.tag))
@@ -256,111 +245,100 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 )
 
                 if args.plot_energy_densityc2 or args.plot_phi:
-                    f_xtst.append(np.exp(logp_resample[truth]))
-                    ftxt.append(np.exp(mean_f))
-                    fbnd.append((np.exp(mean_f+np.diag(cov_f_f)**0.5), np.exp(mean_f-np.diag(cov_f_f)**0.5)))
-
-                    dftst.append(mean_dfdx)
-                    dfbnd.append((mean_dfdx-np.diag(cov_dfdx_dfdx)**0.5, mean_dfdx+np.diag(cov_dfdx_dfdx)**0.5))
-
-                    p_xtst.append(np.exp(logp_resample[TRUTH]))
-                    ptst.append(mean_phi)
-                    pbnd.append((mean_phi-np.diag(cov_phi_phi)**0.5, mean_phi+np.diag(cov_phi_phi)**0.5))
+                    x = np.exp(logp_resample[truth])
+                    fmodel.append({
+                        'x':x,
+                        'f':np.exp(mean_f),
+                        'cov':cov_f_f,
+                        'weight':w,
+                        'labels':{'xlabel':'pressurec2', 'flabel':'energy_densityc2'}
+                    })
+                    dfmodel.append({
+                        'x':x,
+                        'f':mean_dfdx,
+                        'cov':cov_dfdx_dfdx,
+                        'weight':w,
+                        'labels':{'xlabel':'pressurec2', 'flabel':'denergy_densityc2dpressurec2'}
+                    })
+                    pmodel.append({
+                        'x':np.exp(logp_resample[TRUTH]),
+                        'f':mean_phi,
+                        'cov':cov_phi_phi,
+                        'weight':w,
+                        'labels':{'xlabel':'log(pressurec2)', 'flabel':'phi'}
+                    })
 
     if args.verbose:
         print('saved mixture models of processes to:\n    %s\n    %s'%(fpath, ppath))
 
-    # for plotting purposes
-    if args.plot_energy_densityc2 or args.plot_phi:
-        raise NotImplementedError
-
-        truth = (logp_obs>=np.min(logp_resample))*(np.max(logp_resample)>=logp_obs) ### only keep samples below the max tabulated value
-        if len(weights)==1:
-            colors = [plot.matplotlib.colors.ColorConverter().to_rgb(plot.DEFAULT_COLOR1)+(0.25,)]
-        else:
-            colors = plot.weights2color(weights, plot.DEFAULT_COLOR1, prefact=1.)
-
     ### plot the result
-    if args.plot_energy_densityc2:
-        raise NotImplementedError
+    if args.plot_energy_densityc2 or args.plot_phi:
+        if args.truncate:
+            truth = (np.min(logp_resample)<=logp_obs)*(logp_obs<=np.max(logp_resample)) ### truncate to only plot data that covers resample window
+        else:
+            truth = np.ones_like(logp_obs, dtype=bool)
 
-        obs = np.exp(loge_obs[truth])
-        fig = plot.gpr_overlay(
-            np.exp(logp_obs[truth]),
-            obs,
-            (obs, obs),
-            x_obs=f_xtst,
-            f_obs=ftxt,
-            cr_obs=fbnd,
-            color_tst=plot.DEFAULT_COLOR2,
-            linestyle_tst='.-',
-            color_obs=colors,
-            linestyle_obs='-',
-            logx=True,
-            logy=True,
-            xlabel='$p/c^2$',
-            ylabel='$\\varepsilon/c^2$',
-            fractions=args.fractions,
-            residuals=args.residuals,
-            ratios=args.ratios,
-            figwidth=args.figwidth,
-            figheight=args.figheight,
-            grid=args.grid,
-        )
-        plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+        p_obs = np.exp(logp_obs)
+        label = os.path.basename(path)[:-3]
 
-        obs = gp.num_dfdx(logp_obs, loge_obs)[truth]
-        fig = plot.gpr_overlay(
-            np.exp(logp_obs[truth]),
-            obs,
-            (obs, obs),
-            x_obs=f_xtst,
-            f_obs=dftst,
-            cr_obs=dfbnd,
-            color_tst=plot.DEFAULT_COLOR2,
-            linestyle_tst='.-',
-            color_obs=colors,
-            linestyle_obs='-',
-            logx=True,
-            logy=False,
-            xlabel='$p/c^2$',
-            ylabel='$d\log \\varepsilon / d\log p$',
-            fractions=args.fractions,
-            residuals=args.residuals,
-            ratios=args.ratios,
-            figwidth=args.figwidth,
-            figheight=args.figheight,
-            grid=args.grid,
-        )
-        plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+        if args.plot_energy_densityc2:
+            ### plot EOS
+            fig, ax = plot.overlay_model(fmodel)
+            ylim = ax.get_ylim()
+            plot.overlay(
+                [(p_obs[truth], np.exp(loge_obs[truth]), label)],
+                xlabel='$p/c^2$',
+                ylabel='$\\varepsilon/c^2$',
+                markers=['.'],
+                alphas=[0.5],
+                figwidth=args.figwidth,
+                figheight=args.figheight,
+                grid=args.grid,
+                logx=True,
+                logy=True,
+                figtup=(fig, ax),
+            )
+            ax.set_ylim(ylim)
+            plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+            plot.close(fig)
 
-    if args.plot_phi:
-        raise NotImplementedError
+            ### plot derivative
+            fig, ax = plot.overlay_model(dfmodel)
+            ylim = ax.get_ylim()
+            plot.overlay(
+                [(p_obs[truth], gp.num_dfdx(logp_obs, loge_obs)[truth], label)],
+                xlabel='$p/c^2$',
+                ylabel='$d\log\\varepsilon/d\log p$',
+                markers=['.'],
+                alphas=[0.5],
+                figwidth=args.figwidth,
+                figheight=args.figheight,
+                grid=args.grid,
+                logx=True,
+                logy=False,
+                figtup=(fig, ax),
+            )
+            ax.set_ylim(ylim)
+            plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+            plot.close(fig)
 
-        obs = np.log(np.exp(loge_obs)/np.exp(logp_obs)*gp.num_dfdx(logp_obs, loge_obs) - 1)
-        truth *= obs==obs
-        obs = obs[truth]
-
-        fig = plot.gpr_overlay(
-            np.exp(logp_obs[truth]),
-            obs,
-            (obs, obs),
-            x_obs=p_xtst,
-            f_obs=ptst,
-            cr_obs=pbnd,
-            color_tst=plot.DEFAULT_COLOR2,
-            linestyle_tst='.-',
-            color_obs=colors,
-            linestyle_obs='-',
-            logx=True,
-            logy=False,
-            xlabel='$p/c^2$',
-            ylabel='$\phi$',
-            fractions=args.fractions,
-            residuals=args.residuals,
-            ratios=args.ratios,
-            figwidth=args.figwidth,
-            figheight=args.figheight,
-            grid=args.grid,
-        )
-        plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+        if args.plot_phi:
+            ### plot aux variable
+            fig, ax = plot.overlay_model(pmodel)
+            ylim = ax.get_ylim()
+            plot.overlay(
+                [(p_obs[truth], np.log(np.exp(loge_obs)/p_obs * gp.num_dfdx(logp_obs, loge_obs) - 1)[truth], label)],
+                xlabel='$p/c^2$',
+                ylabel='$\phi$',
+                markers=['.'],
+                alphas=[0.5],
+                figwidth=args.figwidth,
+                figheight=args.figheight,
+                grid=args.grid,
+                logx=True,
+                logy=False,
+                figtup=(fig, ax),
+            )
+            ax.set_ylim(ylim)
+            plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+            plot.close(fig)

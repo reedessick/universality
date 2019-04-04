@@ -127,4 +127,4 @@ plot.plt.subplots_adjust(hspace=0.1, wspace=0.1)
 
 ### save
 plot.save('plot_dedp%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
-plot.plt.close(fig)
+plot.close(fig)

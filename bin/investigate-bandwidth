@@ -184,7 +184,7 @@ figname = os.path.join(opts.output_dir, 'investigate_bandwidth-logLike%s.png'%op
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plot.plt.close(fig)
+plot.close(fig)
 
 #--- visualization of resulting KDEs...
 if opts.verbose:
@@ -223,4 +223,4 @@ for b in opts.bandwidth:
     if opts.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
-    plot.plt.close(fig)
+    plot.close(fig)

@@ -398,4 +398,4 @@ if args.plot:
         grid=args.grid,
     )
     plot.save('gpr-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-    plot.plt.close(fig)
+    plot.close(fig)

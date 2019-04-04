@@ -151,4 +151,4 @@ figname = os.path.join(opts.output_dir, 'quick_plot%s.png'%opts.tag)
 if opts.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
-plot.plt.close(fig)
+plot.close(fig)

@@ -232,7 +232,7 @@ for ind in xrange(1, N):
             ax.grid(args.grid, which='both')
 
             plot.save('mid_%s-%s%s'%(key1, key2, args.tag), fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.Verbose, dpi=args.dpi)
-            plot.plt.close(fig)
+            plot.close(fig)
 
         # sanity check the results with known bounds
         if mid > 1:
@@ -297,4 +297,4 @@ if args.plot_stats:
 
     # save
     plot.save('mid'+args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-    plot.plt.close(fig)
+    plot.close(fig)

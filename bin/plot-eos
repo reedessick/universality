@@ -137,4 +137,4 @@ fig = plot.overlay(
 
 ### save
 plot.save('plot-eos%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
-plot.plt.close(fig)
+plot.close(fig)

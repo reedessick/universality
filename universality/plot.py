@@ -29,13 +29,14 @@ from . import gaussianprocess as gp
 DEFAULT_LEVELS=[0.5, 0.9]
 DEFAULT_NUM_POINTS = 25
 DEFAULT_BANDWIDTH = utils.DEFAULT_BANDWIDTH
-DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 8
+DEFAULT_FIGWIDTH = DEFAULT_FIGHEIGHT = 6
 
 DEFAULT_COV_FIGWIDTH = 10
 DEFAULT_COV_FIGHEIGHT = 4
 
 DEFAULT_COLOR1 = 'k'
 DEFAULT_COLOR2 = 'r'
+DEFAULT_COLOR3 = 'b'
 DEFAULT_COLORMAP = 'RdGy_r'
 
 DEFAULT_TRUTH_COLOR = 'b'
@@ -96,6 +97,9 @@ def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
         scatter_color[scatter_color[:,3]>1,3] = 1 ### give reasonable bounds
         scatter_color[scatter_color[:,3]<minimum,3] = minimum ### give reasonable bounds
     return scatter_color
+
+def close(fig):
+    plt.close(fig)
 
 #-------------------------------------------------
 
@@ -486,6 +490,7 @@ def overlay(
         figtup=None,
     ):
     ### set up figure, axes
+    subax = fractions or residuals or ratios
     if figtup is None:
         fig = plt.figure(figsize=(figwidth, figheight))
         if subax:
@@ -513,14 +518,14 @@ def overlay(
     if markers is None:
         markers = [DEFAULT_MARKER for _ in range(N)]
 
-    xmin = np.min([np.min(x) for x, _ in curves])
-    xmax = np.max([np.max(x) for x, _ in curves])
-    ymin = np.min([np.min(f) for _, f in curves])
-    ymax = np.max([np.max(f) for _, f in curves])
+    xmin = np.min([np.min(x) for x, _, _ in curves])
+    xmax = np.max([np.max(x) for x, _, _ in curves])
+    ymin = np.min([np.min(f) for _, f, _ in curves])
+    ymax = np.max([np.max(f) for _, f, _ in curves])
 
     # plot the observed data
-    for (x, f, label), c, l, m in zip(curves, colors, linestyles, markers):
-        ax.plot(x, f, linestyle=l, color=c, marker=m, label=label)
+    for (x, f, label), c, l, a, m in zip(curves, colors, linestyles, alphas, markers):
+        ax.plot(x, f, linestyle=l, color=c, marker=m, label=label, alpha=a)
 
     # plot residuals, etc
     if subax:

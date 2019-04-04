@@ -394,7 +394,7 @@ logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MU
             color='b',
         )
         plot.save('investigate-gpr-gpr-hyperparams-grid%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
-        plot.plt.close(fig)
+        plot.close(fig)
 
         ### add to overlay plot
         overlayfig = plot.corner(
@@ -424,4 +424,4 @@ if args.mcmc:
 
 if args.plot and (overlayfig is not None):
     plot.save('investigate-gpr-gpr-hyperparams%s'%args.tag, overlayfig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
-    plot.plt.close(overlayfig)
+    plot.close(overlayfig)

@@ -223,7 +223,7 @@ def draw_logprob(model, size=1, return_realizations=False, verbose=False):
         m = model[ind]
         f_obs = np.random.multivariate_normal(m['f'], m['cov']) ### draw the realization
         if return_realizations:
-            realizations.append(f_obs)
+            realizations.append((m['x'], f_obs))
 
         ### compute the score
         logscore = -np.infty
