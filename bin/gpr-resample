@@ -284,7 +284,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
         if args.plot_energy_densityc2:
             ### plot EOS
             fig, ax = plot.overlay_model(fmodel)
-            ylim = ax.get_ylim()
+            ymin1, ymax1 = ax.get_ylim()
             plot.overlay(
                 [(p_obs[truth], np.exp(loge_obs[truth]), label)],
                 xlabel='$p/c^2$',
@@ -298,13 +298,14 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 logy=True,
                 figtup=(fig, ax),
             )
-            ax.set_ylim(ylim)
+            ymin2, ymax2 = ax.get_ylim()
+            ax.set_ylim(ymin=min(ymin1, ymin2), ymax=max(ymax1, ymax2))
             plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.close(fig)
 
             ### plot derivative
             fig, ax = plot.overlay_model(dfmodel)
-            ylim = ax.get_ylim()
+            ymin1, ymax1 = ax.get_ylim()
             plot.overlay(
                 [(p_obs[truth], gp.num_dfdx(logp_obs, loge_obs)[truth], label)],
                 xlabel='$p/c^2$',
@@ -318,14 +319,16 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 logy=False,
                 figtup=(fig, ax),
             )
-            ax.set_ylim(ylim)
+            ymin2, ymax2 = ax.get_ylim()
+            ax.set_ylim(ymin=min(ymin1, ymin2), ymax=max(ymax1, ymax2))
+            plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.close(fig)
 
         if args.plot_phi:
             ### plot aux variable
             fig, ax = plot.overlay_model(pmodel)
-            ylim = ax.get_ylim()
+            ymin1, ymax1 = ax.get_ylim()
             plot.overlay(
                 [(p_obs[truth], np.log(np.exp(loge_obs)/p_obs * gp.num_dfdx(logp_obs, loge_obs) - 1)[truth], label)],
                 xlabel='$p/c^2$',
@@ -339,6 +342,8 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
                 logy=False,
                 figtup=(fig, ax),
             )
-            ax.set_ylim(ylim)
+            ymin2, ymax2 = ax.get_ylim()
+            ax.set_ylim(ymin=min(ymin1, ymin2), ymax=max(ymax1, ymax2))
+            plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.close(fig)

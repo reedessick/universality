@@ -77,16 +77,22 @@ logscore_target = gp.model_logprob(target, source)
 if args.Verbose:
     print('    logprob(target|source) = %.6e'%logscore_target)
 if args.plot:
-    figtup = plots.overlay_model(source, color=plots.DEFAULT_COLOR1)
-    plots.overlay_model(target, color=plots.DEFAULT_COLOR2, figtup=figtup)
+    fig, ax = plots.overlay_model(source, color=plots.DEFAULT_COLOR1)
+    ymin, ymax = ax.get_ylim()
+    plots.overlay_model(target, color=plots.DEFAULT_COLOR2, figtup=(fig, ax))
+    ymin = min(ax.get_ylim()[0], ymin)
+    ymax = max(ax.get_ylim()[1], ymax)
 
 ### compute the background distribution of scores
 if args.verbose:
     print('drawing %d realizations from the source model'%args.num_draws)
 if args.plot:
     logscores, realizations = gp.draw_logprob(source, size=args.num_draws, return_realizations=True, verbose=args.Verbose)
-    plots.overlay([(x,f,str(i)) for i, (x,f) in enumerate(realizations)], colors=[plots.DEFAULT_COLOR3]*args.num_draws], figtup=figtup)
+    plots.overlay([(x,f,str(i)) for i, (x,f) in enumerate(realizations)], colors=[plots.DEFAULT_COLOR3]*args.num_draws, figtup=(fig, ax))
+    ymin = min(ax.get_ylim()[0], ymin)
+    ymax = max(ax.get_ylim()[1], ymax)
 
+    ax.set_ylim(ymin=ymin, ymax=ymax)
     plot.save('gpr-gpr-quantile-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
     plot.close(fig)
 
