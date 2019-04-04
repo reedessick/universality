@@ -62,6 +62,7 @@ pgroup.add_argument('--max-y', default=None, type=float,
 
 pgroup.add_argument('--title', default=False, action='store_true',
     help='include a title in the plot')
+pgroup.add_argument('--grid', default=False, action='store_true')
 
 ### output formatting
 ogroup = parser.add_argument_group('output options')
@@ -141,7 +142,8 @@ if args.title:
     fig.suptitle(os.path.basename(args.hdf5path)[:-5])
 
 for ax in figtup[1:]:
-    ax.grid(True, which='both')
+    if args.grid:
+        ax.grid(True, which='both')
 
     if args.min_x!=None:
         ax.set_xlim(xmin=args.min_x)
