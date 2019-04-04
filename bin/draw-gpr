@@ -26,6 +26,24 @@ DEFAULT_NUM_PER_DIRECTORY = 1000
 
 #-------------------------------------------------
 
+HEADER = '%s,%s'
+
+FOOTER = '''\
+# poly_degree = %(poly_degree)d
+# sigma = %(sigma).9f
+# length_scale = %(length_scale).9f
+# sigma_obs = %(sigma_obs).9f)'''
+EXTRA_FOOTER = '''
+# model_multiplier = %(model_multiplier).9f'''
+
+def footer(hyperparams):
+    ans = FOOTER%hyperparams
+    if hyperparams['model_multiplier'] is not None:
+        ans += EXTRA_FOOTER%hyperparams
+    return ans
+    
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 ### required arguments
@@ -78,31 +96,38 @@ if args.plot:
     ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
-path = os.path.join(args.output_dir, 'DRAW-%{moddraw}', 'draw-gpr'+args.tag+'-%{draw}06d.csv') # for generating filenames
-tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
-row = '%.9e,%.9e'                                                     # for writing file contents
-header = '%s,%s'''%(xlabel, flabel)                          
-footer = '''\
-# poly_degree = %(poly_degree)d
-# sigma = %(sigma).9f
-# length_scale = %(length_scale).9f
-# sigma_obs = %(sigma_obs).9f)
-# model_multiplier = %(model_multiplier).9f'''
+directory = os.path.join(args.output_dir, 'DRAWmod%d'%args.num_per_directory+'-%(moddraw)06d')
+path = os.path.join(directory, 'draw-gpr'+args.tag+'-%(draw)06d.csv') # for generating filenames
 
+header = HEADER%(model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ### assume the mixture model is sane... 
+
+if args.verbose:
+    tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
 for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
-    csvpath = path%{'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
+    fmt = {'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
+
+    csvdir = directory%fmt
+    csvpath = path%fmt
+    if not os.path.exists(csvdir):
+        os.makedirs(csvdir)
     if args.verbose:
-        sys.stdout.write(tmp%(i+1, path))
+        sys.stdout.write(tmp%(i+1, csvpath))
         sys.stdout.flush()
 
     # draw the realization
     m = model[ind]
-    x_txt = m['x']
-
+    x_tst = m['x']
     y_tst = np.random.multivariate_normal(m['f'], m['cov'])
 
     # write the realization to disk
-    np.savetxt(csvpath, zip(x_tst, y_tst), header=header, footer=footer%m['hyperparams'], comments='', delimiter=',')
+    np.savetxt(
+        csvpath,
+        zip(x_tst, y_tst),
+        header=header,
+        footer=footer(m['hyperparams']),
+        comments='',
+        delimiter=',',
+    )
 
     # add to plot
     if args.plot:
