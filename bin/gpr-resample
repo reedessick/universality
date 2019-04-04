@@ -321,7 +321,6 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             )
             ymin2, ymax2 = ax.get_ylim()
             ax.set_ylim(ymin=min(ymin1, ymin2), ymax=max(ymax1, ymax2))
-            plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.save('gpr-resample-dedp%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.close(fig)
 
@@ -344,6 +343,5 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             )
             ymin2, ymax2 = ax.get_ylim()
             ax.set_ylim(ymin=min(ymin1, ymin2), ymax=max(ymax1, ymax2))
-            plot.save('gpr-resample-energy_densityc2%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.save('gpr-resample-phi%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
             plot.close(fig)
