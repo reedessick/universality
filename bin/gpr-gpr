@@ -368,24 +368,10 @@ with h5py.File(hdf5path, 'w') as obj:
 ### plot the result
 if args.plot:
 
-    raise NotImplementedError('figure out how to plot this monstrosity!')
-
-    cr_obs = []
-    for m, c in zip(means, covs):
-        c = np.diag(c)**0.5
-        cr_obs.append( (m-c, m+c) )
-
-    fig = plot.gpr_overlay(
-        np.exp(x_evaluate),
-        mean,
-        (mean-np.diag(cov)**0.5, mean+np.diag(cov)**0.5),
-        [np.exp(x_obs)]*Npkl,
-        means,
-        cr_obs=cr_obs,
-        linestyle_obs='-',
-        linestyle_tst='-',
-        color_tst='k',
-        color_obs=['r']*Npkl,
+    ### plot the over-arching GP
+    figtup = plot.overlay_model(
+        gp.hdf5load(hdf5path), ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+        color=plot.DEFAULT_COLOR1,
         logx=True,
         logy=False,
         xlabel='$p/c^2$',
@@ -397,5 +383,23 @@ if args.plot:
         figheight=args.figheight,
         grid=args.grid,
     )
-    plot.save('gpr-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+
+    ### plot the underlying GPs
+    for model in models:
+        plot.overlay_model(
+            model,
+            color=plot.DEFAULT_COLOR2
+            logx=True,
+            logy=False,
+            xlabel='$p/c^2$',
+            ylabel=args.ylabel,
+            fractions=args.fractions,
+            residuals=args.residuals,
+            ratios=args.ratios,
+            grid=args.grid,
+            figtup=figtup,
+        )
+
+    ### save
+    plot.save('gpr-gpr%s'%args.tag, figtup[0], figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
     plot.close(fig)
