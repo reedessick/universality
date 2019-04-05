@@ -107,7 +107,7 @@ def parse_process_group(group):
     x_tst = group['mean'][xlabel]
     f_tst = group['mean'][flabel]
 
-    cov_f_f = group['cov'][...]
+    cov_f_f = posdef(group['cov'][...]) ### run this through our algorithm to guarantee it is postive definite
 
     return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs, m)
 
@@ -324,13 +324,21 @@ def grad_logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=
 # GPR via conditioning given a set of observation and a covariance matrix
 #-------------------------------------------------
 
-def posdef(cov):
+def posdef(cov, epsilon=1e-10):
     '''
     identifies the nearest positive semi-definite symmetric matrix and returns it
     '''
     cov[:] = 0.5*(cov+cov.T) ### re-use memory and symmetrize this thing to try to average away numerical errors
-    if np.linalg.slogdet(cov)[0]!=1:
-        print('***WARNING*** non-physical conditioned covariance matrix detected!')
+
+    val, vec = np.linalg.eigh(cov)                     ### take spectral decomposition
+    epsilon *= np.max(val)                             ### normalize this
+    val[val<epsilon] = epsilon                         ### regularlize eigenvalue
+    cov[:] = np.dot(vec, np.dot(np.diag(val), vec.T))  ### compute the matrix with the regularlize eigenvalues
+
+    sign, det = np.linalg.slogdet(cov)
+    if sign!=1:
+        print('***WARNING*** non-physical conditioned covariance matrix detected! sign=%d; log|det|=%.6e'%(sign, det))
+
     return cov
 
 def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
