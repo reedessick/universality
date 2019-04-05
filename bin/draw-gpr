@@ -103,7 +103,10 @@ header = HEADER%(model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ###
 
 if args.verbose:
     tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
-for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.num_draws), plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=10., minimum=0.))):
+for i, (ind, color) in enumerate(zip(\
+        utils.draw_from_weights(weights, size=args.num_draws),
+        plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=0.25, minimum=0.)
+    )):
     fmt = {'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
 
     csvdir = directory%fmt
@@ -131,12 +134,11 @@ for i, (ind, color) in enumerate(zip(utils.draw_from_weights(weights, size=args.
 
     # add to plot
     if args.plot:
-        plot.overlay([(x_tst, y_tst, str(i))], color=color, figtup=(fig, ax))
+        plot.overlay([(x_tst, y_tst, str(i))], colors=[color], alphas=[0.25], figtup=(fig, ax))
 
 if args.verbose:
     sys.stdout.write('\n')
 
 if args.plot:
-    ax.set_xlim(xmin=xmin, xmax=xmax)
     plot.save('draw-gpr%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
     plot.close(fig)
