@@ -210,7 +210,7 @@ if args.stitch: ### set up stitching conditions
 
 hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
 if args.verbose:
-    print('iterating over %d combinations of input mixture models\nwriting process to: %s'%(Ninds, hdf5path))
+    print('iterating over %d combinations of input mixture models'%Ninds)
 with h5py.File(hdf5path, 'w') as obj:
 
     ### place-holder for when we iterate over many possible hyperparam values
@@ -365,6 +365,9 @@ with h5py.File(hdf5path, 'w') as obj:
     for ind, w in enumerate(weights): ### update attributes in hdf5 groups
         obj[str(ind)].attrs['weight'] = w
 
+if args.verbose:
+    print('process written to: %s'%(Ninds, hdf5path))
+
 ### plot the result
 if args.plot:
 
@@ -388,7 +391,7 @@ if args.plot:
     for model in models:
         plot.overlay_model(
             model,
-            color=plot.DEFAULT_COLOR2
+            color=plot.DEFAULT_COLOR2,
             logx=True,
             logy=False,
             xlabel='$p/c^2$',
