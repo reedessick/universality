@@ -445,17 +445,30 @@ def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheig
     c /= w
     c2 /= w
     c2 = (c2 - c**2)**0.5
+
+    # plot average covariance
     m = np.max(np.abs(c))
+    lim = -m, +m
+    plt.sca(eax)
+    cb = fig.colorbar(
+        eax.imshow(np.tanh(c), cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
+        orientation='vertical',
+        shrink=0.90,
+    )
+    cb.set_label('$\mu_\mathrm{Cov}$')
 
-    for ax, thing, lim, label in [(eax, c, (-m, m), '$\mu_\mathrm{Cov}$'), (vax, c2, (0, max(np.max(c2), 0.001)), '$\sigma_\mathrm{Cov}$')]:
-        plt.sca(ax)
-        cb = fig.colorbar(
-            ax.imshow(thing, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
-            orientation='vertical',
-            shrink=0.90,
-        )
-        cb.set_label(label)
+    # plot stdv of covariance
+    lim = 0, max(np.max(c2), 0.001)
+    plt.sca(vax)
+    cb = fig.colorbar(
+        vax.imshow(np.tanh(c2), cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
+        orientation='vertical',
+        shrink=0.90,
+    )
+    cb.set_label('$\sigma_\mathrm{Cov}$')
 
+
+    for ax in [eax, vax]:
         ax.set_xticks(x, minor=True)
         ax.set_yticks(x, minor=True)
 
@@ -620,28 +633,31 @@ def overlay_model(
             fig, ax = figtup
 
     ### plot the confidence regions
-    x = model[0]['x']
-    xmin = np.min(x)
-    xmax = np.max(x)
-    if xlabel is None:
-        xlabel = model[0]['labels']['xlabel']
-    if ylabel is None:
-        ylabel = model[0]['labels']['flabel']
-
-    f = np.zeros_like(x, dtype=float)
-    assert np.all([len(x)==len(m['x']) and np.all(x==m['x']) for m in model[1:]]), 'x-values must match identically for every component of the mixture model'
-
     sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
 
     weights = [m['weight'] for m in model]
     colors = weights2color(weights, color, prefact=alpha/(len(sigmas)*2.), minimum=0.002)
 
+    xmin = +np.infty
+    xmax = -np.infty
+    x = set()
     for m, c, w in zip(model, colors, weights):
+        _x = m['x']
         _f = m['f']
         _s = np.diag(m['cov'])**0.5
         for sigma in sigmas:
             ax.fill_between(m['x'], _f+_s*sigma, _f-_s*sigma, color=c, linewidth=0) ### plot uncertainty
-        f += w*_f
+
+        # book-keeping for plotting the mean
+        xmin = min(xmin, np.min(_x))
+        xmax = max(xmax, np.max(_x))
+        x = x.union(set(_x))
+
+    ### plot a representation of the overall mean
+    x = np.array(sorted(x))
+    f = np.zeros_like(x, dtype=float)
+    for m, w in zip(model, weights):
+        f += w*np.interp(x, m['x'], m['f'])
     f /= np.sum(weights) ### plot the mean of the means
     ax.plot(x, f, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
 
@@ -686,6 +702,11 @@ def overlay_model(
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
+
+    if xlabel is None:
+        xlabel = model[0]['labels']['xlabel']
+    if ylabel is None:
+        ylabel = model[0]['labels']['flabel']
 
     ax.set_ylabel(ylabel)
     if subax:
