@@ -372,8 +372,11 @@ if args.verbose:
 if args.plot:
 
     ### plot the over-arching GP
+    model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+    for m in model: ### exponentiate the x-variable for plotting purposes
+        m['x'] = np.exp(m['x'])
     figtup = plot.overlay_model(
-        gp.hdf5load(hdf5path), ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+        model,
         color=plot.DEFAULT_COLOR1,
         logx=True,
         logy=False,
@@ -389,6 +392,8 @@ if args.plot:
 
     ### plot the underlying GPs
     for model in models:
+        for m in model:
+            m['x'] = np.exp(m['x']) ### exponentiate the x-variable for plotting purposes
         plot.overlay_model(
             model,
             color=plot.DEFAULT_COLOR2,
@@ -405,4 +410,4 @@ if args.plot:
 
     ### save
     plot.save('gpr-gpr%s'%args.tag, figtup[0], figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
-    plot.close(fig)
+    plot.close(figtup[0])

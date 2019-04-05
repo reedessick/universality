@@ -640,6 +640,8 @@ def overlay_model(
 
     xmin = +np.infty
     xmax = -np.infty
+    ymin = +np.infty
+    ymax = -np.infty
     x = set()
     for m, c, w in zip(model, colors, weights):
         _x = m['x']
@@ -651,6 +653,8 @@ def overlay_model(
         # book-keeping for plotting the mean
         xmin = min(xmin, np.min(_x))
         xmax = max(xmax, np.max(_x))
+        ymin = min(ymin, np.min(_f))
+        ymax = max(ymax, np.max(_f))
         x = x.union(set(_x))
 
     ### plot a representation of the overall mean
@@ -702,6 +706,7 @@ def overlay_model(
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
+    ax.set_ylim(ymin=ymin, ymax=ymax)
 
     if xlabel is None:
         xlabel = model[0]['labels']['xlabel']
