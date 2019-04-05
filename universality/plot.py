@@ -431,20 +431,33 @@ def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheig
     eax = plt.subplot(1,2,1)
     vax = plt.subplot(1,2,2)
 
-    x = model[0]['x']
-    assert np.all([len(x)==len(m['x']) and np.all(x==m['x']) for m in model[1:]]), 'x-values must match identically for every component of the mixture model'
-
+    ### average over mixture model
+    ### NOTE:
+    ###     we take special care to handle cases where the model components have different x-values
+    ###     we assume that the covariance is zero for that element if the x-value is missing
+    ###     practially, this should be a small edge-effect that we can probably ignore in almost all cases
+    x = set()
+    for m in model:
+        x = x.union(m['x'])
     n = len(x)
-    c = np.zeros((n,n), dtype=float)
-    c2 = np.zeros((n,n), dtype=float)
+
+    x = np.array(sorted(x), dtype=float)
+    truth = np.empty(n*n, dtype=bool)
+    c = np.zeros(n*n, dtype=float)
+    c2 = np.zeros(n*n, dtype=float)
     w = 0.
     for m in model:
-        c += m['weight']*m['cov']
-        c2 += m['weight']*m['cov']**2
+        contained = [_ in m['x'] for _ in x] ### possibly expensive, but whatever
+        truth[:] = np.outer(contained, contained).flatten()
+        c[truth] += m['weight']*m['cov'].flatten()
+        c2[truth] += m['weight']*(m['cov'].flatten()**2)
         w += m['weight']
     c /= w
     c2 /= w
     c2 = (c2 - c**2)**0.5
+
+    c = c.reshape((n,n))
+    c2 = c2.reshape((n,n))
 
     # plot average covariance
     m = np.max(np.abs(c))
