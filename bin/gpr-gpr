@@ -366,7 +366,7 @@ with h5py.File(hdf5path, 'w') as obj:
         obj[str(ind)].attrs['weight'] = w
 
 if args.verbose:
-    print('process written to: %s'%(Ninds, hdf5path))
+    print('process written to: '+hdf5path)
 
 ### plot the result
 if args.plot:
