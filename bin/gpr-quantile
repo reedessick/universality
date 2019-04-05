@@ -64,9 +64,17 @@ if args.verbose:
     print('loading target model from: '+args.target_hdf5path)
 target = gp.hdf5load(args.target_hdf5path)
 
-if args.verbose:
-    print('loading source model from: '+args.source_hdf5path)
-source = gp.hdf5load(args.source_hdf5path)
+if args.source_hdf5path!=args.target_hdf5path:
+    if args.verbose:
+        print('loading source model from: '+args.source_hdf5path)
+    source = gp.hdf5load(args.source_hdf5path)
+else:
+    if args.verbose:
+        print('using target model as source')
+    source = target ### NOTE:
+                    ###     need to use the exact same object because our "posdef" mapping does not produce derministic results due to rounding errors
+                    ###     therefore, re-loading the same model will result in more computational overhead within draw_logprob
+                    ###     in addition to the wasted I/O here
 
 #-------------------------------------------------
 
@@ -77,23 +85,34 @@ logscore_target = gp.model_logprob(target, source)
 if args.Verbose:
     print('    logprob(target|source) = %.6e'%logscore_target)
 if args.plot:
-    fig, ax = plots.overlay_model(source, color=plots.DEFAULT_COLOR1)
+    fig, ax = plot.overlay_model(source, color=plot.DEFAULT_COLOR1)
     ymin, ymax = ax.get_ylim()
-    plots.overlay_model(target, color=plots.DEFAULT_COLOR2, figtup=(fig, ax))
-    ymin = min(ax.get_ylim()[0], ymin)
-    ymax = max(ax.get_ylim()[1], ymax)
 
 ### compute the background distribution of scores
 if args.verbose:
     print('drawing %d realizations from the source model'%args.num_draws)
 if args.plot:
     logscores, realizations = gp.draw_logprob(source, size=args.num_draws, return_realizations=True, verbose=args.Verbose)
-    plots.overlay([(x,f,str(i)) for i, (x,f) in enumerate(realizations)], colors=[plots.DEFAULT_COLOR3]*args.num_draws, figtup=(fig, ax))
+    plot.overlay(
+        [(x,f,str(i)) for i, (x,f) in enumerate(realizations)],
+        colors=[plot.DEFAULT_COLOR3]*args.num_draws,
+        alphas=[0.25]*args.num_draws,
+        figtup=(fig, ax),
+    )
+
+    plot.overlay_model(target, color=plot.DEFAULT_COLOR2, figtup=(fig, ax)) ### plot target on top
     ymin = min(ax.get_ylim()[0], ymin)
     ymax = max(ax.get_ylim()[1], ymax)
-
     ax.set_ylim(ymin=ymin, ymax=ymax)
-    plot.save('gpr-gpr-quantile-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+
+    right = plot.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2]*0.99
+    top = plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3]*0.99
+    dy = 0.05*plot.MAIN_AXES_POSITION[3]
+    fig.text(right, top, 'target', color=plot.DEFAULT_COLOR2, ha='right', va='top')
+    fig.text(right, top-dy, 'source', color=plot.DEFAULT_COLOR1, ha='right', va='top')
+    fig.text(right, top-2*dy, 'realizations', color=plot.DEFAULT_COLOR3, ha='right', va='top')
+
+    plot.save('gpr-quantile-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
     plot.close(fig)
 
 else:
@@ -102,7 +121,7 @@ else:
 ### compute the quantile with approximate error bars
 c = np.sum(logscores<=logscore_target) ### the number less likely than the target
 f = 1.*c/args.num_draws
-print('gpr-gpr-quantile = %.3e\n    %d out of %d realizations less likely than %s given %s'%(\
+print('gpr-quantile = %.3e\n    %d out of %d realizations less likely than %s given %s'%(\
     f,
     c,
     args.num_draws,
@@ -116,7 +135,16 @@ if args.plot:
     ax = fig.gca()
 
     # plot cumulative normalized histogram
-    ax.hist(logscores, bins=max(10, args.num_draws**0.5), histtype='step', cumulative=1, normed=True, label='realizations')
+    # do my own cumulative histogram because matplotlib's binning sometimes is not great
+    xmin = min(logscore_target, min(logscores))
+    xmax = max(logscore_target, max(logscores))
+    x = np.linspace(xmin, xmax, 1001)
+    c = np.zeros_like(x, dtype=float)
+    for ls in logscores:
+        c += x >= ls
+    c /= 1.*len(logscores)
+    ax.plot(x, c, label='realizations')
+
     ax.set_ylim(ymin=-0.01, ymax=1.01)
 
     # annotate with target score
@@ -140,5 +168,5 @@ if args.plot:
     ax.set_title('P(%s | %s)'%(os.path.basename(args.target_hdf5path), os.path.basename(args.source_hdf5path)))
 
     # save
-    plot.save('gpr-gpr-quantile-cdf%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+    plot.save('gpr-quantile-cdf%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
     plot.plt.close(fig)

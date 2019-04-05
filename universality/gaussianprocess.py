@@ -164,14 +164,90 @@ def cov_df1dx1_df2dx2(x1, x2, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2):
 # GPR likelihoods and jacobians thereof
 #-------------------------------------------------
 
-def logprob(f_obs, f_prb, cov_prb, cov_obs=None):
+def _target_in_source(target, source):
+    """returns a boolean array of the same length as target corresponding to the values of target that are in source
+    """
+    return np.array([_ in source for _ in target], dtype=bool)
+
+def _intersect_models(x_obs, f_obs, invcov_obs, x_prb, f_prb, invcov_prb):
+    """helper function that returns the correct (x, f, invcov) for each model corresponding to the x values both share
+    useful for model_logprob, and draw_logprob
+
+    return f_obs, invcov_obs, f_prb, invcov_prb
+    """
+    t_obs = _target_in_source(x_obs, x_prb)
+    f_obs = f_obs[t_obs]
+    if invcov_obs is not None:
+        invcov_obs = _extract_invsubset_from_invcov(t_obs, invcov_obs)
+
+    t_prb = _target_in_source(x_prb, x_obs)
+    f_prb = f_prb[t_prb]
+    invcov_prb = _extract_invsubset_from_invcov(t_prb, invcov_prb)
+
+    return f_obs, invcov_obs, f_prb, invcov_prb
+
+def _extract_invsubset_from_invcov(bool_keep, invcov):
+    """return the inverse of a subset of cov by extracting it from invcov
+
+    we first re-order invcov so that the indecies we want to keep are in the lower-right block-diagonal
+    we then use the identity that if
+      Cov = [[p, q], [r, s]]
+    and
+     inv(Cov) = [[P, Q], [R, S]]
+    then inv(p) = P - Qinv(S)R
+    """
+    if np.all(bool_keep): ### nothing to do
+        return invcov
+    else:
+        invcov = _reorder(bool_keep, invcov) ### re-order so we can extract the sub-matrices
+        n = np.sum(bool_keep)
+        return invcov[:n,:n] - np.dot(invcov[:n,n:], np.dot(np.linalg.inv(invcov[n:,n:]), invcov[n:,:n]))
+
+def _reorder(bool_keep, invcov):
+    result = np.empty_like(invcov)
+    result[:] = invcov ### make a copy so we don't mess up a shared reference
+
+    for i, j in zip(np.arange(np.sum(bool_keep)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
+        if i!=j:
+            _interchange(i, j, result)
+
+    return result
+
+def _interchange(i, j, m):
+    tmp = np.empty(len(m), dtype=float)
+    # interchange the rows
+    tmp[:] = m[i,:]
+    m[i,:] = m[j,:]
+    m[j,:] = tmp[:]
+    # interchange the columns
+    tmp[:] = m[:,i]
+    m[:,i] = m[:,j]
+    m[:,j] = tmp[:]
+
+def logprob(x_obs, f_obs, x_prb, f_prb, cov_prb, cov_obs=None):
     '''
     compute the probablity of seeing f_obs (measurement uncertainty encapsulated in cov_obs) given a process described by (f_prob, cov_prob)
     assumes f_obs and f_prob are sampled at the same abscissa
 
     note, the default assumes f_obs is perfectly measured (cov_obs=None). If this is not the case, specify the covariance matrix for f_obs via the cov_obs kwarg
     '''
-    return _logprob(f_obs, f_prb, np.linalg.inv(cov_prb), invcov_obs=None if cov_obs is None else np.linalg.inv(cov_obs))
+    ### make sure everything corresponds to consistent x values
+    if len(x_obs)!=len(x_prb) or (not np.all(x_obs!=x_prb)):
+        t_obs = _target_in_source(x_obs, x_prb)
+        f_obs = f_obs[t_obs]
+        if cov_obs is not None:
+            cov_obs = cov_obs[np.outer(t_obs,t_obs)].reshape((len(f_obs),)*2)
+
+        t_prb = _target_in_source(x_prb, x_obs)
+        f_prb = f_prb[t_prb]
+        cov_prb = cov_prb[np.outer(t_prb, t_prb)].reshape((len(f_prb),)*2)
+
+    return _logprob(
+        f_obs,
+        f_prb,
+        np.linalg.inv(cov_prb),
+        invcov_obs=None if cov_obs is None else np.linalg.inv(cov_obs),
+    )
 
 def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
     if invcov_obs is None:
@@ -180,7 +256,6 @@ def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
         invcov = 0.5*invcov_prb
     else:
         invcov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
-
     return _logLike(f_obs-f_prb, invcov)
 
 def model_logprob(model_obs, model_prb):
@@ -190,13 +265,14 @@ def model_logprob(model_obs, model_prb):
     NOTE: assumes models have properly normalized weights
     '''
     # invert all matricies only once
-    obs = [(obs['f'], np.linalg.inv(obs['cov']) if obs['cov'] is not None else None, np.log(obs['weight'])) for obs in model_obs]
-    prb = [(prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model_prb]
+    obs = [(obs['x'], obs['f'], np.linalg.inv(obs['cov']) if obs['cov'] is not None else None, np.log(obs['weight'])) for obs in model_obs]
+    prb = [(prb['x'], prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model_prb]
 
     logscore = -np.infty
-    for f_obs, invcov_obs, logw_obs in obs:
-        for f_prb, invcov_prb, logw_prb in prb:
-            _logscore = _logprob(f_obs, f_prb, invcov_prb, invcov_obs=invcov_obs) + logw_obs + logw_prb ### the conditioned probability multiplied by the 2 weights
+    for x_obs, f_obs, invcov_obs, logw_obs in obs:
+        for x_prb, f_prb, invcov_prb, logw_prb in prb:
+            fo, ico, fp, icp = _intersect_models(x_obs, f_obs, invcov_obs, x_prb, f_prb, invcov_prb) 
+            _logscore = _logprob(fo, fp, icp, invcov_obs=ico) + logw_obs + logw_prb ### the conditioned probability multiplied by the 2 weights
             m = max(logscore, _logscore)
             logscore = np.log(np.exp(logscore-m) + np.exp(_logscore-m)) + m
 
@@ -210,7 +286,7 @@ def draw_logprob(model, size=1, return_realizations=False, verbose=False):
     if return_realizations:
         realizations = []
 
-    prb = [(prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model] ### only invert the matricies once
+    prb = [(prb['x'], prb['f'], np.linalg.inv(prb['cov']), np.log(prb['weight'])) for prb in model] ### only invert the matricies once
     if verbose:
         tmp = '\r %'+'%d'%(np.int(np.log10(size))+1)+'d / '+'%d'%size
         i = 1
@@ -222,13 +298,15 @@ def draw_logprob(model, size=1, return_realizations=False, verbose=False):
 
         m = model[ind]
         f_obs = np.random.multivariate_normal(m['f'], m['cov']) ### draw the realization
+        x_obs = m['x']
         if return_realizations:
-            realizations.append((m['x'], f_obs))
+            realizations.append((x_obs, f_obs))
 
         ### compute the score
         logscore = -np.infty
-        for f_prb, invcov_prb, logw_prb in prb:
-            _logscore = _logprob(f_obs, f_prb, invcov_prb) + logw_prb ### the conditioned probability multiplied by the 2 weights
+        for x_prb, f_prb, invcov_prb, logw_prb in prb:
+            fo, _, fp, icp = _intersect_models(x_obs, f_obs, None, x_prb, f_prb, invcov_prb) 
+            _logscore = _logprob(fo, fp, icp) + logw_prb ### the conditioned probability multiplied by the 2 weights
             m = max(logscore, _logscore)
             logscore = np.log(np.exp(logscore-m) + np.exp(_logscore-m)) + m
 
@@ -263,37 +341,20 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     # compute components separately because they each require different techniques to stabilize them numerically
     return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
-def _logLike(f_obs, invcov, eigenbasis=False):
-    n = len(f_obs)
-    nrm = -0.5*n*np.log(2*np.pi)
-
-    if eigenbasis: ### compute the inner product in the eigenbasis, stripping out small eigenvalues
-        # let's strip out small eigenvalues
-        invcov = 0.5*(invcov+invcov.T)
-        maxval = np.max(invcov) ### try normalizing before we do any linear algebra
-        invcov /= maxval
-
-        val, vect = np.linalg.eig(invcov) ### only keep the symmetric part
-        val[val<0] = 0 ### set anything that is tiny compared to the max to a small number
-
-        invcov = np.diag(val)
-        f_obs = np.dot(np.transpose(vect), f_obs)
-
-        det = 0.5*np.sum(np.log(val[val>0]*maxval)) ### handle this with care. We know we're truncating stuff, so act like it
-
-    else:
-        maxval = 1. ### used in inner product below
-
-        # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
-        sign, det = np.linalg.slogdet(invcov)
-        if sign<0: # do this first so we don't waste time computing other stuff that won't matter
-            return -np.infty ### rule this out by setting logLike -> -infty
-        det *= 0.5
+def _logLike(f_obs, invcov):
+    # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
+    sign, det = np.linalg.slogdet(invcov)
+    if sign<0: # do this first so we don't waste time computing other stuff that won't matter
+        return -np.infty ### rule this out by setting logLike -> -infty
+    det *= 0.5
 
     # now compute inner product in the diagonal basis
-    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))*maxval
+    obs = -0.5*np.dot(f_obs, np.dot(invcov, f_obs))
     if obs > 0:
         raise ValueError('unphysical value for inner product: %.6e (s=%d logdet=%.6e)'%(obs, sign, det))
+
+    n = len(f_obs)
+    nrm = -0.5*n*np.log(2*np.pi)
 
     return obs + det + nrm ### assemble components and return
 

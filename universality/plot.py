@@ -90,7 +90,7 @@ def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
     scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(basecolor)
     mw, Mw = np.min(weights), np.max(weights)
     if np.all(weights==Mw):
-        scatter_color[:,3] = max(min(1., prefact/Nsamp), minimum) ### equal weights
+        scatter_color[:,3] = max(min(1., 1.*prefact/Nsamp), minimum) ### equal weights
     else:
         scatter_color[:,3] = weights/np.max(weights)
         scatter_color[:,3] *= prefact/neff(weights)
@@ -447,7 +447,7 @@ def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheig
     c2 = np.zeros(n*n, dtype=float)
     w = 0.
     for m in model:
-        contained = [_ in m['x'] for _ in x] ### possibly expensive, but whatever
+        contained = gp._target_in_source(x, m['x']) ### possibly expensive, but whatever
         truth[:] = np.outer(contained, contained).flatten()
         c[truth] += m['weight']*m['cov'].flatten()
         c2[truth] += m['weight']*(m['cov'].flatten()**2)
@@ -719,7 +719,13 @@ def overlay_model(
     ax.set_yscale('log' if logy else 'linear')
     ax.set_xscale('log' if logx else 'linear')
     ax.set_xlim(xmin=xmin, xmax=xmax)
-    ax.set_ylim(ymin=ymin, ymax=ymax)
+
+    if logy:
+        dy = (ymax/ymin)**0.05
+        ax.set_ylim(ymin=ymin/dy, ymax=ymax*dy)
+    else:
+        dy = (ymax-ymin)*0.05
+        ax.set_ylim(ymin=ymin-dy, ymax=ymax+dy)
 
     if xlabel is None:
         xlabel = model[0]['labels']['xlabel']
