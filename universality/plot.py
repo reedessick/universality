@@ -12,7 +12,8 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 plt.rcParams['font.family'] = 'serif'
-#plt.rcParams['text.usetex'] = True
+if matplotlib.__version__ < '1.3.0':
+    plt.rcParams['text.usetex'] = True
 
 try:
     from corner import corner as _corner
@@ -424,7 +425,7 @@ def curve_corner(
 
 #-------------------------------------------------
 
-def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheight=DEFAULT_COV_FIGHEIGHT):
+def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheight=DEFAULT_COV_FIGHEIGHT, tanh=False):
     """plot the covariance matrix averaged over the components of the mixture model
     """
     fig = plt.figure(figsize=(figwidth, figheight))
@@ -459,27 +460,36 @@ def cov(model, colormap=DEFAULT_COLORMAP, figwidth=DEFAULT_COV_FIGWIDTH, figheig
     c = c.reshape((n,n))
     c2 = c2.reshape((n,n))
 
+    if tanh:
+        c = np.tanh(c/tanh)
+        c2 = np.tanh(c2/tanh)
+
     # plot average covariance
     m = np.max(np.abs(c))
     lim = -m, +m
     plt.sca(eax)
     cb = fig.colorbar(
-        eax.imshow(np.tanh(c), cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
+        eax.imshow(c, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
         orientation='vertical',
         shrink=0.90,
     )
-    cb.set_label('$\mu_\mathrm{Cov}$')
+    if tanh:
+        cb.set_label('$\\tanh\left(\mu_\mathrm{Cov}/%.3f\\right)$'%tanh)
+    else:
+        cb.set_label('$\mu_\mathrm{Cov}$')
 
     # plot stdv of covariance
     lim = 0, max(np.max(c2), 0.001)
     plt.sca(vax)
     cb = fig.colorbar(
-        vax.imshow(np.tanh(c2), cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
+        vax.imshow(c2, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
         orientation='vertical',
         shrink=0.90,
     )
-    cb.set_label('$\sigma_\mathrm{Cov}$')
-
+    if tanh:
+        cb.set_label('$\\tanh\left(\sigma_\mathrm{Cov}/%.3f\\right)$'%tanh)
+    else:
+        cb.set_label('$\sigma_\mathrm{Cov}$')
 
     for ax in [eax, vax]:
         ax.set_xticks(x, minor=True)

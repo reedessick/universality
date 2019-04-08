@@ -36,7 +36,8 @@ pgroup.add_argument('--figheight', default=plot.DEFAULT_COV_FIGHEIGHT, type=floa
 
 pgroup.add_argument('--colormap', default=plot.DEFAULT_COLORMAP, type=str,
     help='DEFAULT='+plot.DEFAULT_COLORMAP)
-
+pgroup.add_argument('--tanh-scale', default=False, type=float,
+    help='plot tanh of covariance instead of just the covariance. Will use this scale to normalize the values')
 pgroup.add_argument('--title', default=False, action='store_true',
     help='include a title in the plot')
 
@@ -75,7 +76,7 @@ model = gp.hdf5load(args.hdf5path)
 # actually plot the process
 if args.verbose:
     print('plotting covariance')
-fig = plot.cov(model, colormap=args.colormap, figwidth=args.figwidth, figheight=args.figheight)
+fig = plot.cov(model, colormap=args.colormap, figwidth=args.figwidth, figheight=args.figheight, tanh=args.tanh_scale)
 
 if args.title:
     fig.suptitle(os.path.basename(args.hdf5path)[:-5])
