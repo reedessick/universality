@@ -163,6 +163,7 @@ def param_mc(minimum, maximum, size=gp.DEFAULT_NUM, prior='log'):
             param = minimum + np.random.rand(size)*(maximum-minimum)
         else:
             raise ValueError('unknown prior='+prior)
+    return param
 
 #-------------------------------------------------
 # Marginal Likelihood routines used within investigate-gpr-resample-hyperparams
@@ -270,7 +271,6 @@ def logLike_mc(
         ans = _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=temperature)
 
     else: ### divide up work and parallelize
-
         Nsamp = len(SIGMA)
         ans = np.empty((Nsamp, 4), dtype=float)
 
