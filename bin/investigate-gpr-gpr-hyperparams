@@ -92,12 +92,12 @@ parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
     help='the number of grid points in each dimension. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
-    help='the number of samples to draw in mcmc. \
-DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
-
-parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
-    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
+#parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
+#    help='the number of samples to draw in mcmc. \
+#DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
+#
+#parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
+#    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
 #parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
 #    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
@@ -116,11 +116,11 @@ DEFAULT=%.3f'%hp.DEFAULT_TEMPERATURE)
 
 parser.add_argument('--mc', default=False, action='store_true')
 parser.add_argument('--grid', default=False, action='store_true')
-parser.add_argument('--mcmc', default=False, action='store_true')
+#parser.add_argument('--mcmc', default=False, action='store_true')
 #parser.add_argument('--maxL', default=False, action='store_true')
 
-parser.add_argument('--strip-mcmc', default=0, type=int,
-    help='the number of burn in samples to reject from the mcmc sampler')
+#parser.add_argument('--strip-mcmc', default=0, type=int,
+#    help='the number of burn in samples to reject from the mcmc sampler')
 
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
 
@@ -189,8 +189,10 @@ if args.stitch: ### set up stitching conditions
         args.stitch_num_points,
     )
     x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
-    f_stitch = np.ones(args.stitch_num_points, dtype=float)*args.stitch_mean
-    cov_stitch = np.diag(np.exp(x_stitch - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### the stitching white-noise kernel
+    f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index)
+    stitch = [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
+else:
+    stitch = []
 
 #------------------------
 
@@ -225,135 +227,34 @@ if args.grid:
     if args.verbose:
         print('evaluating on a %s grid'%("x".join('%d'%args.num_grid for _ in xrange(np.sum(include)-args.include_logL))))
 
-    sigma = hp.param_grid(args.min_sigma, args.max_sigma, size=args.num_grid, prior=args.sigma_prior)
-    length_scale = hp.param_grid(args.min_l, args.max_l, size=args.num_grid, prior=args.l_prior)
-    sigma_obs = hp.param_grid(args.min_sigma_obs, args.max_sigma_obs, size=args.num_grid, prior=args.sigma_obs_prior)
-    model_multiplier = hp.param_grid(args.min_m, args.max_m, size=args.num_grid, prior=args.m_prior)
-
-    SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER = np.meshgrid(sigma, length_scale, sigma_obs, model_multiplier, indexing='ij')
-    SIGMA = SIGMA.flatten()
-    LENGTH_SCALE = LENGTH_SCALE.flatten()
-    SIGMA_OBS = SIGMA_OBS.flatten()
-    MODEL_MULTIPLIER = MODEL_MULTIPLIER.flatten()
-
-    ### perform the actual iteration, which will be expensive as all get out
-    logLikes = []
-    tmp = '    %'+str(int(np.floor(np.log10(len(SIGMA)))))+'d / '+'%d'%len(SIGMA)
-    for ind, (s, l, S, m) in enumerate(zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER)):
-        if args.Verbose:
-            print(tmp%(ind+1))
-
-        s2 = s**2
-        l2 = l**2
-        S2 = S**2
-
-        logweights = [] ### holder for all weights before we normalize them
-        for indecies in inds:
-            ### iterate over the models included here and extract the relevant parameters for this combination of models
-            if args.Verbose:
-                print('        extracting data from each model included in this combination')
-            x_obs = []
-            f_obs = []
-            xlabel = models[0][0]['labels']['xlabel']
-            flabel = models[0][0]['labels']['flabel']
-            for model, j in zip(models, indecies):
-                assert xlabel==model[j]['labels']['xlabel'], 'xlabel must match for all models!'
-                assert flabel==model[j]['labels']['flabel'], 'flabel must match for all models!'
-                x_obs.append(model[j]['x'])
-                f_obs.append(model[j]['f'])
-            x_obs = np.concatenate(x_obs)
-            f_obs = np.concatenate(f_obs)
-
-            ### compute the big uncertainty estimate between all the models
-            Nobs = len(x_obs)
-
-            ### add in "theory model noise" as diagonal components based on variance of means at each pressure
-            if args.Verbose:
-                print('        assembling measurement uncertainty covariance')
-            if args.stitch:
-                covs = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
-
-                x_obs = np.concatenate((x_obs, x_stitch)) ### add in stitching data
-                f_obs = np.concatenate((f_obs, f_stitch))
-                covs[Nobs:,Nobs:] = cov_stitch
-
-            else:
-                covs = np.zeros((Nobs,Nobs), dtype=float)
-
-            ### add block-diagonal components
-            if args.Verbose:
-                print('        adding block-diagonal contributions')
-            start = 0
-            for model, j in zip(models, indecies):
-                stop = start+len(model[j]['x']) ### the number of points in this model
-                covs[start:stop,start:stop] = model[j]['cov'] ### fill in block-diagonal component
-                start = stop
-
-            ### iterate through pressure samples and compute theory variance of each
-            if args.verbose:
-                print('        adding modeling uncertainty at each x-value')
-
-            ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
-            truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
-            for x in set(x_obs): # iterate over all included x-points
-
-                truth[:] = False ### re-set this
-
-                sample = [] # set up holders for the values from each model that covers this pressure point
-                sample_covs = []
-
-                ### iterate over each model, checking to see whether it has this x-value
-                start = 0
-                for model, j in zip(models, indecies):
-                    n = len(model[j]['x'])
-                    i = np.arange(n)[x==model[j]['x']]
-                    if len(i): ### there's a match
-                        i = i[0]
-                        truth[start+i] = True ### we update this index in the big covariance matrix
-                        sample.append(model[j]['f'][i]) ### record the mean
-                        sample_covs.append(model[j]['cov'][i,i]) ### and the covariance
-                    start += n ### bump this
-
-                ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
-                covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))*m
-
-            ### add the squared-exponential covariance kernel
-            covs += gp._cov(x_obs, sigma2=s2, l2=l2, sigma2_obs=S2)
-
-            #-------------------------------------------------
-
-            ### compute likelihood
-            if args.Verbose:
-                print('        computing logLike for this set of conditioned values and hyperparams')
-            f_fit, _ = gp.poly_model(np.array([]), f_obs, x_obs, degree=args.poly_degree)
-            logweight = gp._logLike(f_obs-f_fit, np.linalg.inv(covs)) ### compute logLike for seeing the data on which we condition
-
-            ### include the prior weights from each mixture model
-            for model, j in zip(models, indecies):
-                logweight += np.log(model[j]['weight'])
-
-            logweights.append(logweight)
-
-        ### sum over models in the mixture to compute the logLike of this whole thing
-        if len(logweights) == 1: ### no need to sum
-            logLikes.append(logweights[0])
-
-        else: # sum over components of the mixture model
-            logweights = np.array(logweights)
-            maximum = np.max(logweights)
-            logLikes.append(np.log(np.sum(np.exp(logweights-maximum)))+maximum) ### sum over models to get the overall loglike
-
-    logLikes = np.array(logLikes)*(1./args.temperature) ### flatten likelihoods with an inverse temperature a la parallel tempering
+    grid = hp.cvlogLike_grid(
+        models,
+        stitch,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        (args.min_m, args.max_m),
+        num_sigma=args.num_grid,
+        num_l=args.num_grid,
+        num_sigma_obs=args.num_grid,
+        num_model_multiplier=args.num_grid,
+        sigma_prior=args.sigam_prior,
+        l_prior=args.l_prior,
+        sigma_obs_prior=args.sigma_obs_prior,
+        model_multiplier_prior=args.model_multiplier_prior,
+        degree=args.poly_degree,
+        num_proc=args.num_proc,
+        temperature=args.temperature,
+    )
 
     ### print maximum likelihood parameters
-    maxind = logLikes.argsort()[-1] ### the biggest one
     if args.verbose:
         print('''\
 sigma = %.3e
 l     = %.3f
 sigma_obs = %.3e
 model_multiplier = %.3e
-logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MULTIPLIER[maxind], logLikes[maxind]))
+logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
 
     ### write the results to disk
     path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
@@ -362,22 +263,22 @@ logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MU
     tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
     with open(path, 'w') as file_obj:
         print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
-        for tup in zip(SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER, logLikes):
+        for tup in zip(grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier'], grid['logLike']):
             print >> file_obj, tmp%tup
 
     if args.plot:
         if args.include_logL:
             if args.log_sigmas:
-                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLIER), logLikes])
+                data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), np.log10(grid['model_multiplier']), grid['logLike']])
             else:
-                data = np.transpose([SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER, logLikes])
+                data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier'], grid['logLike']])
         else:
             if args.log_sigmas:
-                data = np.transpose([np.log10(SIGMA), LENGTH_SCALE, np.log10(SIGMA_OBS), np.log10(MODEL_MULTIPLIER)])
+                data = np.transpose([np.log10(grid['sigma']), grid['l'], np.log10(grid['sigma_obs']), np.log10(grid['model_multiplier'])])
             else:
-                data = np.transpose([SIGMA, LENGTH_SCALE, SIGMA_OBS, MODEL_MULTIPLIER])
+                data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier']])
 
-        weights = np.exp(logLikes-np.max(logLikes))
+        weights = np.exp(grid['logLike']-np.max(grid['logLike']))
         weights /= np.sum(weights)
 
 #        truth = weights>1e-2/len(weights)
@@ -393,6 +294,7 @@ logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MU
             truths=truths[include] if truths is not None else None,
             color='b',
         )
+        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
         plot.save('investigate-gpr-gpr-hyperparams-grid%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.close(fig)
 
@@ -410,15 +312,84 @@ logL = %.3e'''%(SIGMA[maxind], LENGTH_SCALE[maxind], SIGMA_OBS[maxind], MODEL_MU
 
 if args.mc:
     if args.verbose:
-        print('generating %d Monte-Carlo samples from the hyperprio'%args.num_mc)
-    raise NotImplementedError
+        print('generating %d Monte-Carlo samples from the hyperprior'%args.num_mc)
+    mc = hp.cvlogLike_mc(
+        models,
+        stitch,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        (args.min_m, args.max_m),
+        num_samples=args.num_mc,
+        sigma_prior=args.sigam_prior,
+        l_prior=args.l_prior,
+        sigma_obs_prior=args.sigma_obs_prior,
+        model_multiplier_prior=args.model_multiplier_prior,
+        degree=args.poly_degree,
+        num_proc=args.num_proc,
+        temperature=args.temperature,
+    )
 
-#---
-
-if args.mcmc:
+    ### print maximum likelihood parameters
     if args.verbose:
-        print('running MCMC for %d steps with %d walkers'%(args.num_mcmc, args.num_walkers))
-    raise NotImplementedError
+        print('''\
+sigma = %.3e
+l     = %.3f
+sigma_obs = %.3e
+model_multiplier = %.3e
+logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
+
+    ### write the results to disk
+    path = "%s/investigate-gpr-gpr-hyperparams-mc%s.csv"%(args.output_dir, args.tag)
+    if args.verbose:
+        print('writing: '+path)
+    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
+    with open(path, 'w') as file_obj:
+        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
+        for tup in zip(mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier'], mc['logLike']):
+            print >> file_obj, tmp%tup
+
+    if args.plot:
+        if args.include_logL:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mc['sigma']), mc['l'], np.log10(mc['sigma_obs']), np.log10(mc['model_multiplier']), mc['logLike']])
+            else:
+                data = np.transpose([mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier'], mc['logLike']])
+        else:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mc['sigma']), mc['l'], np.log10(mc['sigma_obs']), np.log10(mc['model_multiplier'])])
+            else:
+                data = np.transpose([mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier']])
+
+        weights = np.exp(mc['logLike']-np.max(mc['logLike']))
+        weights /= np.sum(weights)
+
+#        truth = weights>1e-2/len(weights)
+        truth = np.ones(len(weights), dtype=bool)
+
+        if args.verbose:
+            print('    plotting')
+
+        fig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            truths=truths[include] if truths is not None else None,
+            color='b',
+        )
+        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
+        plot.save('investigate-gpr-gpr-hyperparams-mc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+        plot.close(fig)
+
+        ### add to overlay plot
+        overlayfig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            color='b',
+            truths=truths[include] if truths is not None else None,
+            fig=overlayfig,
+        )
 
 #--- wrap up overlay plot
 

@@ -638,7 +638,7 @@ def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_d
 
     return cov
 
-def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2):
+def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2, guess_model_multiplier=1):
     '''
     a delegation function useful when I've already got a bunch of "noise" covariances known for f_obs(x_obs)
     performs automatic optimization ot find the best hyperparameters along with subtracting out f_fit from a polynomial model
@@ -651,16 +651,103 @@ def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, degree=1, guess_sigma2=DEFAUL
     sigma2 = guess_sigma2
     l2 = guess_l2
     sigma2_obs = guess_sigma2_obs
+    model_multiplier = guess_model_multiplier
 
     ### perform GPR with best hyperparameters to infer function at x_tst
     ### note, we don't delegate to gpr_f here because we want to build the covariance functions ourself
     cov_tst_tst = cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
     cov_tst_obs = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
     cov_obs_tst = cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
-    cov_obs_obs = cov_noise + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs) ### NOTE, we just add the know "noise" along with the GPR kernel
+    ### NOTE, we just add the known "noise" along with the GPR kernel
+    cov_obs_obs = cov_altogether_obs_obs(x_obs, cov_noise, cov_models, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs, model_multiplier=model_multiplier)
 
     ### and now we delgeate
     mean, cov, logweight = gpr(f_obs-f_fit, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
     mean += f_tst ### add the polyfit model back in
 
     return mean, cov, logweight
+
+def cov_phi_phi_stitch(x_stitch, stitch_mean, stitch_pressure, stitch_index):
+    n = len(x_stitch)
+    f_stitch = np.ones(n, dtype=float)*stitch_mean
+    cov_stitch = np.diag(np.exp(x_stitch - np.log(stitch_pressure/utils.c2))**stitch_index) ### the stitching white-noise kernel
+    return f_stitch, cov_stitch
+
+def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, model_multiplier=1):
+    return cov_noise + model_multiplier*cov_models + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+
+def cov_altogether_noise(models, stitch):
+    """compute the big-ol covariance matrix for gpr_altogether
+    NOTE: we expect only a single element in each model at this point!
+    """
+    x_obs = []
+    f_obs = []
+    for model models:
+        x_obs.append(model['x'])
+        f_obs.append(model['f'])
+    x_obs = np.concatenate(x_obs)
+    f_obs = np.concatenate(f_obs)
+
+    ### compute the big uncertainty estimate between all the models
+    Nobs = len(x_obs)
+
+    ### add in "theory model noise" as diagonal components based on variance of means at each pressure
+    if stitch:
+        x_stitch = []
+        f_stitch = []
+        for s in stitch:
+            x_stitch.append(s['x'])
+            f_stitch.append(s['f'])
+        x_stitch = np.concatenate(x_stitch)
+        f_stitch = np.concatenate(f_stitch)
+
+        num_stitch = len(x_stitch)
+
+        cov_stitch = stitch[0]['cov']
+
+        covs = np.zeros((Nobs+stitch_num_points,)*2, dtype=float) ### include space for the stitching conditions
+
+        x_obs = np.concatenate((x_obs, x_stitch)) ### add in stitching data
+        f_obs = np.concatenate((f_obs, f_stitch))
+        start = Nobs
+        for s in stitch:
+            stop = start+len(s['x'])
+            covs[start:stop,start:stop] = s['cov']
+            start = stop
+    else:
+        covs = np.zeros((Nobs,Nobs), dtype=float)
+
+    ### add block-diagonal components
+    start = 0
+    for model in models:
+        stop = start+len(model['x']) ### the number of points in this model
+        covs[start:stop,start:stop] = model['cov'] ### fill in block-diagonal component
+        start = stop
+
+    ### iterate through pressure samples and compute theory variance of each
+    ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
+    model_cov = np.zeros_like(covs, dtype=float)
+    truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
+    for x in set(x_obs): # iterate over all included x-points
+
+        truth[:] = False ### re-set this
+
+        sample = [] # set up holders for the values from each model that covers this pressure point
+        sample_covs = []
+
+        ### iterate over each model, checking to see whether it has this x-value
+        start = 0
+        for model in models:
+            n = len(model['x'])
+            i = np.arange(n)[x==model['x']]
+            if len(i): ### there's a match
+                i = i[0]
+                truth[start+i] = True ### we update this index in the big covariance matrix
+                sample.append(model['f'][i]) ### record the mean
+                sample_covs.append(model['cov'][i,i]) ### and the covariance
+            start += n ### bump this
+
+        ### add the sample variance for this pressure
+        model_covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))
+
+    return x_obs, f_obs, covs, model_covs

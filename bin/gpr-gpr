@@ -170,18 +170,6 @@ else:
 
 #-------------------------------------------------
 
-models = []
-for hdf5path in args.hdf5paths:
-    if args.verbose:
-        print('reading: '+hdf5path)
-    models.append(gp.hdf5load(hdf5path))
-
-### create combinatorically many possible matchings between all models
-inds = zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in models])])
-Ninds = len(inds)
-
-#-------------------------------------------------
-
 ### set up the evaluation points, which are use repeatedly within the following loop
 if args.verbose:
     print('evaluating f at %d points within [%.3e, %.3e] dyn/cm^2'%((args.num_points,)+tuple(args.pressure_bounds)))
@@ -203,10 +191,22 @@ if args.stitch: ### set up stitching conditions
         args.stitch_num_points,
     )
     x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
-    f_stitch = np.ones(args.stitch_num_points, dtype=float)*args.stitch_mean
-    cov_stitch = np.diag(np.exp(x_stitch - np.log(args.stitch_pressure/utils.c2))**args.stitch_index) ### the stitching white-noise kernel
+    f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index)
+    stitch = [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
+else:
+    stitch = []
 
 #------------------------
+
+models = []
+for hdf5path in args.hdf5paths:
+    if args.verbose:
+        print('reading: '+hdf5path)
+    models.append(gp.hdf5load(hdf5path))
+
+### create combinatorically many possible matchings between all models
+inds = utils.models2combinations(models)
+Ninds = len(inds)
 
 hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
 if args.verbose:
@@ -227,74 +227,9 @@ with h5py.File(hdf5path, 'w') as obj:
         for indecies in inds:
             if args.Verbose:
                 print(tmp%(ind+1))
+                print('building big covariance matrix')
 
-            ### iterate over the models included here and extract the relevant parameters for this combination of models
-            if args.Verbose:
-                print('    extracting data from each model included in this combination')
-            x_obs = []
-            f_obs = []
-            xlabel = models[0][0]['labels']['xlabel']
-            flabel = models[0][0]['labels']['flabel']
-            for model, j in zip(models, indecies):
-                assert xlabel==model[j]['labels']['xlabel'], 'xlabel must match for all models!'
-                assert flabel==model[j]['labels']['flabel'], 'flabel must match for all models!'
-                x_obs.append(model[j]['x'])
-                f_obs.append(model[j]['f'])
-            x_obs = np.concatenate(x_obs)
-            f_obs = np.concatenate(f_obs)
-
-            ### compute the big uncertainty estimate between all the models
-            Nobs = len(x_obs)
-
-            ### add in "theory model noise" as diagonal components based on variance of means at each pressure
-            if args.Verbose:
-                print('    assembling measurement uncertainty covariance')
-            if args.stitch:
-                covs = np.zeros((Nobs+args.stitch_num_points, Nobs+args.stitch_num_points), dtype=float) ### include space for the stitching conditions
-
-                x_obs = np.concatenate((x_obs, x_stitch)) ### add in stitching data
-                f_obs = np.concatenate((f_obs, f_stitch))
-                covs[Nobs:,Nobs:] = cov_stitch
-
-            else:
-                covs = np.zeros((Nobs,Nobs), dtype=float)
-
-            ### add block-diagonal components
-            if args.Verbose:
-                print('    adding block-diagonal contributions')
-            start = 0
-            for model, j in zip(models, indecies):
-                stop = start+len(model[j]['x']) ### the number of points in this model
-                covs[start:stop,start:stop] = model[j]['cov'] ### fill in block-diagonal component
-                start = stop
-
-            ### iterate through pressure samples and compute theory variance of each
-            if args.verbose:
-                print('    adding modeling uncertainty at each x-value')
-
-            ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
-            truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
-            for x in set(x_obs): # iterate over all included x-points
-
-                truth[:] = False ### re-set this
-    
-                sample = [] # set up holders for the values from each model that covers this pressure point
-                sample_covs = []
-
-                ### iterate over each model, checking to see whether it has this x-value
-                start = 0
-                for model, j in zip(models, indecies):
-                    n = len(model[j]['x'])
-                    i = np.arange(n)[x==model[j]['x']]
-                    if len(i): ### there's a match
-                        i = i[0]
-                        truth[start+i] = True ### we update this index in the big covariance matrix
-                        sample.append(model[j]['f'][i]) ### record the mean
-                        sample_covs.append(model[j]['cov'][i,i]) ### and the covariance
-                    start += n ### bump this
-
-                ### add the sample variance for this pressure mulitplied by some factor (hyper-parameter)
-                covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))*m
+            x_obs, f_obs, covs, model_covs = gp.cov_altogether_noise([model[i] for model, i in zip(models, indecies)], stitch)
 
             #-------------------------------------------------
 
@@ -305,13 +240,15 @@ with h5py.File(hdf5path, 'w') as obj:
                     print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
             mean, cov, logweight = gp.gpr_altogether(
                 x_evaluate,
-                f_obs,
-                x_obs,
-                covs,
+                f_obs, ### used in GPR conditioning and polymodel
+                x_obs, ### used in polymodel and adding covariance kernel
+                covs, ### only the noise component (includes model multiplier, though)
+                model_covs,
                 degree=p,
                 guess_sigma2=s2,
                 guess_l2=l2,
                 guess_sigma2_obs=S2,
+                guess_model_multiplier=m,
             )
     
             ### include the prior weights from each mixture model
