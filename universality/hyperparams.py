@@ -505,7 +505,14 @@ def _cvlogprob(keep_bools, f_obs, invcov):
     return logprob
 
 def _cvlogprob_reorder(keep_bool, f_obs, invcov):
-    raise NotImplementedError('reorder this so the desired stuff is in the top-left corner')
+    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
+        if i!=j:
+            ### interchange the vector in place
+            _ = f_obs[i]
+            f_obs[i] = f_obs[j]
+            f_obs[j] = _
+            ### interchange the matrix in place
+            gp._interchange(i, j, invcov)
 
 def cvlogLike_grid(
         models,
