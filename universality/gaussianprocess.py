@@ -682,7 +682,7 @@ def cov_altogether_noise(models, stitch):
     """
     x_obs = []
     f_obs = []
-    for model models:
+    for model in models:
         x_obs.append(model['x'])
         f_obs.append(model['f'])
     x_obs = np.concatenate(x_obs)
