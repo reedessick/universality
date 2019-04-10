@@ -93,12 +93,12 @@ parser.add_argument('--num-grid', default=gp.DEFAULT_NUM, type=int,
     help='the number of grid points in each dimension. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-#parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
-#    help='the number of samples to draw in mcmc. \
-#DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
-#
-#parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
-#    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
+parser.add_argument('--num-mcmc', default=hp.DEFAULT_NUM_MCMC, type=int,
+    help='the number of samples to draw in mcmc. \
+DEFAULT=%d'%hp.DEFAULT_NUM_MCMC)
+
+parser.add_argument('--num-walkers', default=hp.DEFAULT_NUM_WALKERS, type=int,
+    help='DEFAULT=%d'%hp.DEFAULT_NUM_WALKERS)
 
 #parser.add_argument('--maxL-method', default=hp.DEFAULT_METHOD, type=str,
 #    help='DEFAULT=%s'%hp.DEFAULT_METHOD)
@@ -117,11 +117,11 @@ DEFAULT=%.3f'%hp.DEFAULT_TEMPERATURE)
 
 parser.add_argument('--mc', default=False, action='store_true')
 parser.add_argument('--grid', default=False, action='store_true')
-#parser.add_argument('--mcmc', default=False, action='store_true')
+parser.add_argument('--mcmc', default=False, action='store_true')
 #parser.add_argument('--maxL', default=False, action='store_true')
 
-#parser.add_argument('--strip-mcmc', default=0, type=int,
-#    help='the number of burn in samples to reject from the mcmc sampler')
+parser.add_argument('--strip-mcmc', default=0, type=int,
+    help='the number of burn in samples to reject from the mcmc sampler')
 
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
 
@@ -138,7 +138,7 @@ parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 #assert np.any((args.grid, args.mcmc, args.mc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --mcmc, --maxL'
-assert np.any((args.mc, args.grid)), 'please specify at least one of: --mc, --grid'
+assert np.any((args.mc, args.grid, args.mcmc)), 'please specify at least one of: --mc, --grid, --mcmc'
 
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
@@ -376,7 +376,7 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
             labels=labels[include],
             weights=weights[truth],
             truths=truths[include] if truths is not None else None,
-            color='b',
+            color='g',
         )
         fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
         plot.save('investigate-gpr-gpr-hyperparams-mc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
@@ -387,7 +387,88 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
             data[truth][:,include],
             labels=labels[include],
             weights=weights[truth],
-            color='b',
+            color='g',
+            truths=truths[include] if truths is not None else None,
+            fig=overlayfig,
+        )
+
+if args.mcmc:
+    if args.verbose:
+        print('running MCMC for %d steps with %d walkers'%(args.num_mc, args.num_walkers))
+    mcmc = hp.cvlogLike_mcmc(
+        models,
+        stitch,
+        (args.min_sigma, args.max_sigma),
+        (args.min_l, args.max_l),
+        (args.min_sigma_obs, args.max_sigma_obs),
+        (args.min_m, args.max_m),
+        num_samples=args.num_mcmc,
+        num_walkers=args.num_walkers,
+        sigma_prior=args.sigma_prior,
+        l_prior=args.l_prior,
+        sigma_obs_prior=args.sigma_obs_prior,
+        model_multiplier_prior=args.m_prior,
+        degree=args.poly_degree,
+        temperature=args.temperature,
+    )
+
+    ### print maximum likelihood parameters
+    if args.verbose:
+        print('''\
+sigma = %.3e
+l     = %.3f
+sigma_obs = %.3e
+model_multiplier = %.3e
+logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
+
+    ### write the results to disk
+    path = "%s/investigate-gpr-gpr-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
+    if args.verbose:
+        print('writing: '+path)
+    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
+    with open(path, 'w') as file_obj:
+        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
+        for tup in zip(mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['model_multiplier'], mcmc['logLike']):
+            print >> file_obj, tmp%tup
+
+    if args.plot:
+        if args.include_logL:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), np.log10(mcmc['model_multiplier']), mcmc['logLike']])
+            else:
+                data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['model_multiplier'], mcmc['logLike']])
+        else:
+            if args.log_sigmas:
+                data = np.transpose([np.log10(mcmc['sigma']), mcmc['l'], np.log10(mcmc['sigma_obs']), np.log10(mcmc['model_multiplier'])])
+            else:
+                data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['model_multiplier']])
+
+        weights = np.exp(mcmc['logLike']-np.max(mcmc['logLike']))
+        weights /= np.sum(weights)
+
+#        truth = weights>1e-2/len(weights)
+        truth = np.ones(len(weights), dtype=bool)
+
+        if args.verbose:
+            print('    plotting')
+
+        fig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            truths=truths[include] if truths is not None else None,
+            color='r',
+        )
+        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
+        plot.save('investigate-gpr-gpr-hyperparams-mcmc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+        plot.close(fig)
+
+        ### add to overlay plot
+        overlayfig = plot.corner(
+            data[truth][:,include],
+            labels=labels[include],
+            weights=weights[truth],
+            color='r',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
         )

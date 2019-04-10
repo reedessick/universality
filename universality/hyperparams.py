@@ -640,3 +640,78 @@ def cvlogLike_mc(
         ans = np.array(zip(ans[:,0], ans[:,1], ans[:,2], ans[:,3], ans[:,4]), dtype=CVSAMPLES_DTYPE) ### do this because numpy arrays are stupid and don't cast like I want
 
     return ans
+
+def cvlogLike_mcmc(
+        models,
+        stitch,
+        (min_sigma, max_sigma),
+        (min_l, max_l),
+        (min_sigma_obs, max_sigma_obs),
+        (min_model_multiplier, max_model_multiplier),
+        num_samples=gp.DEFAULT_NUM,
+        num_walkers=DEFAULT_NUM_WALKERS,
+        sigma_prior='log',
+        sigma_obs_prior='log',
+        l_prior='lin',
+        model_multiplier_prior='log',
+        degree=1,
+        temperature=DEFAULT_TEMPERATURE,
+    ):
+    if emcee is None:
+        raise ImportError('could not import emcee')
+
+    if sigma_prior=='log':
+        ln_sigma_prior = lambda sigma: 1./sigma if min_sigma<sigma<max_sigma else -np.infty
+    elif sigma_prior=='lin':
+        ln_sigma_prior = lambda sigma: 0 if min_sigma<sigma<max_sigma else -np.infty
+    else:
+        raise ValueError, 'unkown sigma_prior='+sigma_prior
+
+    if l_prior=='log':
+        ln_l_prior = lambda l: 1./l if min_l<l<max_l else -np.infty
+    elif l_prior=='lin':
+        ln_l_prior = lambda l: 0 if min_l<l<max_l else -np.infty
+    else:
+        raise ValueError, 'unkown l_prior='+l_prior
+
+    if sigma_obs_prior=='log':
+        ln_sigma_obs_prior = lambda sigma_obs: 1./sigma_obs if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
+    elif sigma_obs_prior=='lin':
+        ln_sigma_obs_prior = lambda sigma_obs: 0 if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
+    else:
+        raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
+
+    if model_multiplier_prior=='log':
+        ln_model_multiplier_prior = lambda m: 1./m if min_model_multiplier<m<max_model_multiplier else -np.infty
+    elif model_multiplier_prior=='lin':
+        ln_model_multiplier_prior = lambda m: 0 if min_model_multiplier<m<max_model_multiplier else -np.infty
+    else:
+        raise ValueError, 'unknown model_multiplier_prior='+model_multiplier_prior
+
+    beta = 1./temperature
+    foo = lambda args: _cvlogLike_worker(models, stitch, [args[0]**2], [l2args[1]**2], [args[2]**2], [args[3]], [degree])[0,-1]*beta \
+        + ln_sigma_prior(args[0]) \
+        + ln_l_prior(args[1]) \
+        + ln_sigma_obs_prior(args[2]) \
+        + ln_model_multiplier_prior(args[3])
+
+    x0 = np.array([(min_sigma*max_sigma)**0.5, (min_l+max_l)*0.5, (min_sigma_obs*max_sigma_obs)**0.5, (min_model_multiplier*max_model_multiplier)**0.5])
+    x0 = emcee.utils.sample_ball(
+        x0,
+        x0*0.1,
+        size=num_walkers,
+    )
+
+    sampler = emcee.EnsembleSampler(num_walkers, 4, foo)
+    sampler.run_mcmc(x0, num_samples)
+
+    sigma = sampler.chain[:,:,0]
+    l = sampler.chain[:,:,1]
+    sigma_obs = sampler.chain[:,:,2]
+    model_multiplier = sampler.chain[:,:,3]
+    lnprob = sampler.lnprobability
+
+    return np.array(
+        [(sigma[i,j], l[i,j], sigma_obs[i,j], model_multiplier[i,j], lnprob[i,j]) for j in xrange(num_samples) for i in xrange(num_walkers)],
+        dtype=CVSAMPLES_DTYPE,
+    )
