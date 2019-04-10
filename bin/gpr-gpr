@@ -96,6 +96,8 @@ DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('-p', '--plot', default=False, action='store_true')
+pgroup.add_argument('--level', default=[], type=float, action='append',
+    help='the confidence levels used within plot. Can be repeated to specify multiple levels')
 pgroup.add_argument('--fractions', default=False, action='store_true')
 pgroup.add_argument('--residuals', default=False, action='store_true')
 pgroup.add_argument('--ratios', default=False, action='store_true')
@@ -132,6 +134,9 @@ if args.tag:
 
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
+
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
 
 args.verbose |= args.Verbose
 
@@ -328,6 +333,8 @@ if args.plot:
             residuals=args.residuals,
             ratios=args.ratios,
             grid=args.grid,
+            levels=args.level,
+            alpha=0.25,
             figtup=figtup,
         )
 
@@ -348,6 +355,7 @@ if args.plot:
         figwidth=args.figwidth,
         figheight=args.figheight,
         grid=args.grid,
+        levels=args.level,
         figtup=figtup,
     )
 
