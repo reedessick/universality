@@ -56,7 +56,7 @@ def draw_from_weights(weights, size=1):
     # compute a cdf and draw from it
     return order[np.ceil(np.interp(np.random.random(size), np.cumsum(weights), np.arange(N))).astype(int)]
 
-def modesl2combinations(models):
+def models2combinations(models):
     return zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in models])])
 
 #-------------------------------------------------

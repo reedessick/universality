@@ -444,7 +444,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
 
     for indecies in inds: ### iterate over combinatorics to marginalize and compute logLike
         _models = [model[i] for model, i in zip(models, indecies)]
-        logw = np.sum(np.log(model[0]['weight']) for model in _models) ### the weight prefactor for this combination
+        logw = np.sum(np.log(model['weight']) for model in _models) ### the weight prefactor for this combination
 
         x_obs, f_obs, covs, covs_model = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
         Nobs = len(x_obs)
@@ -453,18 +453,18 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         keep_bools = []
         start = 0
         for model in _models:
-            end = start+len(model[0]['x'])
+            end = start+len(model['x'])
             t = np.zeros(Nobs, dtype=bool)
             t[start:end] = True
             keep_bools.append(t)
             start = end
 
         for ind, (s2, l2, S2, m) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER)):
-            cov = cov_altogether_obs_obs(x_obs, cov_noise, cov_models, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier=m)
+            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier=m)
             invcov = np.linalg.inv(cov) ### invert this exactly once! still expensive, but we save with the iteration over models
 
             ### compute cross validation likelihood for this combination
-            logprob = _cvlogprob(keep, f_obs, invcov) + logw # include overall weight from combinatorics
+            logprob = _cvlogprob(keep_bools, x_obs, f_obs, invcov, degree) + logw # include overall weight from combinatorics
 
             ### add to overall marginalization
             M = max(ans[ind,4], logprob)
@@ -474,26 +474,31 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         conn.send(ans)
 
     else:
-        return np.array(*[zip(ans[:,i] for i in xrange(ans.shape[1]))], dtype=CVSAMPLES_DTYPE)
+        return np.array([tuple(_) for _ in ans], dtype=CVSAMPLES_DTYPE)
 
-def _cvlogprob(keep_bools, f_obs, invcov):
+def _cvlogprob(keep_bools, x_obs, f_obs, invcov, degree):
     logprob = -np.infty
     inds = np.arange(len(invcov))
 
     tmp_f_obs = np.empty_like(f_obs, dtype=float)
+    tmp_x_obs = np.empty_like(x_obs, dtype=float)
     tmp_invcov = np.empty_like(invcov, dtype=float) ### used so we can re-order in place
 
     for keep in keep_bools:
+        Nkeep = np.sum(keep)
+
         tmp_f_obs[:] = f_obs
         tmp_invcov[:] = invcov ### re-set this
 
         ### re-order
-        _cvlogprob_reorder(keep, tmp_f_obs, tmp_invcov)
-        Nkeep = np.sum(keep)
+        _cvlogprob_reorder(keep, tmp_x_obs, tmp_f_obs, tmp_invcov)
+
+        ### compute poly-model fits
+        mu_rst, mu_tst = gp.poly_model(x_obs[:Nkeep], f_obs[Nkeep:], x_obs[Nkeep:], degree=degree) ### poly_model fit
 
         ### extract things from invcov
         P = tmp_invcov[:Nkeep,:Nkeep]
-        df = tmp_f_obs[:Nkeep] + np.dot(np.linalg.inv(P), np.dot(tmp_invcov[:Nkeep,Nkeep:], tmp_f_obs[Nkeep:]))
+        df = (tmp_f_obs[:Nkeep]-mu_tst) + np.dot(np.linalg.inv(P), np.dot(tmp_invcov[:Nkeep,Nkeep:], (tmp_f_obs[Nkeep:]-mu_rst)))
 
         ### compute loglike for this cross-validation
         _logprob = gp._logLike(df, P)
@@ -504,13 +509,18 @@ def _cvlogprob(keep_bools, f_obs, invcov):
 
     return logprob
 
-def _cvlogprob_reorder(keep_bool, f_obs, invcov):
-    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
+def _cvlogprob_reorder(keep_bool, x_obs, f_obs, invcov):
+    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(x_obs))[keep_bool]): ### mapping of the indecies that need to switch
         if i!=j:
             ### interchange the vector in place
+            _ = x_obs[i]
+            x_obs[i] = x_obs[j]
+            x_obs[j] = _
+
             _ = f_obs[i]
             f_obs[i] = f_obs[j]
             f_obs[j] = _
+
             ### interchange the matrix in place
             gp._interchange(i, j, invcov)
 

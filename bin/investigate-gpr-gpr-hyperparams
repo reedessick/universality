@@ -17,6 +17,7 @@ from universality import utils
 from universality import gaussianprocess as gp
 from universality import hyperparams as hp
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -136,8 +137,8 @@ parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
 args = parser.parse_args()
 
-#assert np.any((args.grid, args.mcmc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --maxL'
-assert np.any((args.mc, args.grid, args.mcmc)), 'please specify at least one of: --mc, --grid, --mcmc'
+#assert np.any((args.grid, args.mcmc, args.mc, args.maxL)), 'please specify at least one of: --grid, --mcmc, --mcmc, --maxL'
+assert np.any((args.mc, args.grid)), 'please specify at least one of: --mc, --grid'
 
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
@@ -238,10 +239,10 @@ if args.grid:
         num_l=args.num_grid,
         num_sigma_obs=args.num_grid,
         num_model_multiplier=args.num_grid,
-        sigma_prior=args.sigam_prior,
+        sigma_prior=args.sigma_prior,
         l_prior=args.l_prior,
         sigma_obs_prior=args.sigma_obs_prior,
-        model_multiplier_prior=args.model_multiplier_prior,
+        model_multiplier_prior=args.m_prior,
         degree=args.poly_degree,
         num_proc=args.num_proc,
         temperature=args.temperature,
@@ -321,10 +322,10 @@ if args.mc:
         (args.min_sigma_obs, args.max_sigma_obs),
         (args.min_m, args.max_m),
         num_samples=args.num_mc,
-        sigma_prior=args.sigam_prior,
+        sigma_prior=args.sigma_prior,
         l_prior=args.l_prior,
         sigma_obs_prior=args.sigma_obs_prior,
-        model_multiplier_prior=args.model_multiplier_prior,
+        model_multiplier_prior=args.m_prior,
         degree=args.poly_degree,
         num_proc=args.num_proc,
         temperature=args.temperature,

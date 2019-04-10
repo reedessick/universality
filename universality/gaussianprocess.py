@@ -702,10 +702,7 @@ def cov_altogether_noise(models, stitch):
         f_stitch = np.concatenate(f_stitch)
 
         num_stitch = len(x_stitch)
-
-        cov_stitch = stitch[0]['cov']
-
-        covs = np.zeros((Nobs+stitch_num_points,)*2, dtype=float) ### include space for the stitching conditions
+        covs = np.zeros((Nobs+num_stitch,)*2, dtype=float) ### include space for the stitching conditions
 
         x_obs = np.concatenate((x_obs, x_stitch)) ### add in stitching data
         f_obs = np.concatenate((f_obs, f_stitch))
@@ -726,7 +723,7 @@ def cov_altogether_noise(models, stitch):
 
     ### iterate through pressure samples and compute theory variance of each
     ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
-    model_cov = np.zeros_like(covs, dtype=float)
+    model_covs = np.zeros_like(covs, dtype=float)
     truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
     for x in set(x_obs): # iterate over all included x-points
 
