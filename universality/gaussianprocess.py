@@ -723,28 +723,82 @@ def cov_altogether_noise(models, stitch):
 
     ### iterate through pressure samples and compute theory variance of each
     ### NOTE: the following iteration may not be the most efficient thing in the world, but it should get the job done...
-    model_covs = np.zeros_like(covs, dtype=float)
-    truth = np.empty(covs.shape[0], dtype=bool) ### used to index coveriance matrix when filling things in
-    for x in set(x_obs): # iterate over all included x-points
 
-        truth[:] = False ### re-set this
-
-        sample = [] # set up holders for the values from each model that covers this pressure point
-        sample_covs = []
-
-        ### iterate over each model, checking to see whether it has this x-value
-        start = 0
+    # compute means of means (average over models)
+    x_set = np.array(sorted(set([x for model in models for x in model['x']])), dtype=float)
+    n_set = len(x_set)
+    mu_set = np.empty(n_set, dtype=float)
+    for ind, x in enumerate(x_set): # iterate over all included x-points
+        sample = []
         for model in models:
-            n = len(model['x'])
-            i = np.arange(n)[x==model['x']]
-            if len(i): ### there's a match
-                i = i[0]
-                truth[start+i] = True ### we update this index in the big covariance matrix
-                sample.append(model['f'][i]) ### record the mean
-                sample_covs.append(model['cov'][i,i]) ### and the covariance
-            start += n ### bump this
+            i = x==model['x'] ### should be either 1 or 0 matches
+            if np.any(i):
+                sample.append(model['f'][i])
+        mu_set[ind] = np.mean(sample)
 
-        ### add the sample variance for this pressure
-        model_covs[truth,truth] += (np.var(sample) + np.sum(sample_covs))
+    # compute the average of the covariances and the 2nd moment of the means
+    cov_set = np.empty((n_set, n_set), dtype=float)
+    for ind, x in enumerate(x_set):
+        for IND, X in enumerate(x_set[ind:]):
+            IND += ind ### correct index for the big set
+
+            sample = []
+            for model in models:
+                i = x==model['x'] ### either 1 or 0 matches
+                j = X==model['x']
+                if np.any(i) and np.any(j): ### both abscissa are present in this model
+                    sample.append(model['f'][i]*model['f'][j] + model['cov'][i,j]) ### add both these things together for convenience
+
+            cov_set[ind,IND] = np.mean(sample) - mu_set[ind]*mu_set[IND] ### NOTE:
+                                                                         ###   this is equivalent to the average (over models) of the covariance of each model
+                                                                         ###   plus the covariance between the mean of each model (with respect to the models)
+
+    cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
+
+    # map cov_set into the appropriate elements of model_covs
+    model_covs = np.empty_like(covs, dtype=float)
+    start = 0
+    ind_set = np.arange(n_set)
+    truth_set = np.empty(n_set, dtype=bool)
+    for model in models:
+
+        # identify which abscissa from this model correspond to which indecies in x_set
+        truth_set[:] = False
+        truth_set[np.array([ind_set[x==x_set] for x in model['x']])] = True
+
+        # map these indecies into model_covs. ASSUMES ABSCISSA ARE ORDERED WITHIN model_covs
+        n = len(model['x'])
+        model_covs[start:start+n,start:start+n] = cov_set[np.outer(truth_set,truth_set)].reshape((n,n))
+
+        # bump starting index
+        start += n
+
+    ##############################################################################################
+    ### FOR TESTING PURPOSES: want to visualize the covariance between models, etc
+    ##############################################################################################
+#    import matplotlib
+#    matplotlib.use("Agg")
+#    from matplotlib import pyplot as plt
+#
+#    fig = plt.figure(figsize=(10,4))
+#    ax1 = plt.subplot(1,2,1)
+#    cb1 = fig.colorbar(
+#        ax1.imshow(np.tanh(covs/0.01), cmap='RdGy_r', origin='lower', aspect='equal', vmin=-1, vmax=+1),
+#        orientation='vertical',
+#        shrink=0.90,
+#    )
+#    cb1.set_label('tanh(covs/0.01)')
+#
+#    ax2 = plt.subplot(1,2,2)
+#    cb2 = fig.colorbar(
+#        ax2.imshow(np.tanh(model_covs/0.01), cmap='RdGy_r', origin='lower', aspect='equal', vmin=-1, vmax=+1),
+#        orientation='vertical',
+#        shrink=0.90,
+#    )
+#    cb2.set_label('tanh(model covs/0.01)')
+#
+#    fig.savefig('TEST.png')
+#    plt.close(fig)
+#    ##############################################################################################
 
     return x_obs, f_obs, covs, model_covs
