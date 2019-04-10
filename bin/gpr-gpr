@@ -204,29 +204,32 @@ for hdf5path in args.hdf5paths:
         print('reading: '+hdf5path)
     models.append(gp.hdf5load(hdf5path))
 
+xlabel=models[0][0]['labels']['xlabel'] ### assume these are the same for all models...
+flabel=models[0][0]['labels']['flabel']
+
 ### create combinatorically many possible matchings between all models
 inds = utils.models2combinations(models)
 Ninds = len(inds)
+tmp = 'hyperparams %'+str(int(np.floor(np.log10(len(sigma)))))+'d / %d'%len(sigma)+' ; model combination %'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
 
 hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
 if args.verbose:
     print('iterating over %d combinations of input mixture models'%Ninds)
 with h5py.File(hdf5path, 'w') as obj:
 
-    ### place-holder for when we iterate over many possible hyperparam values
-    ind = 0 ### counter for each element of the mixture model
+    counter = 0 ### used when labeling components of the mixture model
 
     logweights = [] ### holder for all weights before we normalize them
-    for p, s, l, S, m, w in zip(polydeg, sigma, length_scale, sigma_obs, model_multiplier, weights):
+    for hyperparamind, (p, s, l, S, m, w) in enumerate(zip(polydeg, sigma, length_scale, sigma_obs, model_multiplier, weights)):
         s2 = s**2
         l2 = l**2
         S2 = S**2
 
         logLikes = []
-        tmp = '%'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
-        for indecies in inds:
+
+        for ind, indecies in enumerate(inds):
             if args.Verbose:
-                print(tmp%(ind+1))
+                print(tmp%(hyperparamind+1, ind+1))
                 print('building big covariance matrix')
 
             x_obs, f_obs, covs, model_covs = gp.cov_altogether_noise([model[i] for model, i in zip(models, indecies)], stitch)
@@ -235,9 +238,9 @@ with h5py.File(hdf5path, 'w') as obj:
 
             if args.verbose:
                 if args.stitch:
-                    print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, Nobs, args.stitch_num_points))
+                    print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, len(x_obs), args.stitch_num_points))
                 else:
-                    print('regressing %d values from %d noisy observations'%(args.num_points, Nobs))
+                    print('regressing %d values from %d noisy observations'%(args.num_points, len(x_obs)))
             mean, cov, logweight = gp.gpr_altogether(
                 x_evaluate,
                 f_obs, ### used in GPR conditioning and polymodel
@@ -261,7 +264,7 @@ with h5py.File(hdf5path, 'w') as obj:
             if args.Verbose:
                 print('    creating hdf5 group')
             gp.create_process_group(
-                obj.create_group(str(ind)),
+                obj.create_group(str(counter)),
                 p,
                 s,
                 l,
@@ -275,7 +278,7 @@ with h5py.File(hdf5path, 'w') as obj:
                 model_multiplier=m,
             )
 
-            ind += 1 ### bump the index for each element of the mixture model  
+            counter += 1 ### bump the index for each element of the mixture model  
 
         ### normalize the weights for each component of mixture model at this set of hyperparams
         if len(logLikes)==1:
@@ -299,8 +302,8 @@ with h5py.File(hdf5path, 'w') as obj:
     weights = np.exp(logweights-np.max(logweights))
     weights /= np.sum(weights)
 
-    for ind, w in enumerate(weights): ### update attributes in hdf5 groups
-        obj[str(ind)].attrs['weight'] = w
+    for counter, w in enumerate(weights): ### update attributes in hdf5 groups
+        obj[str(counter)].attrs['weight'] = w
 
 if args.verbose:
     print('process written to: '+hdf5path)
