@@ -659,7 +659,7 @@ def overlay_model(
     sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
 
     weights = [m['weight'] for m in model]
-    colors = weights2color(weights, color, prefact=alpha/(len(sigmas)*2.), minimum=0.002)
+    colors = weights2color(weights, color, prefact=alpha/max(2., len(sigmas)*2.), minimum=0.002)
 
     xmin = +np.infty
     xmax = -np.infty
