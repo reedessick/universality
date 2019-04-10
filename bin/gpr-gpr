@@ -311,7 +311,26 @@ if args.verbose:
 ### plot the result
 if args.plot:
 
-    ### plot the over-arching GP
+    ### plot the underlying GPs
+    figtup = None
+    for model in models:
+        for m in model:
+            m['x'] = np.exp(m['x']) ### exponentiate the x-variable for plotting purposes
+        figtup = plot.overlay_model(
+            model,
+            color=plot.DEFAULT_COLOR2,
+            logx=True,
+            logy=False,
+            xlabel='$p/c^2$',
+            ylabel=args.ylabel,
+            fractions=args.fractions,
+            residuals=args.residuals,
+            ratios=args.ratios,
+            grid=args.grid,
+            figtup=figtup,
+        )
+
+    ### plot the over-arching GP on top of everything else
     model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
     for m in model: ### exponentiate the x-variable for plotting purposes
         m['x'] = np.exp(m['x'])
@@ -328,25 +347,8 @@ if args.plot:
         figwidth=args.figwidth,
         figheight=args.figheight,
         grid=args.grid,
+        figtup=figtup,
     )
-
-    ### plot the underlying GPs
-    for model in models:
-        for m in model:
-            m['x'] = np.exp(m['x']) ### exponentiate the x-variable for plotting purposes
-        plot.overlay_model(
-            model,
-            color=plot.DEFAULT_COLOR2,
-            logx=True,
-            logy=False,
-            xlabel='$p/c^2$',
-            ylabel=args.ylabel,
-            fractions=args.fractions,
-            residuals=args.residuals,
-            ratios=args.ratios,
-            grid=args.grid,
-            figtup=figtup,
-        )
 
     ### save
     plot.save('gpr-gpr%s'%args.tag, figtup[0], figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
