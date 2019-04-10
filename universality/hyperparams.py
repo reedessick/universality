@@ -220,7 +220,7 @@ def logLike_grid(
     else: ### divide up work and parallelize
 
         Nsamp = len(SIGMA)
-        ans = np.empty((Nsamp, 4), dtype=float)
+        ans = np.empty((Nsamp, len(SAMPLES_DTYPE)), dtype=float)
 
         # partition work amongst the requested number of cores
         sets = utils._define_sets(Nsamp, num_proc)
@@ -272,7 +272,7 @@ def logLike_mc(
 
     else: ### divide up work and parallelize
         Nsamp = len(SIGMA)
-        ans = np.empty((Nsamp, 4), dtype=float)
+        ans = np.empty((Nsamp, len(SAMPLES_DTYPE)), dtype=float)
 
         # partition work amongst the requested number of cores
         sets = utils._define_sets(Nsamp, num_proc)
@@ -564,7 +564,7 @@ def cvlogLike_grid(
     else: ### divide up work and parallelize
 
         Nsamp = len(SIGMA)
-        ans = np.empty((Nsamp, 4), dtype=float)
+        ans = np.empty((Nsamp, len(CVSAMPLES_DTYPE)), dtype=float)
 
         # partition work amongst the requested number of cores
         sets = utils._define_sets(Nsamp, num_proc)
@@ -617,7 +617,7 @@ def cvlogLike_mc(
     else: ### divide up work and parallelize
 
         Nsamp = len(SIGMA)
-        ans = np.empty((Nsamp, 4), dtype=float)
+        ans = np.empty((Nsamp, len(CVSAMPLES_DTYPE)), dtype=float)
 
         # partition work amongst the requested number of cores
         sets = utils._define_sets(Nsamp, num_proc)
