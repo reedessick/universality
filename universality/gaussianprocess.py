@@ -638,7 +638,7 @@ def cov_phi_phi(x_tst, mean_f, mean_dfdx, cov_f_f, cov_f_dfdx, cov_dfdx_f, cov_d
 
     return cov
 
-def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2, guess_model_multiplier=1):
+def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, Nstitch, degree=1, guess_sigma2=DEFAULT_SIGMA2, guess_l2=DEFAULT_L2, guess_sigma2_obs=DEFAULT_SIGMA2, guess_model_multiplier=1):
     '''
     a delegation function useful when I've already got a bunch of "noise" covariances known for f_obs(x_obs)
     performs automatic optimization ot find the best hyperparameters along with subtracting out f_fit from a polynomial model
@@ -659,7 +659,7 @@ def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, degree=1, guess_s
     cov_tst_obs = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
     cov_obs_tst = cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
     ### NOTE, we just add the known "noise" along with the GPR kernel
-    cov_obs_obs = cov_altogether_obs_obs(x_obs, cov_noise, cov_models, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs, model_multiplier=model_multiplier)
+    cov_obs_obs = cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs, model_multiplier=model_multiplier)
 
     ### and now we delgeate
     mean, cov, logweight = gpr(f_obs-f_fit, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs)
@@ -673,8 +673,34 @@ def cov_phi_phi_stitch(x_stitch, stitch_mean, stitch_pressure, stitch_index):
     cov_stitch = np.diag(np.exp(x_stitch - np.log(stitch_pressure/utils.c2))**stitch_index) ### the stitching white-noise kernel
     return f_stitch, cov_stitch
 
-def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, model_multiplier=1):
-    return cov_noise + model_multiplier*cov_models + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs)
+def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, model_multiplier=1):
+
+    ### we add the diagonal component for the models in separate from the stitch
+    ans = cov_noise + model_multiplier*cov_models + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=0.)
+    N = len(x_obs)-Nstitch
+    ans[:N,:N] += np.diag(np.ones(N, dtype=float)*sigma2_obs)
+
+    ##############################################################################################
+    ### FOR TESTING PURPOSES: want to visualize the covariance between models, etc
+    ##############################################################################################
+#    import matplotlib
+#    matplotlib.use("Agg")
+#    from matplotlib import pyplot as plt
+#
+#    fig = plt.figure(figsize=(5,4))
+#    ax1 = plt.subplot(1,1,1)
+#    cb1 = fig.colorbar(
+#        ax1.imshow(np.tanh(ans/0.1), cmap='RdGy_r', origin='lower', aspect='equal', vmin=-1, vmax=+1),
+#        orientation='vertical',
+#        shrink=0.90,
+#    )
+#    cb1.set_label('tanh(covs/0.1)')
+#
+#    fig.savefig('TEST.png')
+#    plt.close(fig)
+    ##############################################################################################
+
+    return ans
 
 def cov_altogether_noise(models, stitch):
     """compute the big-ol covariance matrix for gpr_altogether
@@ -713,6 +739,7 @@ def cov_altogether_noise(models, stitch):
             start = stop
     else:
         covs = np.zeros((Nobs,Nobs), dtype=float)
+        num_stitch = 0
 
     ### add block-diagonal components
     start = 0
@@ -801,4 +828,4 @@ def cov_altogether_noise(models, stitch):
 #    plt.close(fig)
 #    ##############################################################################################
 
-    return x_obs, f_obs, covs, model_covs
+    return x_obs, f_obs, covs, model_covs, num_stitch

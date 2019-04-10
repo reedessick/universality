@@ -446,7 +446,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         _models = [model[i] for model, i in zip(models, indecies)]
         logw = np.sum(np.log(model['weight']) for model in _models) ### the weight prefactor for this combination
 
-        x_obs, f_obs, covs, covs_model = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
+        x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
         Nobs = len(x_obs)
 
         ### make boolean arrays labeling where each model lives in the bigger matrix
@@ -460,7 +460,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
             start = end
 
         for ind, (s2, l2, S2, m) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER)):
-            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier=m)
+            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier=m)
             invcov = np.linalg.inv(cov) ### invert this exactly once! still expensive, but we save with the iteration over models
 
             ### compute cross validation likelihood for this combination

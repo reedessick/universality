@@ -232,7 +232,7 @@ with h5py.File(hdf5path, 'w') as obj:
                 print(tmp%(hyperparamind+1, ind+1))
                 print('building big covariance matrix')
 
-            x_obs, f_obs, covs, model_covs = gp.cov_altogether_noise([model[i] for model, i in zip(models, indecies)], stitch)
+            x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise([model[i] for model, i in zip(models, indecies)], stitch)
 
             #-------------------------------------------------
 
@@ -247,6 +247,7 @@ with h5py.File(hdf5path, 'w') as obj:
                 x_obs, ### used in polymodel and adding covariance kernel
                 covs, ### only the noise component (includes model multiplier, though)
                 model_covs,
+                Nstitch,
                 degree=p,
                 guess_sigma2=s2,
                 guess_l2=l2,
