@@ -437,7 +437,6 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
 
     inds = utils.models2combinations(models)
 
-    beta = 1./temperature
     SIGMA2 = SIGMA**2
     L2 = L**2
     SIGMA_NOISE2 = SIGMA_NOISE**2
@@ -450,6 +449,11 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
         Nobs = len(x_obs)
 
+        ### FIXME: the following implementation is crazy slow!
+        for ind, (s2, l2, S2, m2) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER2)):
+            logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree)
+
+            '''
         ### make boolean arrays labeling where each model lives in the bigger matrix
         keep_bools = []
         start = 0
@@ -467,15 +471,51 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
             ### compute cross validation likelihood for this combination
             logscore = _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree) + logw # include overall weight from combinatorics
 
+        '''
             ### add to overall marginalization
             M = max(ans[ind,4], logscore)
             ans[ind,4] = np.log(np.exp(ans[ind,4]-M) + np.exp(logscore-M))+M
+
+    ans[:,4] /= temperature
 
     if conn is not None:
         conn.send(ans)
 
     else:
         return np.array([tuple(_) for _ in ans], dtype=CVSAMPLES_DTYPE)
+
+def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
+    Nmodels = len(models)
+    logscore = -np.infty
+    for ind in range(Nmodels):
+        _models = [m for jnd, m in enumerate(models) if jnd!=ind] ### assume a single element per model
+
+        ### compute noise covariances
+        x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise(_models, stitch)
+
+        mean, cov, logweight = gp.gpr_altogether( ### do expensive conditioning
+            models[ind]['x'],
+            f_obs,
+            x_obs,
+            covs,
+            model_covs,
+            Nstitch,
+            degree=degree,
+            guess_sigma2=s2,
+            guess_l2=l2,
+            guess_sigma2_obs=S2,
+            guess_model_multiplier2=m2,
+        )
+
+        conditioned_model = [{'x':models[ind]['x'], 'f':mean, 'cov':cov, 'weight':1}]
+
+        # compute the probability of seeing the held out thing given everyrhing else
+        _logscore = gp.model_logprob([models[ind]], conditioned_model)
+
+        m = max(logscore, _logscore)
+        logscore = np.log(np.exp(logscore-m)+np.exp(_logscore-m))+m
+
+    return logscore
 
 def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
     logscore = -np.infty
