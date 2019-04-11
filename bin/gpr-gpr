@@ -229,6 +229,7 @@ with h5py.File(hdf5path, 'w') as obj:
         s2 = s**2
         l2 = l**2
         S2 = S**2
+        m2 = m**2
 
         logLikes = []
 
@@ -257,7 +258,7 @@ with h5py.File(hdf5path, 'w') as obj:
                 guess_sigma2=s2,
                 guess_l2=l2,
                 guess_sigma2_obs=S2,
-                guess_model_multiplier=m,
+                guess_model_multiplier2=m2,
             )
     
             ### include the prior weights from each mixture model

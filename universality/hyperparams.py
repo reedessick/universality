@@ -441,6 +441,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
     SIGMA2 = SIGMA**2
     L2 = L**2
     SIGMA_NOISE2 = SIGMA_NOISE**2
+    MODEL_MULTIPLIER2 = MODEL_MULTIPLIER**2
 
     for indecies in inds: ### iterate over combinatorics to marginalize and compute logLike
         _models = [model[i] for model, i in zip(models, indecies)]
@@ -459,8 +460,8 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
             keep_bools.append(t)
             start = end
 
-        for ind, (s2, l2, S2, m) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER)):
-            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier=m)
+        for ind, (s2, l2, S2, m2) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER2)):
+            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2)
             invcov = np.linalg.inv(cov) ### invert this exactly once! still expensive, but we save with the iteration over models
 
             ### compute cross validation likelihood for this combination
