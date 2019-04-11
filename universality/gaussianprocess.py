@@ -76,7 +76,7 @@ def hdf5load(path):
                 'weight':weight,
                 'x':x,
                 'f':f,
-                'cov':cov,
+                'cov':posdef(cov),
                 'labels':{'xlabel':xlabel, 'flabel':flabel},
                 'hyperparams':{
                     'poly_degree':p,
@@ -209,11 +209,18 @@ def _reorder(bool_keep, invcov):
 
     for i, j in zip(np.arange(np.sum(bool_keep)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
         if i!=j:
-            _interchange(i, j, result)
+            _interchange_matrix(i, j, result)
 
     return result
 
-def _interchange(i, j, m):
+def _interchange_vector(i, j, v):
+    """NOTE: could/should be replaced by calls to np.transpose"""
+    _ = v[i]
+    v[i] = v[j]
+    v[j] = _
+
+def _interchange_matrix(i, j, m):
+    """NOTE: could/should be replaced by calls to np.transpose"""
     tmp = np.empty(len(m), dtype=float)
     # interchange the rows
     tmp[:] = m[i,:]
@@ -398,7 +405,7 @@ def posdef(cov, epsilon=1e-10):
 
     sign, det = np.linalg.slogdet(cov)
     if sign!=1:
-        print('***WARNING*** non-physical conditioned covariance matrix detected! sign=%d; log|det|=%.6e'%(sign, det))
+        print('***WARNING*** non-physical conditioned covariance matrix detected! sign=%s; log|det|=%s'%(sign, det))
 
     return cov
 
@@ -777,13 +784,13 @@ def cov_altogether_noise(models, stitch):
                     sample.append(model['f'][i]*model['f'][j] + model['cov'][i,j]) ### add both these things together for convenience
 
             cov_set[ind,IND] = np.mean(sample) - mu_set[ind]*mu_set[IND] ### NOTE:
-                                                                         ###   this is equivalent to the average (over models) of the covariance of each model
+            cov_set[IND,ind] = cov_set[ind,IND]                          ###   this is equivalent to the average (over models) of the covariance of each model
                                                                          ###   plus the covariance between the mean of each model (with respect to the models)
 
     cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
 
     # map cov_set into the appropriate elements of model_covs
-    model_covs = np.empty_like(covs, dtype=float)
+    model_covs = np.zeros_like(covs, dtype=float)
     start = 0
     ind_set = np.arange(n_set)
     truth_set = np.empty(n_set, dtype=bool)

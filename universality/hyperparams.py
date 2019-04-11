@@ -465,11 +465,11 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
             invcov = np.linalg.inv(cov) ### invert this exactly once! still expensive, but we save with the iteration over models
 
             ### compute cross validation likelihood for this combination
-            logprob = _cvlogprob(keep_bools, x_obs, f_obs, invcov, degree) + logw # include overall weight from combinatorics
+            logscore = _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree) + logw # include overall weight from combinatorics
 
             ### add to overall marginalization
-            M = max(ans[ind,4], logprob)
-            ans[ind,4] = np.log(np.exp(ans[ind,4]-M) + np.exp(logprob-M))+M
+            M = max(ans[ind,4], logscore)
+            ans[ind,4] = np.log(np.exp(ans[ind,4]-M) + np.exp(logscore-M))+M
 
     if conn is not None:
         conn.send(ans)
@@ -477,53 +477,56 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
     else:
         return np.array([tuple(_) for _ in ans], dtype=CVSAMPLES_DTYPE)
 
-def _cvlogprob(keep_bools, x_obs, f_obs, invcov, degree):
-    logprob = -np.infty
-    inds = np.arange(len(invcov))
+def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
+    logscore = -np.infty
 
     tmp_f_obs = np.empty_like(f_obs, dtype=float)
     tmp_x_obs = np.empty_like(x_obs, dtype=float)
+    tmp_cov = np.empty_like(cov, dtype=float)
     tmp_invcov = np.empty_like(invcov, dtype=float) ### used so we can re-order in place
 
     for keep in keep_bools:
         Nkeep = np.sum(keep)
 
+        tmp_x_obs[:] = x_obs ### re-set these
         tmp_f_obs[:] = f_obs
-        tmp_invcov[:] = invcov ### re-set this
+        tmp_cov[:] = cov
+        tmp_invcov[:] = invcov
 
         ### re-order
-        _cvlogprob_reorder(keep, tmp_x_obs, tmp_f_obs, tmp_invcov)
+        _cvlogprob_reorder(keep, tmp_x_obs, tmp_f_obs, tmp_cov, tmp_invcov)
 
         ### compute poly-model fits
         mu_rst, mu_tst = gp.poly_model(x_obs[:Nkeep], f_obs[Nkeep:], x_obs[Nkeep:], degree=degree) ### poly_model fit
 
         ### extract things from invcov
         P = tmp_invcov[:Nkeep,:Nkeep]
-        df = (tmp_f_obs[:Nkeep]-mu_tst) + np.dot(np.linalg.inv(P), np.dot(tmp_invcov[:Nkeep,Nkeep:], (tmp_f_obs[Nkeep:]-mu_rst)))
+        mu = mu_tst - np.dot(np.linalg.inv(P), np.dot(tmp_invcov[:Nkeep,Nkeep:], (tmp_f_obs[Nkeep:]-mu_rst)))
 
         ### compute loglike for this cross-validation
-        _logprob = gp._logLike(df, P)
+        _logscore = gp._logprob(
+            tmp_f_obs[:Nkeep],                                 ### the mean from the held-out observations
+            mu,                                                ### conditioned mean
+            P,                                                 ### invcov for conditioned process
+            invcov_obs=np.linalg.inv(tmp_cov[:Nkeep,:Nkeep]),  ### invcov for the held-out process
+        )
 
         ### add to overall counter
-        m = max(logprob, _logprob)
-        logprob = np.log(np.exp(logprob-m)+np.exp(_logprob-m))+m
+        m = max(logscore, _logscore)
+        logscore = np.log(np.exp(logscore-m)+np.exp(_logscore-m))+m
 
-    return logprob
+    return logscore
 
-def _cvlogprob_reorder(keep_bool, x_obs, f_obs, invcov):
+def _cvlogprob_reorder(keep_bool, x_obs, f_obs, cov, invcov):
     for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(x_obs))[keep_bool]): ### mapping of the indecies that need to switch
         if i!=j:
             ### interchange the vector in place
-            _ = x_obs[i]
-            x_obs[i] = x_obs[j]
-            x_obs[j] = _
-
-            _ = f_obs[i]
-            f_obs[i] = f_obs[j]
-            f_obs[j] = _
+            gp._interchange_vector(i, j, x_obs)
+            gp._interchange_vector(i, j, f_obs)
 
             ### interchange the matrix in place
-            gp._interchange(i, j, invcov)
+            gp._interchange_matrix(i, j, cov)
+            gp._interchange_matrix(i, j, invcov)
 
 def cvlogLike_grid(
         models,
