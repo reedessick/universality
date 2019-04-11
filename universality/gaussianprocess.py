@@ -262,7 +262,7 @@ def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
     elif np.all(invcov_prb==invcov_obs): ### take a shortcut to avoid matrix inverses
         invcov = 0.5*invcov_prb
     else:
-        invcov = np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb))
+        invcov = posdef(np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb)))
     return _logLike(f_obs-f_prb, invcov)
 
 def model_logprob(model_obs, model_prb):
