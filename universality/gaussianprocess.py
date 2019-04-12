@@ -270,7 +270,7 @@ def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
         invcov = 0.5*invcov_prb
     else:
         invcov = posdef(np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb)))
-    return _logLike(f_obs-f_prb, invcov, verbose=True)
+    return _logLike(f_obs-f_prb, invcov)
 
 def model_logprob(model_obs, model_prb):
     '''
