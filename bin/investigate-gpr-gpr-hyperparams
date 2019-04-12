@@ -124,6 +124,8 @@ parser.add_argument('--strip-mcmc', default=0, type=int,
     help='the number of burn in samples to reject from the mcmc sampler')
 
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
+parser.add_argument('--slow-cvlogLike', default=False, action='store_true',
+    help='use a computationally slower method to evaluate the cross validation log likelihood, but it does appear to be more numerically stable')
 
 parser.add_argument('-p', '--plot', default=False, action='store_true')
 
@@ -246,6 +248,7 @@ if args.grid:
         degree=args.poly_degree,
         num_proc=args.num_proc,
         temperature=args.temperature,
+        slow=args.slow_cvlogLike,
     )
 
     ### print maximum likelihood parameters
@@ -329,6 +332,7 @@ if args.mc:
         degree=args.poly_degree,
         num_proc=args.num_proc,
         temperature=args.temperature,
+        slow=args.slow_cvlogLike,
     )
 
     ### print maximum likelihood parameters

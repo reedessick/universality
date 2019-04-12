@@ -425,7 +425,7 @@ def logLike_maxL(
 # cross-validation likelihoods used within investigate-gpr-gpr-hyperparameters
 #-------------------------------------------------
 
-def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=DEFAULT_TEMPERATURE, conn=None):
+def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=DEFAULT_TEMPERATURE, slow=False, conn=None):
 
     ### initialize output array
     ans = np.empty((len(SIGMA), 5), dtype=float)
@@ -446,32 +446,30 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         _models = [model[i] for model, i in zip(models, indecies)]
         logw = np.sum(np.log(model['weight']) for model in _models) ### the weight prefactor for this combination
 
-        x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
-        Nobs = len(x_obs)
+        if not slow:
+            x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
+            Nobs = len(x_obs)
 
-        ### FIXME: the following implementation is crazy slow!
-        for ind, (s2, l2, S2, m2) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER2)):
-            logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree)
-
-            '''
-        ### make boolean arrays labeling where each model lives in the bigger matrix
-        keep_bools = []
-        start = 0
-        for model in _models:
-            end = start+len(model['x'])
-            t = np.zeros(Nobs, dtype=bool)
-            t[start:end] = True
-            keep_bools.append(t)
-            start = end
+            ### make boolean arrays labeling where each model lives in the bigger matrix
+            keep_bools = []
+            start = 0
+            for model in _models:
+                end = start+len(model['x'])
+                t = np.zeros(Nobs, dtype=bool)
+                t[start:end] = True
+                keep_bools.append(t)
+                start = end
 
         for ind, (s2, l2, S2, m2) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER2)):
-            cov = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2)
-            invcov = np.linalg.inv(cov) ### invert this exactly once! still expensive, but we save with the iteration over models
+            if slow:
+                logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree) + logw ### FIXME: this is really slow, but should be "correct"
 
-            ### compute cross validation likelihood for this combination
-            logscore = _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree) + logw # include overall weight from combinatorics
+            else:
+                invcov = _fancy_invcov(x_obs, gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2))
+                
+                ### compute cross validation likelihood for this combination
+                logscore = _cvlogprob(keep_bools, x_obs, f_obs, covs, invcov, degree) + logw # include overall weight from combinatorics
 
-        '''
             ### add to overall marginalization
             M = max(ans[ind,4], logscore)
             ans[ind,4] = np.log(np.exp(ans[ind,4]-M) + np.exp(logscore-M))+M
@@ -486,7 +484,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
 
 def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
     Nmodels = len(models)
-    logscore = -np.infty
+    logscore = 0.
     for ind in range(Nmodels):
         _models = [m for jnd, m in enumerate(models) if jnd!=ind] ### assume a single element per model
 
@@ -510,15 +508,34 @@ def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
         conditioned_model = [{'x':models[ind]['x'], 'f':mean, 'cov':cov, 'weight':1}]
 
         # compute the probability of seeing the held out thing given everyrhing else
-        _logscore = gp.model_logprob([models[ind]], conditioned_model)
-
-        m = max(logscore, _logscore)
-        logscore = np.log(np.exp(logscore-m)+np.exp(_logscore-m))+m
+        logscore += gp.model_logprob([models[ind]], conditioned_model)
 
     return logscore
 
+def _fancy_invcov(x, cov):
+    """re-order cov to make it more diagonal (put nearby x-values in adjacent rows), then do the inverse, then reorder
+    """
+    order = x.argsort()
+
+    ### switch the order to make things "more diagonal"
+    new_cov = np.empty_like(cov, dtype=float)
+    for new_i, old_i in enumerate(order): ### assign rows
+        for new_j, old_j in enumerate(order):
+            new_cov[new_i, new_j] = new_cov[new_j, new_i] = 0.5*(cov[old_i, old_j] + cov[old_j, old_i])
+
+    ### actually do the inverse
+    new_cov[:] = np.linalg.inv(new_cov) ### invert this exactly once! still expensive, but we save with the iteration over models
+
+    ### switch the order back
+    invcov = np.empty_like(cov, dtype=float)
+    for new_i, old_i in enumerate(order):
+        for new_j, old_j in enumerate(order):
+            invcov[old_i, old_j] = invcov[old_j, old_i] = 0.5*(new_cov[new_i, new_j] + new_cov[new_j, new_i])
+
+    return invcov
+
 def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
-    logscore = -np.infty
+    logscore = 0
 
     tmp_f_obs = np.empty_like(f_obs, dtype=float)
     tmp_x_obs = np.empty_like(x_obs, dtype=float)
@@ -526,47 +543,44 @@ def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
     tmp_invcov = np.empty_like(invcov, dtype=float) ### used so we can re-order in place
 
     for keep in keep_bools:
+        lose = np.logical_not(keep)
         Nkeep = np.sum(keep)
-
-        tmp_x_obs[:] = x_obs ### re-set these
-        tmp_f_obs[:] = f_obs
-        tmp_cov[:] = cov
-        tmp_invcov[:] = invcov
-
-        ### re-order
-        _cvlogprob_reorder(keep, tmp_x_obs, tmp_f_obs, tmp_cov, tmp_invcov)
+        Nlose = len(keep)-Nkeep
 
         ### compute poly-model fits
-        mu_rst, mu_tst = gp.poly_model(x_obs[:Nkeep], f_obs[Nkeep:], x_obs[Nkeep:], degree=degree) ### poly_model fit
+        mu_obs, mu_tst = gp.poly_model(x_obs[keep], f_obs[lose], x_obs[lose], degree=degree) ### poly_model fit
 
         ### extract things from invcov
-        P = tmp_invcov[:Nkeep,:Nkeep]
-        mu = mu_tst - np.dot(np.linalg.inv(P), np.dot(tmp_invcov[:Nkeep,Nkeep:], (tmp_f_obs[Nkeep:]-mu_rst)))
+        P = tmp_invcov[np.outer(keep,keep)].reshape((Nkeep,Nkeep))
+        mu = mu_tst \
+            - np.dot(
+                np.linalg.inv(P),
+                np.dot(
+                    invcov[np.outer(keep,lose)].reshape((Nkeep,Nlose)),
+                    f_obs[lose]-mu_obs
+                )
+        )
 
         ### compute loglike for this cross-validation
-        _logscore = gp._logprob(
+        logscore += gp._logprob(
             tmp_f_obs[:Nkeep],                                 ### the mean from the held-out observations
             mu,                                                ### conditioned mean
             P,                                                 ### invcov for conditioned process
             invcov_obs=np.linalg.inv(tmp_cov[:Nkeep,:Nkeep]),  ### invcov for the held-out process
         )
 
-        ### add to overall counter
-        m = max(logscore, _logscore)
-        logscore = np.log(np.exp(logscore-m)+np.exp(_logscore-m))+m
-
     return logscore
 
-def _cvlogprob_reorder(keep_bool, x_obs, f_obs, cov, invcov):
-    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(x_obs))[keep_bool]): ### mapping of the indecies that need to switch
-        if i!=j:
-            ### interchange the vector in place
-            gp._interchange_vector(i, j, x_obs)
-            gp._interchange_vector(i, j, f_obs)
-
-            ### interchange the matrix in place
-            gp._interchange_matrix(i, j, cov)
-            gp._interchange_matrix(i, j, invcov)
+#def _cvlogprob_reorder(keep_bool, x_obs, f_obs, cov, invcov):
+#    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(x_obs))[keep_bool]): ### mapping of the indecies that need to switch
+#        if i!=j:
+#            ### interchange the vector in place
+#            gp._interchange_vector(i, j, x_obs)
+#            gp._interchange_vector(i, j, f_obs)
+#
+#            ### interchange the matrix in place
+#            gp._interchange_matrix(i, j, cov)
+#            gp._interchange_matrix(i, j, invcov)
 
 def cvlogLike_grid(
         models,
@@ -586,6 +600,7 @@ def cvlogLike_grid(
         degree=1,
         num_proc=utils.DEFAULT_NUM_PROC,
         temperature=DEFAULT_TEMPERATURE,
+        slow=False,
     ):
     ### compute grid
     sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
@@ -603,7 +618,7 @@ def cvlogLike_grid(
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core
-        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=temperature)
+        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=temperature, slow=slow)
 
     else: ### divide up work and parallelize
 
@@ -617,7 +632,7 @@ def cvlogLike_grid(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -647,6 +662,7 @@ def cvlogLike_mc(
         degree=1,
         num_proc=utils.DEFAULT_NUM_PROC,
         temperature=DEFAULT_TEMPERATURE,
+        slow=False,
     ):
     ### draw hyperparameters from hyperpriors
     SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
@@ -656,7 +672,7 @@ def cvlogLike_mc(
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core
-        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MM, degree, temperature=temperature)
+        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MM, degree, temperature=temperature, slow=slow)
 
     else: ### divide up work and parallelize
 
@@ -670,7 +686,7 @@ def cvlogLike_mc(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()

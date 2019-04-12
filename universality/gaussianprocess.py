@@ -199,37 +199,44 @@ def _extract_invsubset_from_invcov(bool_keep, invcov):
     if np.all(bool_keep): ### nothing to do
         return invcov
     else:
-        invcov = _reorder(bool_keep, invcov) ### re-order so we can extract the sub-matrices
         n = np.sum(bool_keep)
-        return invcov[:n,:n] - np.dot(invcov[:n,n:], np.dot(np.linalg.inv(invcov[n:,n:]), invcov[n:,:n]))
+        N = len(bool_keep)-n
+        bool_lose = np.logical_not(bool_keep)
+        return invcov[np.outer(bool_keep,bool_lose)].reshape((n,n)) \
+               - np.dot(
+                   invcov[np.outer(bool_keep,bool_lose)].reshape((n,N)), \
+                   np.dot(
+                       np.linalg.inv(invcov[np.outer(bool_lose,bool_lose)].reshape(N,N)),
+                       invcov[np.outer(bool_lose, bool_keep)].reshape((N,n)))
+               )
 
-def _reorder(bool_keep, invcov):
-    result = np.empty_like(invcov)
-    result[:] = invcov ### make a copy so we don't mess up a shared reference
-
-    for i, j in zip(np.arange(np.sum(bool_keep)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
-        if i!=j:
-            _interchange_matrix(i, j, result)
-
-    return result
-
-def _interchange_vector(i, j, v):
-    """NOTE: could/should be replaced by calls to np.transpose"""
-    _ = v[i]
-    v[i] = v[j]
-    v[j] = _
-
-def _interchange_matrix(i, j, m):
-    """NOTE: could/should be replaced by calls to np.transpose"""
-    tmp = np.empty(len(m), dtype=float)
-    # interchange the rows
-    tmp[:] = m[i,:]
-    m[i,:] = m[j,:]
-    m[j,:] = tmp[:]
-    # interchange the columns
-    tmp[:] = m[:,i]
-    m[:,i] = m[:,j]
-    m[:,j] = tmp[:]
+#def _reorder(bool_keep, invcov):
+#    result = np.empty_like(invcov)
+#    result[:] = invcov ### make a copy so we don't mess up a shared reference
+#
+#    for i, j in zip(np.arange(np.sum(bool_keep)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
+#        if i!=j:
+#            _interchange_matrix(i, j, result)
+#
+#    return result
+#
+#def _interchange_vector(i, j, v):
+#    """NOTE: could/should be replaced by calls to np.transpose"""
+#    _ = v[i]
+#    v[i] = v[j]
+#    v[j] = _
+#
+#def _interchange_matrix(i, j, m):
+#    """NOTE: could/should be replaced by calls to np.transpose"""
+#    tmp = np.empty(len(m), dtype=float)
+#    # interchange the rows
+#    tmp[:] = m[i,:]
+#    m[i,:] = m[j,:]
+#    m[j,:] = tmp[:]
+#    # interchange the columns
+#    tmp[:] = m[:,i]
+#    m[:,i] = m[:,j]
+#    m[:,j] = tmp[:]
 
 def logprob(x_obs, f_obs, x_prb, f_prb, cov_prb, cov_obs=None):
     '''
@@ -263,7 +270,7 @@ def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
         invcov = 0.5*invcov_prb
     else:
         invcov = posdef(np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb)))
-    return _logLike(f_obs-f_prb, invcov)
+    return _logLike(f_obs-f_prb, invcov, verbose=True)
 
 def model_logprob(model_obs, model_prb):
     '''
@@ -348,7 +355,7 @@ def logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAU
     # compute components separately because they each require different techniques to stabilize them numerically
     return _logLike(f_obs-f_fit, np.linalg.inv(cov))
 
-def _logLike(f_obs, invcov):
+def _logLike(f_obs, invcov, verbose=False):
     # because the covariances might be so small, and there might be a lot of data points, we need to handle the determinant with care
     sign, det = np.linalg.slogdet(invcov)
     if sign<0: # do this first so we don't waste time computing other stuff that won't matter
@@ -362,6 +369,9 @@ def _logLike(f_obs, invcov):
 
     n = len(f_obs)
     nrm = -0.5*n*np.log(2*np.pi)
+
+    if verbose:
+        print((obs, det, nrm))
 
     return obs + det + nrm ### assemble components and return
 
@@ -771,7 +781,7 @@ def cov_altogether_noise(models, stitch):
         mu_set[ind] = np.mean(sample)
 
     # compute the average of the covariances and the 2nd moment of the means
-    cov_set = np.empty((n_set, n_set), dtype=float)
+    cov_set = np.zeros((n_set, n_set), dtype=float)
     for ind, x in enumerate(x_set):
         for IND, X in enumerate(x_set[ind:]):
             IND += ind ### correct index for the big set
