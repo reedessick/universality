@@ -34,7 +34,7 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append',
     help='label max-num-samples pairs')
-sgroup.add_argument('-w', '--weight-column', nargs=2, default=None, type=str, action='append',
+sgroup.add_argument('-w', '--weight-column', nargs=2, default=[], type=str, action='append',
     help='label column pairs. if provided, thie numerical values from this column will be used as weights in the KDE')
 sgroup.add_argument('-W', '--weight-column-is-log', nargs=1, default=[], type=str,
     help='the label for samples for which this is true')
@@ -97,9 +97,6 @@ names = [label for label, path in args.samples]
 # workflow arguments
 if args.whiten and (len(names)>1):
     raise RuntimeError('cannot whiten data with more than one sample set!')
-
-# verbosity arguments
-args.verbose |= args.Verbose
 
 # samples arguments
 max_num_samples = dict((label, np.infty) for label in names)
@@ -198,7 +195,7 @@ for ind, (label, path) in enumerate(args.samples):
     fig = plot.corner(
         data,
         truths=truths,
-        truth_color=opts.truth_color,
+        truth_color=args.truth_color,
         labels=labels,
         range=ranges,
         weights=weights,

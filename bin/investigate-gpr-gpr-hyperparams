@@ -368,8 +368,7 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
         weights = np.exp(mc['logLike']-np.max(mc['logLike']))
         weights /= np.sum(weights)
 
-#        truth = weights>1e-2/len(weights)
-        truth = np.ones(len(weights), dtype=bool)
+        truth = weights>1e-3*np.max(weights)
 
         if args.verbose:
             print('    plotting')
@@ -446,19 +445,12 @@ logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
             else:
                 data = np.transpose([mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['model_multiplier']])
 
-        weights = np.exp(mcmc['logLike']-np.max(mcmc['logLike']))
-        weights /= np.sum(weights)
-
-#        truth = weights>1e-2/len(weights)
-        truth = np.ones(len(weights), dtype=bool)
-
         if args.verbose:
             print('    plotting')
 
         fig = plot.corner(
-            data[truth][:,include],
+            data[:,include],
             labels=labels[include],
-            weights=weights[truth],
             truths=truths[include] if truths is not None else None,
             color='r',
         )
@@ -468,9 +460,8 @@ logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
 
         ### add to overlay plot
         overlayfig = plot.corner(
-            data[truth][:,include],
+            data[:,include],
             labels=labels[include],
-            weights=weights[truth],
             color='r',
             truths=truths[include] if truths is not None else None,
             fig=overlayfig,
