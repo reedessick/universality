@@ -797,10 +797,14 @@ def cov_altogether_noise(models, stitch, diagonal_model_covariance=False):
                     sample.append(model['f'][i]*model['f'][j] + model['cov'][i,j]) ### add both these things together for convenience
 
             cov_set[ind,IND] = np.mean(sample) - mu_set[ind]*mu_set[IND] ### NOTE:
-            cov_set[IND,ind] = cov_set[ind,IND]                          ###   this is equivalent to the average (over models) of the covariance of each model
+            if ind!=IND:
+                cov_set[IND,ind] = cov_set[ind,IND]                      ###   this is equivalent to the average (over models) of the covariance of each model
                                                                          ###   plus the covariance between the mean of each model (with respect to the models)
+            elif diagonal_model_covariance:
+                cov_set[ind,ind] = max(cov_set[ind,ind],0)
 
-    cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
+    if not diagonal_model_covariance:
+        cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
 
     # map cov_set into the appropriate elements of model_covs
     model_covs = np.zeros_like(covs, dtype=float)
