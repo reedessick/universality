@@ -71,6 +71,7 @@ DEFAULT=%.3e'%gp.DEFAULT_SIGMA)
 ggroup.add_argument('-m', '--model-multiplier', default=gp.DEFAULT_MODEL_MULTIPLIER, type=float,
     help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
 Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
+parser.add_argument('--diagonal-model-covariance', default=False, action='store_true')
 
 ### options for stitching
 sgroup = parser.add_argument_group('stitching options')
@@ -238,7 +239,11 @@ with h5py.File(hdf5path, 'w') as obj:
                 print(tmp%(hyperparamind+1, ind+1))
                 print('building big covariance matrix')
 
-            x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise([model[i] for model, i in zip(models, indecies)], stitch)
+            x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise(
+                [model[i] for model, i in zip(models, indecies)],
+                stitch,
+                diagonal_model_covariance=args.diagonal_model_covariance,
+            )
 
             #-------------------------------------------------
 

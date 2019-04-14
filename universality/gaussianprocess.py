@@ -719,7 +719,7 @@ def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=DEFAULT
 
     return ans
 
-def cov_altogether_noise(models, stitch):
+def cov_altogether_noise(models, stitch, diagonal_model_covariance=False):
     """compute the big-ol covariance matrix for gpr_altogether
     NOTE: we expect only a single element in each model at this point!
     """
@@ -785,6 +785,9 @@ def cov_altogether_noise(models, stitch):
     for ind, x in enumerate(x_set):
         for IND, X in enumerate(x_set[ind:]):
             IND += ind ### correct index for the big set
+
+            if diagonal_model_covariance and (ind!=IND): ### only include diagonal components
+                continue
 
             sample = []
             for model in models:

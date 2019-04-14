@@ -425,7 +425,7 @@ def logLike_maxL(
 # cross-validation likelihoods used within investigate-gpr-gpr-hyperparameters
 #-------------------------------------------------
 
-def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=DEFAULT_TEMPERATURE, slow=False, conn=None):
+def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=DEFAULT_TEMPERATURE, slow=False, diagonal_model_covariance=False, conn=None):
 
     ### initialize output array
     ans = np.empty((len(SIGMA), 5), dtype=float)
@@ -447,7 +447,8 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         logw = np.sum(np.log(model['weight']) for model in _models) ### the weight prefactor for this combination
 
         if not slow:
-            x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch) ### compute this once per combination
+            ### compute this once per combination
+            x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch, diagonal_model_covariance=diagonal_model_covariance)
             Nobs = len(x_obs)
 
             ### make boolean arrays labeling where each model lives in the bigger matrix
@@ -601,6 +602,7 @@ def cvlogLike_grid(
         num_proc=utils.DEFAULT_NUM_PROC,
         temperature=DEFAULT_TEMPERATURE,
         slow=False,
+        diagonal_model_covariance=False,
     ):
     ### compute grid
     sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
@@ -632,7 +634,7 @@ def cvlogLike_grid(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -663,6 +665,7 @@ def cvlogLike_mc(
         num_proc=utils.DEFAULT_NUM_PROC,
         temperature=DEFAULT_TEMPERATURE,
         slow=False,
+        diagonal_model_covariance=False,
     ):
     ### draw hyperparameters from hyperpriors
     SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
@@ -686,7 +689,7 @@ def cvlogLike_mc(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -716,6 +719,8 @@ def cvlogLike_mcmc(
         model_multiplier_prior='log',
         degree=1,
         temperature=DEFAULT_TEMPERATURE,
+        slow=False,
+        diagonal_model_covariance=False,
     ):
     if emcee is None:
         raise ImportError('could not import emcee')
@@ -749,7 +754,18 @@ def cvlogLike_mcmc(
         raise ValueError, 'unknown model_multiplier_prior='+model_multiplier_prior
 
     beta = 1./temperature
-    foo = lambda args: _cvlogLike_worker(models, stitch, [args[0]**2], [l2args[1]**2], [args[2]**2], [args[3]], [degree])[0,-1]*beta \
+    foo = lambda args: _cvlogLike_worker(
+            models,
+            stitch,
+            [args[0]**2],
+            [l2args[1]**2],
+            [args[2]**2],
+            [args[3]],
+            [degree],
+            temperature=temperature,
+            slow=slow,
+            diagonal_model_covariance=diagonal_model_covariance
+        )[0,-1] \
         + ln_sigma_prior(args[0]) \
         + ln_l_prior(args[1]) \
         + ln_sigma_obs_prior(args[2]) \
