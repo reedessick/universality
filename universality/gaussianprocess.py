@@ -211,33 +211,25 @@ def _extract_invsubset_from_invcov(bool_keep, invcov):
                    )
                )
 
-#def _reorder(bool_keep, invcov):
-#    result = np.empty_like(invcov)
-#    result[:] = invcov ### make a copy so we don't mess up a shared reference
-#
-#    for i, j in zip(np.arange(np.sum(bool_keep)), np.arange(len(result))[bool_keep]): ### mapping of the indecies that need to switch
-#        if i!=j:
-#            _interchange_matrix(i, j, result)
-#
-#    return result
-#
-#def _interchange_vector(i, j, v):
-#    """NOTE: could/should be replaced by calls to np.transpose"""
-#    _ = v[i]
-#    v[i] = v[j]
-#    v[j] = _
-#
-#def _interchange_matrix(i, j, m):
-#    """NOTE: could/should be replaced by calls to np.transpose"""
-#    tmp = np.empty(len(m), dtype=float)
-#    # interchange the rows
-#    tmp[:] = m[i,:]
-#    m[i,:] = m[j,:]
-#    m[j,:] = tmp[:]
-#    # interchange the columns
-#    tmp[:] = m[:,i]
-#    m[:,i] = m[:,j]
-#    m[:,j] = tmp[:]
+def _extract_invconditioned_from_invcov(bool_keep, invcov):
+    if np.all(bool_keep): ### nothing to condition on
+        return invcov
+    else:
+        n = np.sum(bool_keep)
+        return invcov[np.outer(bool_keep, bool_keep)].reshape((n,n))
+
+def _extract_conditioned_from_invcov(bool_keep, invcov):
+    return np.linalg.inv(_extract_invconditioned_from_invcov(bool_keep, invcov))
+
+def _extract_conditioned_mean_from_incov(bool_keep, mean, invcov):
+    if np.all(bool_keep):
+        return mean
+    else:
+        n = np.sum(bool_keep)
+        N = np.len(bool_keep)-n
+        P = invcov[np.outer(bool_keep, bool_keep)].reshape((n,n))
+        Q = invcov[np.outer(keep, lose)].reshape((n,N))
+        return -np.dot(np.linalg.inv(P), np.dot(Q, mean)), P
 
 def logprob(x_obs, f_obs, x_prb, f_prb, cov_prb, cov_obs=None):
     '''

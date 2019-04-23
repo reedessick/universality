@@ -466,8 +466,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
                 logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree) + logw ### FIXME: this is really slow, but should be "correct"
 
             else:
-                invcov = _fancy_invcov(x_obs, gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2))
-                
+                invcov = np.linalg.inv(gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2))
                 ### compute cross validation likelihood for this combination
                 logscore = _cvlogprob(keep_bools, x_obs, f_obs, covs, invcov, degree) + logw # include overall weight from combinatorics
 
@@ -513,75 +512,29 @@ def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
 
     return logscore
 
-def _fancy_invcov(x, cov):
-    """re-order cov to make it more diagonal (put nearby x-values in adjacent rows), then do the inverse, then reorder
-    """
-    order = x.argsort()
-
-    ### switch the order to make things "more diagonal"
-    new_cov = np.empty_like(cov, dtype=float)
-    for new_i, old_i in enumerate(order): ### assign rows
-        for new_j, old_j in enumerate(order):
-            new_cov[new_i, new_j] = new_cov[new_j, new_i] = 0.5*(cov[old_i, old_j] + cov[old_j, old_i])
-
-    ### actually do the inverse
-    new_cov[:] = np.linalg.inv(new_cov) ### invert this exactly once! still expensive, but we save with the iteration over models
-
-    ### switch the order back
-    invcov = np.empty_like(cov, dtype=float)
-    for new_i, old_i in enumerate(order):
-        for new_j, old_j in enumerate(order):
-            invcov[old_i, old_j] = invcov[old_j, old_i] = 0.5*(new_cov[new_i, new_j] + new_cov[new_j, new_i])
-
-    return invcov
-
 def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
     logscore = 0
-
-    tmp_f_obs = np.empty_like(f_obs, dtype=float)
-    tmp_x_obs = np.empty_like(x_obs, dtype=float)
-    tmp_cov = np.empty_like(cov, dtype=float)
-    tmp_invcov = np.empty_like(invcov, dtype=float) ### used so we can re-order in place
 
     for keep in keep_bools:
         lose = np.logical_not(keep)
         Nkeep = np.sum(keep)
-        Nlose = len(keep)-Nkeep
 
         ### compute poly-model fits
         mu_obs, mu_tst = gp.poly_model(x_obs[keep], f_obs[lose], x_obs[lose], degree=degree) ### poly_model fit
 
         ### extract things from invcov
-        P = tmp_invcov[np.outer(keep,keep)].reshape((Nkeep,Nkeep))
-        mu = mu_tst \
-            - np.dot(
-                np.linalg.inv(P),
-                np.dot(
-                    invcov[np.outer(keep,lose)].reshape((Nkeep,Nlose)),
-                    f_obs[lose]-mu_obs
-                )
-        )
+        f_prb, invcov_prb = gp._extract_conditioned_mean_from_invcov(keep, f_obs[lose]-mu_obs, invcov)
+        f_prb += mu_tst
 
         ### compute loglike for this cross-validation
         logscore += gp._logprob(
-            tmp_f_obs[:Nkeep],                                 ### the mean from the held-out observations
-            mu,                                                ### conditioned mean
-            P,                                                 ### invcov for conditioned process
-            invcov_obs=np.linalg.inv(tmp_cov[:Nkeep,:Nkeep]),  ### invcov for the held-out process
+            f_obs[keep], ### the mean from the held-out observations
+            f_prb,       ### conditioned mean
+            invcov_prb,  ### invcov for conditioned process
+            invcov_obs=np.linalg.inv(cov[np.outer(keep,keep)].reshape(Nkeep,Nkeep)),  ### invcov for the held-out process
         )
 
     return logscore
-
-#def _cvlogprob_reorder(keep_bool, x_obs, f_obs, cov, invcov):
-#    for i, j in zip(np.arange(np.sum(keep_bool)), np.arange(len(x_obs))[keep_bool]): ### mapping of the indecies that need to switch
-#        if i!=j:
-#            ### interchange the vector in place
-#            gp._interchange_vector(i, j, x_obs)
-#            gp._interchange_vector(i, j, f_obs)
-#
-#            ### interchange the matrix in place
-#            gp._interchange_matrix(i, j, cov)
-#            gp._interchange_matrix(i, j, invcov)
 
 def cvlogLike_grid(
         models,
