@@ -3,6 +3,7 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import time
 import numpy as np
 
 try:
@@ -446,6 +447,7 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
         _models = [model[i] for model, i in zip(models, indecies)]
         logw = np.sum(np.log(model['weight']) for model in _models) ### the weight prefactor for this combination
 
+        '''
         if not slow:
             ### compute this once per combination
             x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(_models, stitch, diagonal_model_covariance=diagonal_model_covariance)
@@ -460,15 +462,18 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
                 t[start:end] = True
                 keep_bools.append(t)
                 start = end
+        '''
 
         for ind, (s2, l2, S2, m2) in enumerate(zip(SIGMA2, L2, SIGMA_NOISE2, MODEL_MULTIPLIER2)):
+            '''
             if slow:
-                logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree) + logw ### FIXME: this is really slow, but should be "correct"
-
+                logscore = _slow_cvlogprob(_models, stitch, s2, l2, S2, m2, degree, diagonal_model_covariance=diagonal_model_covariance) + logw ### FIXME: this is really slow, but should be "correct"
             else:
                 invcov = np.linalg.inv(gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2))
                 ### compute cross validation likelihood for this combination
                 logscore = _cvlogprob(keep_bools, x_obs, f_obs, covs, invcov, degree) + logw # include overall weight from combinatorics
+            '''
+            logscore = _test_cvlogprob(_models, stitch, s2, l2, S2, m2, degree)
 
             ### add to overall marginalization
             M = max(ans[ind,4], logscore)
@@ -482,14 +487,149 @@ def _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, d
     else:
         return np.array([tuple(_) for _ in ans], dtype=CVSAMPLES_DTYPE)
 
-def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
-    Nmodels = len(models)
+def _test_cvlogprob(models, stitch, s2, l2, S2, m2, degree, diagonal_model_covariance=False):
     logscore = 0.
-    for ind in range(Nmodels):
+
+    x_obs, f_obs, covs, covs_model, Nstitch = gp.cov_altogether_noise(models, stitch, diagonal_model_covariance=diagonal_model_covariance)
+    cov_obs_obs = gp.cov_altogether_obs_obs(x_obs, covs, covs_model, Nstitch, sigma2=s2, l2=l2, sigma2_obs=S2, model_multiplier2=m2)
+    invcov_obs_obs = np.linalg.inv(cov_obs_obs)
+    Nobs = len(x_obs)
+
+    ### make boolean arrays labeling where each model lives in the bigger matrix
+    keep_bools = []
+    start = 0
+    for model in models:
+        end = start+len(model['x'])
+        t = np.zeros(Nobs, dtype=bool)
+        t[start:end] = True
+        keep_bools.append(t)
+        start = end
+
+    for ind, keep in enumerate(keep_bools):
+        ###
+        # compute this the slow way
+        ###
+        _models = [m for jnd, m in enumerate(models) if jnd!=ind] ### assume a single element per model
+
+        # compute noise covariances
+        _x_obs, _f_obs, _covs, _model_covs, _Nstitch = gp.cov_altogether_noise(_models, stitch, diagonal_model_covariance=diagonal_model_covariance)
+
+        slow_mean, slow_cov, slow_logweight = gp.gpr_altogether( ### do expensive conditioning
+            models[ind]['x'],
+            _f_obs,
+            _x_obs,
+            _covs,
+            _model_covs,
+            _Nstitch,
+            degree=degree,
+            guess_sigma2=s2,
+            guess_l2=l2,
+            guess_sigma2_obs=S2,
+            guess_model_multiplier2=m2,
+        )
+
+        slow_invcov = np.linalg.inv(slow_cov)
+        slow_invcov_obs = np.linalg.inv(models[ind]['cov'])
+
+        # compute the probability of seeing the held out thing given everyrhing else
+        slow_ans = gp._logprob(
+            models[ind]['f'],
+            slow_mean,
+            slow_invcov,
+            invcov_obs=slow_invcov_obs,
+            verbose=True,
+        )
+
+        ###
+        # compute this the fast way
+        ###
+
+        lose = np.logical_not(keep)
+        Nkeep = np.sum(keep)
+        Nlose = len(keep)-Nkeep
+
+        fast_invcov_obs = np.linalg.inv(gp._extract_subset_from_matrix(keep, covs))
+
+        ### compute poly-model fits
+        mu_obs, mu_tst = gp.poly_model(x_obs[keep], f_obs[lose], x_obs[lose], degree=degree) ### poly_model fit
+
+        ### extract things from invcov
+        fast_mean, fast_invcov = gp._extract_invconditioned_mean_from_invcov(keep, f_obs[lose]-mu_obs, invcov_obs_obs)
+        fast_mean += mu_tst
+
+        fast_cov = np.linalg.inv(fast_invcov)
+        fast_cov -= np.ones(Nkeep)*S2 + gp._extract_subset_from_matrix(keep, covs+m2*covs_model)
+        fast_cov = gp.posdef(fast_cov)
+        fast_invcov = np.linalg.inv(fast_cov)
+
+        ### compute loglike for this cross-validation
+        fast_ans = gp._logprob(
+            f_obs[keep], ### the mean from the held-out observations
+            fast_mean,       ### conditioned mean
+            fast_invcov,  ### invcov for conditioned process
+            invcov_obs=fast_invcov_obs,  ### invcov for the held-out process
+            verbose=True,
+        )
+
+        ### do this stupidly
+        stpd_cov = gp._extract_subset_from_matrix(keep, cov_obs_obs - covs - m2*covs_model) - np.ones(Nkeep)*S2 \
+            - np.dot(
+                  cov_obs_obs[np.outer(keep, lose)].reshape((Nkeep,Nlose)),
+                  np.dot(
+                      np.linalg.inv(cov_obs_obs[np.outer(lose, lose)].reshape((Nlose,)*2)),
+                      cov_obs_obs[np.outer(lose, keep)].reshape((Nlose,Nkeep))
+                  )
+            )
+        stpd_cov = gp.posdef(stpd_cov)
+        stpd_invcov = np.linalg.inv(stpd_cov)
+
+        stpd_ans = gp._logprob(
+            f_obs[keep], ### the mean from the held-out observations
+            fast_mean,       ### conditioned mean
+            stpd_invcov,  ### invcov for conditioned process
+            invcov_obs=fast_invcov_obs,  ### invcov for the held-out process
+            verbose=True,
+        )
+
+        ###
+        # compare
+        ###
+
+        print 'conditioned covs'
+        print 'slow_cov'
+        raw_input(slow_cov)
+        print 'stpd_cov'
+        raw_input(stpd_cov)
+        print 'fast_cov'
+        raw_input(fast_cov)
+        print '(slow-stpd)/slow'
+        raw_input((slow_cov-stpd_cov)/slow_cov)
+        print '(slow-fast)/slow'
+        raw_input((slow_cov-fast_cov)/slow_cov)
+
+        print 'inner products'
+        print 'slow_ans'
+        print slow_ans
+        print 'stpd_ans'
+        print stpd_ans
+        print 'fast_ans'
+        print fast_ans
+        print '(slow-stpd)/slow'
+        print (slow_ans - stpd_ans)/slow_ans
+        print '(slow-fast)/slow'
+        raw_input((slow_ans - fast_ans)/slow_ans)
+
+        logscore += slow_ans
+
+    return logscore
+     
+def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree, diagonal_model_covariance=False):
+    logscore = 0.
+    for ind in range(len(models)):
         _models = [m for jnd, m in enumerate(models) if jnd!=ind] ### assume a single element per model
 
         ### compute noise covariances
-        x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise(_models, stitch)
+        x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise(_models, stitch, diagonal_model_covariance=diagonal_model_covariance)
 
         mean, cov, logweight = gp.gpr_altogether( ### do expensive conditioning
             models[ind]['x'],
@@ -506,18 +646,18 @@ def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
         )
 
         # compute the probability of seeing the held out thing given everyrhing else
-#        conditioned_model = [{'x':models[ind]['x'], 'f':mean, 'cov':cov, 'weight':1}]
-#        logscore += gp.model_logprob([models[ind]], conditioned_model)
-        logscore += gp._logprob(
+        ans = gp._logprob(
             models[ind]['f'],
             mean,
             np.linalg.inv(cov),
             invcov_obs=np.linalg.inv(models[ind]['cov']),
+            verbose=True,
         )
+        logscore += ans
 
     return logscore
 
-def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
+def _cvlogprob(keep_bools, x_obs, f_obs, covs, invcov, degree):
     logscore = 0
 
     for keep in keep_bools:
@@ -532,12 +672,15 @@ def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
         f_prb += mu_tst
 
         ### compute loglike for this cross-validation
-        logscore += gp._logprob(
+        ans = gp._logprob(
             f_obs[keep], ### the mean from the held-out observations
             f_prb,       ### conditioned mean
             invcov_prb,  ### invcov for conditioned process
-            invcov_obs=np.linalg.inv(gp._extract_subset_from_matrix(keep, cov)),  ### invcov for the held-out process
+            invcov_obs=np.linalg.inv(gp._extract_subset_from_matrix(keep, covs)),  ### invcov for the held-out process
+            verbose=True,
         )
+        print ans
+        logscore += ans
 
     return logscore
 
