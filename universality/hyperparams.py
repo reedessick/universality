@@ -531,7 +531,7 @@ def _cvlogprob(keep_bools, x_obs, f_obs, cov, invcov, degree):
             f_obs[keep], ### the mean from the held-out observations
             f_prb,       ### conditioned mean
             invcov_prb,  ### invcov for conditioned process
-            invcov_obs=np.linalg.inv(cov[np.outer(keep,keep)].reshape(Nkeep,Nkeep)),  ### invcov for the held-out process
+            invcov_obs=np.linalg.inv(gp._extract_subset_from_matrix(keep, cov)),  ### invcov for the held-out process
         )
 
     return logscore

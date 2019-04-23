@@ -186,6 +186,13 @@ def _intersect_models(x_obs, f_obs, invcov_obs, x_prb, f_prb, invcov_prb):
 
     return f_obs, invcov_obs, f_prb, invcov_prb
 
+def _extract_subset_from_matrix(bool_keep, matrix):
+    if np.all(bool_keep):
+        return matrix
+    else:
+        n = len(matrix)
+        return matrix[np.outer(bool_keep, bool_keep)].reshape((n,n))
+
 def _extract_invsubset_from_invcov(bool_keep, invcov):
     """return the inverse of a subset of cov by extracting it from invcov
 
@@ -212,11 +219,7 @@ def _extract_invsubset_from_invcov(bool_keep, invcov):
                )
 
 def _extract_invconditioned_from_invcov(bool_keep, invcov):
-    if np.all(bool_keep): ### nothing to condition on
-        return invcov
-    else:
-        n = np.sum(bool_keep)
-        return invcov[np.outer(bool_keep, bool_keep)].reshape((n,n))
+    return _extract_subset_from_matrix(bool_keep, invcov)
 
 def _extract_conditioned_from_invcov(bool_keep, invcov):
     return np.linalg.inv(_extract_invconditioned_from_invcov(bool_keep, invcov))
@@ -226,9 +229,9 @@ def _extract_conditioned_mean_from_incov(bool_keep, mean, invcov):
         return mean
     else:
         n = np.sum(bool_keep)
-        N = np.len(bool_keep)-n
-        P = invcov[np.outer(bool_keep, bool_keep)].reshape((n,n))
-        Q = invcov[np.outer(keep, lose)].reshape((n,N))
+        N = len(bool_keep)-n
+        P = invcov[np.outer(bool_keep, bool_keep)].reshape((n,n)) ### do not delegate to _extract_invconditioned_from_invcov to avoid repeated conditional
+        Q = invcov[np.outer(bool_keep, np.logical_not(bool_keep))].reshape((n,N))
         return -np.dot(np.linalg.inv(P), np.dot(Q, mean)), P
 
 def logprob(x_obs, f_obs, x_prb, f_prb, cov_prb, cov_obs=None):
