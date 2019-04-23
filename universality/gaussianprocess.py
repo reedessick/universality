@@ -190,7 +190,7 @@ def _extract_subset_from_matrix(bool_keep, matrix):
     if np.all(bool_keep):
         return matrix
     else:
-        n = len(matrix)
+        n = np.sum(bool_keep)
         return matrix[np.outer(bool_keep, bool_keep)].reshape((n,n))
 
 def _extract_invsubset_from_invcov(bool_keep, invcov):
