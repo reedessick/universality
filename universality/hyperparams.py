@@ -505,10 +505,15 @@ def _slow_cvlogprob(models, stitch, s2, l2, S2, m2, degree):
             guess_model_multiplier2=m2,
         )
 
-        conditioned_model = [{'x':models[ind]['x'], 'f':mean, 'cov':cov, 'weight':1}]
-
         # compute the probability of seeing the held out thing given everyrhing else
-        logscore += gp.model_logprob([models[ind]], conditioned_model)
+#        conditioned_model = [{'x':models[ind]['x'], 'f':mean, 'cov':cov, 'weight':1}]
+#        logscore += gp.model_logprob([models[ind]], conditioned_model)
+        logscore += gp._logprob(
+            models[ind]['f'],
+            mean,
+            np.linalg.inv(cov),
+            invcov_obs=np.linalg.inv(models[ind]['cov']),
+        )
 
     return logscore
 
