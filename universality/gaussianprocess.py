@@ -224,9 +224,9 @@ def _extract_invconditioned_from_invcov(bool_keep, invcov):
 def _extract_conditioned_from_invcov(bool_keep, invcov):
     return np.linalg.inv(_extract_invconditioned_from_invcov(bool_keep, invcov))
 
-def _extract_conditioned_mean_from_incov(bool_keep, mean, invcov):
+def _extract_invconditioned_mean_from_invcov(bool_keep, mean, invcov):
     if np.all(bool_keep):
-        return mean
+        return mean, invcov
     else:
         n = np.sum(bool_keep)
         N = len(bool_keep)-n
@@ -259,14 +259,14 @@ def logprob(x_obs, f_obs, x_prb, f_prb, cov_prb, cov_obs=None):
         invcov_obs=None if cov_obs is None else np.linalg.inv(cov_obs),
     )
 
-def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None):
+def _logprob(f_obs, f_prb, invcov_prb, invcov_obs=None, verbose=False):
     if invcov_obs is None:
         invcov = invcov_prb
     elif np.all(invcov_prb==invcov_obs): ### take a shortcut to avoid matrix inverses
         invcov = 0.5*invcov_prb
     else:
         invcov = posdef(np.dot(invcov_obs, np.dot(np.linalg.inv(invcov_obs + invcov_prb), invcov_prb)))
-    return _logLike(f_obs-f_prb, invcov)
+    return _logLike(f_obs-f_prb, invcov, verbose=verbose)
 
 def model_logprob(model_obs, model_prb):
     '''
@@ -689,7 +689,7 @@ def cov_phi_phi_stitch(x_stitch, stitch_mean, stitch_pressure, stitch_index):
 def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, model_multiplier2=1):
 
     ### we add the diagonal component for the models in separate from the stitch
-    ans = cov_noise + model_multiplier2*cov_models + _cov(x_obs, sigma2=sigma2, l2=l2, sigma2_obs=0.)
+    ans = cov_noise + model_multiplier2*cov_models + cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
     N = len(x_obs)-Nstitch
     ans[:N,:N] += np.diag(np.ones(N, dtype=float)*sigma2_obs)
 
