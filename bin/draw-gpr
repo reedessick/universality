@@ -111,7 +111,7 @@ for i, (ind, color) in enumerate(zip(\
         utils.draw_from_weights(weights, size=args.num_draws),
         plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=0.25, minimum=0.)
     )):
-    i += start ### increment by the starting index
+    i += args.start ### increment by the starting index
     fmt = {'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
 
     csvdir = directory%fmt
