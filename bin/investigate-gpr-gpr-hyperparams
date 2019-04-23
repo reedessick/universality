@@ -40,6 +40,7 @@ parser.add_argument('hdf5paths', nargs='+', type=str)
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+vgroup.add_argument('--VVerbose', default=False, action='store_true')
 
 ### options for stitching
 sgroup = parser.add_argument_group('stitching options')
@@ -160,6 +161,7 @@ if args.tag:
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
+args.Verbose |= args.VVerbose
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
@@ -251,6 +253,7 @@ if args.grid:
         temperature=args.temperature,
         slow=args.slow_cvlogLike,
         diagonal_model_covariance=args.diagonal_model_covariance,
+        verbose=args.VVerbose,
     )
 
     ### print maximum likelihood parameters
@@ -335,6 +338,7 @@ if args.mc:
         temperature=args.temperature,
         slow=args.slow_cvlogLike,
         diagonal_model_covariance=args.diagonal_model_covariance,
+        verbose=args.VVerbose,
     )
 
     ### print maximum likelihood parameters

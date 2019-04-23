@@ -565,6 +565,7 @@ def cvlogLike_grid(
         temperature=DEFAULT_TEMPERATURE,
         slow=False,
         diagonal_model_covariance=False,
+        verbose=False,
     ):
     ### compute grid
     sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
@@ -582,7 +583,7 @@ def cvlogLike_grid(
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core
-        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=temperature, slow=slow)
+        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MODEL_MULTIPLIER, degree, temperature=temperature, slow=slow, diagonal_model_covariance=diagonal_model_covariance, verbose=verbose)
 
     else: ### divide up work and parallelize
 
@@ -596,7 +597,7 @@ def cvlogLike_grid(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MODEL_MULTIPLIER[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance, 'verbose':verbose})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -628,6 +629,7 @@ def cvlogLike_mc(
         temperature=DEFAULT_TEMPERATURE,
         slow=False,
         diagonal_model_covariance=False,
+        verbose=False,
     ):
     ### draw hyperparameters from hyperpriors
     SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
@@ -637,7 +639,7 @@ def cvlogLike_mc(
 
     ### iterate over grid points and copmute logLike for each
     if num_proc==1: ### do this on a single core
-        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MM, degree, temperature=temperature, slow=slow)
+        ans = _cvlogLike_worker(models, stitch, SIGMA, L, SIGMA_NOISE, MM, degree, temperature=temperature, slow=slow, diagonal_model_covariance=diagonal_model_covariance, verbose=verbose)
 
     else: ### divide up work and parallelize
 
@@ -651,7 +653,7 @@ def cvlogLike_mc(
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance})
+            proc = mp.Process(target=_cvlogLike_worker, args=(models, stitch, SIGMA[truth], L[truth], SIGMA_NOISE[truth], MM[truth], degree), kwargs={'conn':conn2, 'temperature':temperature, 'slow':slow, 'diagonal_model_covariance':diagonal_model_covariance, 'verbose':verbose})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
