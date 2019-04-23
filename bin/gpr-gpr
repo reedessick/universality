@@ -217,6 +217,7 @@ flabel=models[0][0]['labels']['flabel']
 inds = utils.models2combinations(models)
 Ninds = len(inds)
 tmp = 'hyperparams %'+str(int(np.floor(np.log10(len(sigma)))))+'d / %d'%len(sigma)+' ; model combination %'+str(int(np.floor(np.log10(Ninds))))+'d / %d'%Ninds
+TMP = '    p=%d; s=%.3e; l=%.3f; S=%.3e; m=%.3e'
 
 hdf5path = os.path.join(args.output_dir, 'gpr_gpr%s.hdf5'%args.tag)
 if args.verbose:
@@ -237,6 +238,7 @@ with h5py.File(hdf5path, 'w') as obj:
         for ind, indecies in enumerate(inds):
             if args.Verbose:
                 print(tmp%(hyperparamind+1, ind+1))
+                print(TMP%(p, s, l, S, m))
                 print('building big covariance matrix')
 
             x_obs, f_obs, covs, model_covs, Nstitch = gp.cov_altogether_noise(

@@ -82,14 +82,14 @@ if (not args.force) and (len(set(inds)) < 0.95*args.num_samples):
 # keep only those data and get rid of the weights column
 new = np.empty((args.num_samples, data.shape[1]), dtype=float)
 new[...] = data[inds]
-new = new[:,np.array(columns)!=args.weight_column]
+new[:,columns.index(args.weight_column)] = 1 ### set this so all weights are equal (prevent ourselves from double-counting weights)
 
 #------------------------
 
 if args.verbose:
     print('writing representative set to: '+args.targetpath)
 with open(args.targetpath, 'w') as obj:
-    print >> obj, ','.join(col for col in columns if col!=args.weight_column)
+    print >> obj, ','.join(columns)
     tmp = ','.join('%.9e' for _ in xrange(new.shape[1]))
     for sample in new:
         print >> obj, tmp%tuple(sample)
