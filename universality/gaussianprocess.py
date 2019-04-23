@@ -202,12 +202,13 @@ def _extract_invsubset_from_invcov(bool_keep, invcov):
         n = np.sum(bool_keep)
         N = len(bool_keep)-n
         bool_lose = np.logical_not(bool_keep)
-        return invcov[np.outer(bool_keep,bool_lose)].reshape((n,n)) \
+        return invcov[np.outer(bool_keep,bool_keep)].reshape((n,n)) \
                - np.dot(
                    invcov[np.outer(bool_keep,bool_lose)].reshape((n,N)), \
                    np.dot(
                        np.linalg.inv(invcov[np.outer(bool_lose,bool_lose)].reshape(N,N)),
-                       invcov[np.outer(bool_lose, bool_keep)].reshape((N,n)))
+                       invcov[np.outer(bool_lose, bool_keep)].reshape((N,n))
+                   )
                )
 
 #def _reorder(bool_keep, invcov):
