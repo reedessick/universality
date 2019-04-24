@@ -122,10 +122,11 @@ args = parser.parse_args()
 ### finish parsing
 Nhdf5 = len(args.hdf5paths)
 
-if args.stitch_pressure_bounds is None:
-    args.stitch_pressure_bounds = args.pressure_bounds
-if args.stitch_num_points is None:
-    args.stitch_num_points = args.num_points
+if args.stitch:
+    if args.stitch_pressure_bounds is None:
+        args.stitch_pressure_bounds = args.pressure_bounds
+    if args.stitch_num_points is None:
+        args.stitch_num_points = args.num_points
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
