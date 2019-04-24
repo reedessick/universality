@@ -65,6 +65,8 @@ def models2combinations(models):
 
 def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
+    if data.size==1:
+        data = np.array([data], dtype=data.dtype)
 
     # check that all requested columns are actually in the data
     if columns:
