@@ -774,6 +774,7 @@ def cov_altogether_noise(models, stitch, diagonal_model_covariance=False):
             i = x==model['x'] ### should be either 1 or 0 matches
             if np.any(i):
                 sample.append(model['f'][i])
+
         mu_set[ind] = np.mean(sample)
 
     # compute the average of the covariances and the 2nd moment of the means
@@ -792,15 +793,15 @@ def cov_altogether_noise(models, stitch, diagonal_model_covariance=False):
                 if np.any(i) and np.any(j): ### both abscissa are present in this model
                     sample.append(model['f'][i]*model['f'][j] + model['cov'][i,j]) ### add both these things together for convenience
 
-            cov_set[ind,IND] = np.mean(sample) - mu_set[ind]*mu_set[IND] ### NOTE:
-            if ind!=IND:
-                cov_set[IND,ind] = cov_set[ind,IND]                      ###   this is equivalent to the average (over models) of the covariance of each model
-                                                                         ###   plus the covariance between the mean of each model (with respect to the models)
-            elif diagonal_model_covariance:
-                cov_set[ind,ind] = max(cov_set[ind,ind],0)
+            if sample: ### there is something to add here, which is not guaranteed
+                cov_set[ind,IND] = np.mean(sample) - mu_set[ind]*mu_set[IND] ### NOTE:
+                if ind!=IND:
+                    cov_set[IND,ind] = cov_set[ind,IND]  ###   this is equivalent to the average (over models) of the covariance of each model
+                                                         ###   plus the covariance between the mean of each model (with respect to the models)
+                else:
+                    cov_set[ind,ind] = max(cov_set[ind,ind],0) ### minimum allowable
 
-    if not diagonal_model_covariance:
-        cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
+    cov_set = posdef(cov_set) ### regularize the result to make sure it's positive definite (for numerical stability)
 
     # map cov_set into the appropriate elements of model_covs
     model_covs = np.zeros_like(covs, dtype=float)
