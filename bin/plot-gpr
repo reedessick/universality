@@ -23,7 +23,7 @@ parser = ArgumentParser(description=__doc__)
 
 ### required options
 rgroup = parser.add_argument_group('required arguments')
-rgroup.add_argument('hdf5path', type=str)
+rgroup.add_argument('label,hdf5path', type=str, nargs='+')
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity options')
@@ -41,6 +41,14 @@ pgroup = parser.add_argument_group('plotting arguments')
 pgroup.add_argument('--level', default=[], type=float, action='append',
     help='the confidence level to use when plotting marginal uncertainty. \
 Can be repeated to specify more than one confidence level.')
+
+pgroup.add_argument('--gpr-color', default=[], nargs=2, type=str, action='append',
+    help='specify the color for each gpr. Can be repeated to specify separate colors for each hdf5path. eg, "--gpr-color label b"')
+pgroup.add_argument('--gpr-alpha', default=[], nargs=2, type=str, action='append',
+    help='specify the alpha for each gpr. Can be repeated to specify separate colors for each hdf5path. eg, "--gpr-alpha label 0.5"')
+
+pgroup.add_argument('--csv-color', default=plot.DEFAULT_COLOR2, type=str)
+pgroup.add_argument('--csv-alpha', default=plot.DEFAULT_ALPHA, type=float)
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -60,9 +68,10 @@ pgroup.add_argument('--min-y', default=None, type=float,
 pgroup.add_argument('--max-y', default=None, type=float,
     help='only plot data below this value.')
 
-pgroup.add_argument('--title', default=False, action='store_true',
-    help='include a title in the plot')
+pgroup.add_argument('--title', default=None, type=str,
+    help='include this string as the title of the plot')
 pgroup.add_argument('--grid', default=False, action='store_true')
+pgroup.add_argument('--legend', default=False, action='store_true')
 
 ### output formatting
 ogroup = parser.add_argument_group('output options')
@@ -90,24 +99,34 @@ if not args.figtype:
 if not args.level:
     args.level = plot.DEFAULT_LEVELS
 
+args.gpr_color = dict(args.gpr_color)
+args.gpr_alpha = dict((a,float(b)) for a, b in args.gpr_alpha)
+
 #-------------------------------------------------
 
 ### read in process from pkl
-if args.verbose:
-    print('reading process from: '+args.hdf5path)
-model = gp.hdf5load(args.hdf5path)
+figtup = None
+for hdf5path in args.__dict__['label,hdf5path']: ### access it in this way because I'm stubborn and want a comma in my variable name
+    label, hdf5path = hdf5path.split(',')
+    if args.verbose:
+        print('reading process from: '+hdf5path)
+    model = gp.hdf5load(hdf5path)
 
-# actually plot the process
-if args.verbose:
-    print('plotting process')
-figtup = plot.overlay_model(
-    model,
-    levels=args.level,
-    xlabel=args.xlabel,
-    ylabel=args.ylabel,
-    figwidth=args.figwidth,
-    figheight=args.figheight,
-)
+    # actually plot the process
+    if args.verbose:
+        print('plotting process')
+    figtup = plot.overlay_model(
+        model,
+        color=args.gpr_color.get(label, plot.DEFAULT_COLOR1),
+        alpha=args.gpr_alpha.get(label, plot.DEFAULT_ALPHA),
+        levels=args.level,
+        xlabel=args.xlabel,
+        ylabel=args.ylabel,
+        label=label,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        figtup=figtup,
+    )
 
 #------------------------
 
@@ -117,29 +136,29 @@ if args.csvpaths:
     for path in args.csvpaths:
         if args.verbose:
             print('loading csv from: '+path)
-        data, _ = utils.load(path, columns)
+        data, _ = utils.load(path, columns, logcolumns=args.logcolumn)
         x = data[:,0]
         y = data[:,1]
-
-        # take logs of data if requested
-        if args.log_x:
-            x = np.log(x)
-        if args.log_y:
-            y = np.log(y)
-
         curves.append((x, y, os.path.basename(path)[:-4]))
 
     # actually plot the curves
     if args.verbose:
         print('plotting csv data')
-    figtup = plot.overlay(curves, figtup=figtup, xlabel=args.xlabel, ylabel=args.ylabel)
+    figtup = plot.overlay(
+        curves,
+        figtup=figtup,
+        xlabel=args.xlabel,
+        ylabel=args.ylabel,
+        colors=[args.csv_color]*len(curves),
+        alphas=[args.csv_alpha]*len(curves),
+    )
 
 #------------------------
 
 ### decorate 
 fig = figtup[0]
 if args.title:
-    fig.suptitle(os.path.basename(args.hdf5path)[:-5])
+    fig.suptitle(args.title)
 
 for ax in figtup[1:]:
     if args.grid:
@@ -156,7 +175,7 @@ if args.min_y!=None:
 if args.max_y!=None:
     ax.set_ylim(ymax=args.max_y)
 
-if args.csvpaths:
+if args.legend:
     ax.legend(loc='best')
 
 ### save

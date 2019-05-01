@@ -630,6 +630,7 @@ def overlay_model(
         figheight=DEFAULT_FIGHEIGHT,
         xlabel=None,
         ylabel=None,
+        label=None,
         reference_curve=None,
         fractions=False,
         residuals=False,
@@ -686,7 +687,7 @@ def overlay_model(
     for m, w in zip(model, weights):
         f += w*np.interp(x, m['x'], m['f'])
     f /= np.sum(weights) ### plot the mean of the means
-    ax.plot(x, f, color=color, linestyle=linestyle, marker=marker, alpha=alpha)
+    ax.plot(x, f, color=color, linestyle=linestyle, marker=marker, alpha=alpha, label=label)
 
     # plot residuals, etc
     if subax:
