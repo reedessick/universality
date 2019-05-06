@@ -288,10 +288,13 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
             else:
                 data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier']])
 
-        weights = np.exp(grid['logLike']-np.max(grid['logLike']))
-        weights /= np.sum(weights)
+        ### do the following back-flip to throw out the (assumed small) population of samples that are affected by numerical stability issues
+        weights = grid['logLike']
+        truth = weights==weights ### only keep things that are not nan
+        weights[truth] = np.exp(weights[truth]-np.max(weights[truth]))
+        weights[truth] /= np.sum(weights[truth])
 
-        truth = weights>1e-3*np.max(weights)
+        truth[truth] = weights[truth]>1e-3*np.max(weights[truth])
 
         if args.verbose:
             print('    plotting')
