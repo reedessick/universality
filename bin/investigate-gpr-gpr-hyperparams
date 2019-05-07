@@ -274,7 +274,8 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
     with open(path, 'w') as file_obj:
         print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
         for tup in zip(grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier'], grid['logLike']):
-            print >> file_obj, tmp%tup
+            if tup[-1]==tup[-1]: ### logLike is not nan
+                print >> file_obj, tmp%tup
 
     if args.plot:
         if args.include_logL:
@@ -357,7 +358,8 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
     with open(path, 'w') as file_obj:
         print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
         for tup in zip(mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier'], mc['logLike']):
-            print >> file_obj, tmp%tup
+            if tup[-1]==tup[-1]: ### logLike is not nan
+                print >> file_obj, tmp%tup
 
     if args.plot:
         if args.include_logL:

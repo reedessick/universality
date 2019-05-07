@@ -243,7 +243,8 @@ if args.grid:
     with open(path, 'w') as file_obj:
         print >> file_obj, 'poly_degree,'+','.join(grid.dtype.names)
         for sample in grid:
-            print >> file_obj, tmp%tuple(sample)
+            if sample[-1]==sample[-1]: ### logLike is not nan
+                print >> file_obj, tmp%tuple(sample)
 
     if args.plot:
         if args.include_logL:
@@ -317,7 +318,8 @@ if args.mc:
     with open(path, 'w') as file_obj:
         print >> file_obj, 'poly_degree,'+','.join(mc.dtype.names)
         for sample in mc:
-            print >> file_obj, tmp%tuple(sample)
+            if sample[-1]==sample[-1]: ### logLike is not nan
+                print >> file_obj, tmp%tuple(sample)
 
     if args.plot:
         if args.include_logL:
