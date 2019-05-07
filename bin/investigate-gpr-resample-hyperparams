@@ -257,10 +257,7 @@ if args.grid:
             else:
                 data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs']])
 
-        weights = np.exp(grid['logLike']-np.max(grid['logLike']))
-        weights /= np.sum(weights)
-
-        truth = weights >= np.max(weights)/100.
+        truth, weights = utils.logLike2weights(grid['logLike'])
 
         if args.verbose:
             print('    plotting')
@@ -334,10 +331,7 @@ if args.mc:
             else:
                 data = np.transpose([mc['sigma'], mc['l'], mc['sigma_obs']])
 
-        weights = np.exp(mc['logLike']-np.max(mc['logLike']))
-        weights /= np.sum(weights)
-
-        truth = weights >= np.max(weights)/100.
+        truth, weights = utils.logLike2weights(mc['logLike'])
 
         if args.verbose:
             print('    plotting')

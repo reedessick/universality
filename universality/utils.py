@@ -59,6 +59,18 @@ def draw_from_weights(weights, size=1):
 def models2combinations(models):
     return zip(*[_.flatten() for _ in np.meshgrid(*[range(len(model)) for model in models])])
 
+def logLike2weights(logLike):
+
+    truth = logLike==logLike ### only keep things that are not nan
+
+    weights = np.zeros_like(logLike, dtype=float)
+    weights[truth] = np.exp(logLike[truth]-np.max(logLike[truth]))
+    weights[truth] /= np.sum(weights[truth])
+
+    truth[truth] = weights[truth]>1e-5*np.max(weights[truth]) ### only keep things that have a big enough weight
+
+    return truth, weights
+
 #-------------------------------------------------
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------

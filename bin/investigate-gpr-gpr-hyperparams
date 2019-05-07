@@ -289,12 +289,7 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
                 data = np.transpose([grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier']])
 
         ### do the following back-flip to throw out the (assumed small) population of samples that are affected by numerical stability issues
-        weights = grid['logLike']
-        truth = weights==weights ### only keep things that are not nan
-        weights[truth] = np.exp(weights[truth]-np.max(weights[truth]))
-        weights[truth] /= np.sum(weights[truth])
-
-        truth[truth] = weights[truth]>1e-3*np.max(weights[truth])
+        truth, weights = utils.logLike2weights(grid['logLike'])
 
         if args.verbose:
             print('    plotting')
@@ -376,10 +371,7 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
             else:
                 data = np.transpose([mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier']])
 
-        weights = np.exp(mc['logLike']-np.max(mc['logLike']))
-        weights /= np.sum(weights)
-
-        truth = weights>1e-3*np.max(weights)
+        truth, weights = utils.logLike2weights(mc['logLike'])
 
         if args.verbose:
             print('    plotting')
@@ -467,7 +459,7 @@ logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
             truths=truths[include] if truths is not None else None,
             color='r',
         )
-        fig.text(0.75, 0.75, '%.3f effective samples'%stats.neff(weights), ha='center', va='center')
+        fig.text(0.75, 0.75, '%.3f effective samples'%len(data), ha='center', va='center')
         plot.save('investigate-gpr-gpr-hyperparams-mcmc%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
         plot.close(fig)
 
