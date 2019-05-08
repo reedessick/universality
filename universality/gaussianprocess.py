@@ -402,18 +402,50 @@ def posdef(cov, epsilon=1e-10):
     '''
     identifies the nearest positive semi-definite symmetric matrix and returns it
     '''
-    cov[:] = 0.5*(cov+cov.T) ### re-use memory and symmetrize this thing to try to average away numerical errors
+    ### NOTE: the following is based on Hingham (1988)
+    cov[:] = 0.5*(cov+cov.T) # make sure this is symmetric
 
-    val, vec = np.linalg.eigh(cov)                     ### take spectral decomposition
-    epsilon *= np.max(val)                             ### normalize this
-    val[val<epsilon] = epsilon                         ### regularlize eigenvalue
-    cov[:] = np.dot(vec, np.dot(np.diag(val), vec.T))  ### compute the matrix with the regularlize eigenvalues
+    nug = 0.
+    eye = np.diag(np.ones(len(cov), dtype=float))
+    try:
+        np.linalg.cholesky(cov)
 
-    sign, det = np.linalg.slogdet(cov)
-    if sign!=1:
-        print('***WARNING*** non-physical conditioned covariance matrix detected! sign=%s; log|det|=%s'%(sign, det))
+    except np.linalg.linalg.LinAlgError: ### not pos-semi definite
+        ### find smallest nugget that renders this positive semi-definite
+        nug = 1e-10
+        while True:
+            try:
+                np.linalg.cholesky(cov+nug*eye)
+                break
+            except np.linalg.linalg.LinAlgError:
+                nug *= 2
 
-    return cov
+        # perform a bisection search to find the smallest possible nug
+        low = nug/2
+        while (nug-low) > 0.5*(nug+low)*epsilon:
+            mid = (nug*low)**0.5
+            try:
+                np.linalg.cholesky(cov+mid*eye)
+                nug = mid
+            except np.linalg.linalg.LinAlgError:
+                low = mid
+
+    finally: ### return the "corrected" maxtrix
+        return cov + nug*eye
+        
+    ### NOTE: the following tends to introduce nans because eigh assumes things about cov that are not true when it's wonky
+#    cov[:] = 0.5*(cov+cov.T) ### re-use memory and symmetrize this thing to try to average away numerical errors
+#
+#    val, vec = np.linalg.eigh(cov)                     ### take spectral decomposition
+#    epsilon *= np.max(val)                             ### normalize this
+#    val[val<epsilon] = epsilon                         ### regularlize eigenvalue
+#    cov[:] = np.dot(vec, np.dot(np.diag(val), vec.T))  ### compute the matrix with the regularlize eigenvalues
+#
+#    sign, det = np.linalg.slogdet(cov)
+#    if sign!=1:
+#        print('***WARNING*** non-physical conditioned covariance matrix detected! sign=%s; log|det|=%s'%(sign, det))
+#
+#    return cov
 
 def gpr(f_obs, cov_tst_tst, cov_tst_obs, cov_obs_tst, cov_obs_obs):
     '''
