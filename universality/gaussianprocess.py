@@ -398,7 +398,7 @@ def grad_logLike(f_obs, x_obs, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=
 # GPR via conditioning given a set of observation and a covariance matrix
 #-------------------------------------------------
 
-def posdef(cov, epsilon=1e-10):
+def posdef(cov, epsilon=1e-6):
     '''
     identifies the nearest positive semi-definite symmetric matrix and returns it
     '''
