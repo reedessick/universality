@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 ### non-standard
 from universality import utils
 from universality import gaussianprocess as gp
+from universality import hyperparams as hp
 from universality import plot
 
 #-------------------------------------------------
@@ -72,6 +73,9 @@ ggroup.add_argument('-m', '--model-multiplier', default=gp.DEFAULT_MODEL_MULTIPL
     help='multiplicative factor for theoretical variance. Larger values increase the "theory noise" from the variance between resampled curves. \
 Default=%d'%gp.DEFAULT_MODEL_MULTIPLIER)
 parser.add_argument('--diagonal-model-covariance', default=False, action='store_true')
+
+ggroup.add_argument('--temperature', default=hp.DEFAULT_TEMPERATURE, type=float,
+    help='the temperature applied to the weights after conditioning.')
 
 ### options for stitching
 sgroup = parser.add_argument_group('stitching options')
@@ -299,7 +303,7 @@ with h5py.File(hdf5path, 'w') as obj:
         if len(logLikes)==1:
             logLikes = np.array([1]) ### handle things like infty/infty gracefully here
         else:
-            logLikes = np.array(logLikes)
+            logLikes = np.array(logLikes) / args.temperature
             maximum = np.max(logLikes)
             logLikes = np.exp(logLikes-np.max(logLikes))
             logLikes /= np.sum(logLikes) ### normalize this
@@ -313,7 +317,7 @@ with h5py.File(hdf5path, 'w') as obj:
     ### update weights for each conditioned model after normalizing all of them
     if args.verbose:
         print('updating weights for all conditioned models so they are normalized')
-    logweights = np.array(logweights)
+    logweights = np.array(logweights) / args.temperature
     weights = np.exp(logweights-np.max(logweights))
     weights /= np.sum(weights)
 
