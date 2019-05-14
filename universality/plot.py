@@ -554,10 +554,10 @@ def overlay(
     if markers is None:
         markers = [DEFAULT_MARKER for _ in range(N)]
 
-    xmin = np.min([np.min(x) for x, _, _ in curves])
-    xmax = np.max([np.max(x) for x, _, _ in curves])
-    ymin = np.min([np.min(f) for _, f, _ in curves])
-    ymax = np.max([np.max(f) for _, f, _ in curves])
+    xmin = np.min([np.min(x) for x, _, _ in curves if len(x)])
+    xmax = np.max([np.max(x) for x, _, _ in curves if len(x)])
+    ymin = np.min([np.min(f) for _, f, _ in curves if len(f)])
+    ymax = np.max([np.max(f) for _, f, _ in curves if len(f)])
 
     # plot the observed data
     for (x, f, label), c, l, a, m in zip(curves, colors, linestyles, alphas, markers):
