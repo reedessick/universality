@@ -39,7 +39,7 @@ if args.verbose:
     print('reading process from: '+args.inpath)
     print('writing flattened (T=%.3f) process to: %s'%(args.temperature, args.outpath))
 i = 0
-with open(args.outpath, 'w') as out_obj:
+with h5py.File(args.outpath, 'w') as out_obj:
     for process in gp.hdf5load(inpath):
         gp.create_process_group(
             out_obj.create_group(str(i)),
