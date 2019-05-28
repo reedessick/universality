@@ -161,8 +161,7 @@ if args.title:
     fig.suptitle(args.title)
 
 for ax in figtup[1:]:
-    if args.grid:
-        ax.grid(True, which='both')
+    ax.grid(args.grid, which='both')
 
     if args.min_x!=None:
         ax.set_xlim(xmin=args.min_x)
