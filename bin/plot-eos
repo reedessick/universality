@@ -83,7 +83,7 @@ colors = [colors.get(label, plot.DEFAULT_COLOR1) for label, _ in args.samples]
 for label, _ in args.samples_alpha:
     assert label in names, 'specifying --samples-alpha for unknown sample set: '+label
 alphas = dict(args.samples_alpha)
-alphas = [alphas.get(label, 1.0) for label, _ in args.samples]
+alphas = [float(alphas.get(label, 1.0)) for label, _ in args.samples]
 
 for label, _ in args.samples_linestyle:
     assert label in names, 'specifying --samples-label for unknown sample set: '+label
