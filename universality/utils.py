@@ -284,7 +284,7 @@ def _define_sets(Nsamp, num_proc):
     sets = [np.zeros(Nsamp, dtype=bool) for i in xrange(num_proc)]
     for i in xrange(Nsamp):
         sets[i%num_proc][i] = True
-    return sets
+    return [_ for _ in sets if np.any(_)]
 
 def _logkde_worker(samples, data, variances, weights, conn=None):
     Nsamp, Ndim = samples.shape
@@ -333,7 +333,7 @@ def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PRO
         weights = np.ones(Ndata, dtype='float')/Ndata
 
     if num_proc==1:
-        grad_logkdes[:,:] = _grad_log_kde_worker(samples, data, variances, weights)
+        grad_logkdes[:,:] = _grad_logkde_worker(samples, data, variances, weights)
 
     else:
         # divide the work
@@ -368,20 +368,20 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
 
         ### do this backflip to preserve accuracy
         m = np.max(z)
-        z = weights[truth]*np.exp(z-m)
+        z = weights*np.exp(z-m)
         y = np.sum(z)
-        x = np.sum(z*(-zi/variances).transpose(), axis=1)
+        x = np.sum(z*(-z/variances).transpose())
 
         if y==0:
            if np.all(x==0):
-                grad_logL[i,:] = 0 ### this is the appropriate limit here
+                grad_logkdes[i] = 0 ### this is the appropriate limit here
            else:
                 raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
         else:
-            grad_logL[i,:] = twov + x/y
+            grad_logkdes[i] = twov + x/y
 
     if conn is not None:
-        conn.send(grad_logL)
+        conn.send(grad_logkdes)
     return grad_logkdes
 
 def logvarkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
@@ -479,7 +479,7 @@ def _logsecond_worker(samples1, samples2, data, variances, weights, logfirst, co
         conn.send(logsecond)
     return logsecond
 
-def logleave1outLikelihood(data, variances, weights=None):
+def logleave1outLikelihood(data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     computes the logLikelihood for how well this bandwidth produces a KDE that reflects p(data|B) using samples drawn from p(B|data)=p(data|B)*p(B)
 
@@ -490,9 +490,9 @@ def logleave1outLikelihood(data, variances, weights=None):
 
     returns mean(logL), var(logL), mean(grad_logL), covar(dlogL/dvp)
     """
-    return logleavekoutLikelihood(data, variances, k=1, weights=weights)
+    return logleavekoutLikelihood(data, variances, k=1, weights=weights, num_proc=num_proc)
 
-def logleavekoutLikelihood(data, variances, k=1, weights=None):
+def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     implements a leave-k-out cross validation estimate of the logLikelihood
     """
@@ -501,8 +501,8 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
     if weights==None:
         weights = np.ones(Nsamples, dtype='float')/Nsamples
 
-    sets = [[] for _ in xrange(np.ceil(Nsamples/k))]
-    Nsets = len(segs)
+    sets = [[] for _ in range(int(np.ceil(Nsamples/k)))]
+    Nsets = len(sets)
     for i in xrange(Nsamples):
         sets[i%Nsets].append(i)
 
@@ -519,10 +519,10 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None):
         truth[sets[i]] = False
 
         ### compute logLikelihood
-        logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth]))
+        logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc))
 
         ### compute gradient of logLikelihood
-        grad_logL[i,:] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth]), axis=0)
+        grad_logL[i,:] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc), axis=0)
 
     ### add in constant terms to logL
     logL -= np.log(Nsets-1) ### take the average as needed

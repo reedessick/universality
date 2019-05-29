@@ -27,6 +27,8 @@ parser.add_option('', '--logcolumn', default=[], type='string', action='append',
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
+parser.add_option('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 parser.add_option('-b', '--bandwidth', default=[], type='float', action='append',
     help='the bandwidth (standard deviation) used within the Gaussian KDE. \
 User can investigate multiple bandwidths by repeating this option. \
@@ -116,7 +118,7 @@ for b in opts.bandwidth:
 
     v[:] = b**2 ### convert standard deviation into variances. 
                 ### Assume diagonal covariance matrix with the same value throughout
-    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v, weights=weights)
+    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v, weights=weights, num_proc=opts.num_proc)
     metrics[b] = {
         'mean_logL' : mlogL,
         'stdv_logL' : vlogL**0.5,
@@ -208,7 +210,7 @@ for b in opts.bandwidth:
     fig = plot.kde_corner(
         data,
         bandwidths=v,
-        ranges=bounds,
+        range=bounds,
         weights=weights,
         hist1D=True,
         verbose=opts.Verbose,
