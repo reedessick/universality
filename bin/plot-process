@@ -21,6 +21,7 @@ from universality import stats
 
 DEFAULT_EOS_COLUMN = 'EoS'
 DEFAULT_EOS_DIR = DEFAULT_BNS_DIR = '.'
+DEFAULT_EOS_NUM_PER_DIR = 1000
 DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
 DEFAULT_BNS_BASENAME = 'bns-%d.csv'
 
@@ -67,13 +68,15 @@ lgroup.add_argument('--eos-column', nargs=2, default=[], type=str, action='appen
 
 lgroup.add_argument('--eos-dir', nargs=2, default=[], type=str, action='append',
     help='e.g.: "--eos-dir label path/to/directory"')
+lgroup.add_argument('--eos-num-per-dir', nargs=2, default=[], type=str, action='append',
+    help='a label and a string for the number of samples per directory')
 lgroup.add_argument('--eos-basename', nargs=2, default=[], type=str, action='append',
     help='a label and a string into which the EOS number can be substituted when building filenames.')
 
-lgroup.add_argument('--bns-dir', nargs=2, default=[], type=str, action='append',
-    help='e.g.: "--bns-dir path/to/directory"')
-lgroup.add_argument('--bns-basename', nargs=2, default=[], type=str, action='append',
-    help='a label and a string into which the EOS number can be substituted when building filenames.')
+#lgroup.add_argument('--bns-dir', nargs=2, default=[], type=str, action='append',
+#    help='e.g.: "--bns-dir path/to/directory"')
+#lgroup.add_argument('--bns-basename', nargs=2, default=[], type=str, action='append',
+#    help='a label and a string into which the EOS number can be substituted when building filenames.')
 
 # workflow argumnets
 wgroup = parser.add_argument_group('workflow arguments')
@@ -133,25 +136,25 @@ agroup.add_argument('--signpost', nargs=2, default=[], type=str, action='append'
     help='add markers (vertical/horizontal lines) to denote specific values. e.g.: "baryon_density 2.7e14". Can be repeated')
 agroup.add_argument('--signpost-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 
-agroup.add_argument('--central-contours', nargs=3, type=str, default=[], action='append',
-    help='add KDE contours for the central parameters corresponding to this column. Specify this option as a pair of column names: a mapping from the column in the bns file to the matching column in the EoS CSV (used to look up all central values from the EOS). e.g.: label rhoc1 baryon_density')
-agroup.add_argument('--central-contours-prefactor', nargs=2, default=[], type=str, action='append',
-    help='multiply the value read from bns file by this number before interpolating data from EOS file. Useful for unit conversion.')
-agroup.add_argument('--central-contours-color', nargs=2, default=[], action='append', type=str,
-    help='e.g.: "--central-contours-color label k"')
+#agroup.add_argument('--central-contours', nargs=3, type=str, default=[], action='append',
+#    help='add KDE contours for the central parameters corresponding to this column. Specify this option as a pair of column names: a mapping from the column in the bns file to the matching column in the EoS CSV (used to look up all central values from the EOS). e.g.: label rhoc1 baryon_density')
+#agroup.add_argument('--central-contours-prefactor', nargs=2, default=[], type=str, action='append',
+#    help='multiply the value read from bns file by this number before interpolating data from EOS file. Useful for unit conversion.')
+#agroup.add_argument('--central-contours-color', nargs=2, default=[], action='append', type=str,
+#    help='e.g.: "--central-contours-color label k"')
 
-agroup.add_argument('--central-contours-level', default=[], type=float, action='append',
-    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+#agroup.add_argument('--central-contours-level', default=[], type=float, action='append',
+#    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
 
-agroup.add_argument('--central-contours-num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
-    help='the number of points for the KDE grid')
-agroup.add_argument('--central-contours-no-scatter', default=False, action='store_true',
-    help='turn off the scatter of central values')
+#agroup.add_argument('--central-contours-num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
+#    help='the number of points for the KDE grid')
+#agroup.add_argument('--central-contours-no-scatter', default=False, action='store_true',
+#    help='turn off the scatter of central values')
 
-agroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
-    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
-parser.add_argument('--central-contours-reflect', default=False, action='store_true')
+#agroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
+#    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
+#If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+#parser.add_argument('--central-contours-reflect', default=False, action='store_true')
 
 # ouptut options
 ogroup = parser.add_argument_group('output options')
@@ -182,25 +185,32 @@ for label, column in args.weight_column:
     weight_columns[label] = (column, label in args.weight_column_is_log)
 
 # lookup options
-bns_dirs = dict((label, DEFAULT_BNS_DIR) for label in names)
-for label, directory in args.bns_dir:
-    assert label in names, 'specifying --bns-dir for unknown sample set: '+label
-    bns_dirs[label] = directory
+#bns_dirs = dict((label, DEFAULT_BNS_DIR) for label in names)
+#for label, directory in args.bns_dir:
+#    assert label in names, 'specifying --bns-dir for unknown sample set: '+label
+#    bns_dirs[label] = directory
 
-bns_basenames = dict((label, DEFAULT_BNS_BASENAME) for label in names)
-for label, basename in args.bns_basename:
-    assert label in names, 'specifying --bns-basename for unknown sample set: '+label
-    bns_basenames[label] = basename
+#bns_basenames = dict((label, DEFAULT_BNS_BASENAME) for label in names)
+#for label, basename in args.bns_basename:
+#    assert label in names, 'specifying --bns-basename for unknown sample set: '+label
+#    bns_basenames[label] = basename
 
 eos_dirs = dict((label, DEFAULT_EOS_DIR) for label in names)
 for label, directory in args.eos_dir:
     assert label in names, 'specifying --eos-dir for unknown sample set: '+label
     eos_dirs[label] = directory
 
+eos_num_per_dir = dict((label, DEFAULT_NUM_PER_DIR) for label in names)
+for label, num in args.eos_num_per_dir:
+    assert label in names, 'specifying --eos-num-per-dir for unknown sample set: '+label
+    eos_num_per_dir[label] = int(num)
+
 eos_basenames = dict((label, DEFAULT_EOS_BASENAME) for label in names)
 for label, basename in args.eos_basename:
     assert label in names, 'specigying --eos-basename for unknown sample set: '+label
     eos_basenames[label] = basename
+
+eos_temps = dict((label, os.path.join(eos_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', eos_basenames[label])) for label in names)
 
 eos_columns = dict((label, DEFAULT_EOS_COLUMN) for label in names)
 for label, column in args.eos_column:
@@ -251,25 +261,25 @@ for column, b in args.column_bandwidth:
     bandwidthdict[column] = float(b)
 variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
 
-if not args.central_contours_level:
-    args.central_contours_level = plot.DEFAULT_LEVELS
-else:
-    args.central_contours_level.sort()
+#if not args.central_contours_level:
+#    args.central_contours_level = plot.DEFAULT_LEVELS
+#else:
+#    args.central_contours_level.sort()
 
-central_contours = dict((label, None) for label in names)
-for label, bnscolumn, eoscolumn in args.central_contours:
-    assert label in names, 'specifying --central-contours for unknown sample set: '+label
-    central_contours[label] = bnscolumn, eoscolumn
+#central_contours = dict((label, None) for label in names)
+#for label, bnscolumn, eoscolumn in args.central_contours:
+#    assert label in names, 'specifying --central-contours for unknown sample set: '+label
+#    central_contours[label] = bnscolumn, eoscolumn
 
-central_contours_prefactors = dict((label, DEFAULT_PREFACTOR) for label in names)
-for label, prefactor in args.central_contours_prefactor:
-    assert label in names, 'specifying --central-contours-prefactor for unknown sample set: '+label
-    central_contours_prefactors[label] = float(prefactor)
+#central_contours_prefactors = dict((label, DEFAULT_PREFACTOR) for label in names)
+#for label, prefactor in args.central_contours_prefactor:
+#    assert label in names, 'specifying --central-contours-prefactor for unknown sample set: '+label
+#    central_contours_prefactors[label] = float(prefactor)
 
-central_contours_colors = dict((label, plot.DEFAULT_COLOR2) for label in names)
-for label, color in args.central_contours_color:
-    assert label in names, 'specifying --central-contours-color for unknown sample set: '+label
-    central_contours_colors[label] = color
+#central_contours_colors = dict((label, plot.DEFAULT_COLOR2) for label in names)
+#for label, color in args.central_contours_color:
+#    assert label in names, 'specifying --central-contours-color for unknown sample set: '+label
+#    central_contours_colors[label] = color
 
 # output options
 if args.tag:
@@ -343,38 +353,32 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('computing confidence intervals from %d samples'%N)
 
-    if central_contours[label] is not None:
-        x_cent[label] = np.empty(N, dtype='float')
-        y_cent[label] = np.empty(N, dtype='float')
-        w_cent[label] = weights ### remmber this for convenience later
-        bnscolumn, eoscolumn = central_contours[label]
-        bns_temp = os.path.join(bns_dirs[label], bns_basenames[label])
+#    if central_contours[label] is not None:
+#        x_cent[label] = np.empty(N, dtype='float')
+#        y_cent[label] = np.empty(N, dtype='float')
+#        w_cent[label] = weights ### remmber this for convenience later
+#        bnscolumn, eoscolumn = central_contours[label]
+#        bns_temp = os.path.join(bns_dirs[label], bns_basenames[label])
 
     y_test = np.empty((N, args.num_points), dtype='float')
-    eos_temp = os.path.join(eos_dirs[label], eos_basenames[label])
+    eos_temp = eos_temps[label]
 
     for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-        if central_contours[label] is not None:
-            bns_path = bns_temp%eos
-            if args.Verbose:
-                print('    '+bns_path)
-            with open(bns_path, 'r') as obj: ### hacky, but solves the problem at hand...
-                cols = obj.readline().strip().split(',')
-                cent = float(obj.readline().strip().split(',')[cols.index(bnscolumn)])*central_contours_prefactors[label]
+        eos_path = eos_temp%eos
+        if args.Verbose:
+            print('    '+eos_path)
+        d, _ = utils.load(eos_path, columns)
 
-            eos_path = eos_temp%eos
-            if args.Verbose:
-                print('    '+eos_path)
-            d, _ = utils.load(eos_path, [args.xcolumn, args.ycolumn, eoscolumn])
-
-            x_cent[label][i] = np.interp(cent, d[:,2], d[:,0]) ### interpolate to find the relevant values for our plot
-            y_cent[label][i] = np.interp(cent, d[:,2], d[:,1])
-
-        else:
-            eos_path = eos_temp%eos
-            if args.Verbose:
-                print('    '+eos_path)
-            d, _ = utils.load(eos_path, columns)
+#        if central_contours[label] is not None:
+#            bns_path = bns_temp%eos
+#            if args.Verbose:
+#                print('    '+bns_path)
+#            with open(bns_path, 'r') as obj: ### hacky, but solves the problem at hand...
+#                cols = obj.readline().strip().split(',')
+#                cent = float(obj.readline().strip().split(',')[cols.index(bnscolumn)])*central_contours_prefactors[label]
+#
+#            x_cent[label][i] = np.interp(cent, d[:,2], d[:,0]) ### interpolate to find the relevant values for our plot
+#            y_cent[label][i] = np.interp(cent, d[:,2], d[:,1])
 
         y_test[i] = np.interp(x_test, d[:,0], d[:,1])
 
@@ -501,73 +505,73 @@ if args.residuals or args.ratios:
         ax_res.set_ylim(ymax=args.res_ymax)
 
 ### add central contours
-for label in names:
-    if central_contours[label] is None:
-        continue
-
-    m, M = utils.data2range(x_cent[label])
-    if args.xcolumn in args.logcolumn:
-        xbounds = (max(np.log10(args.xmin), m), min(np.log10(args.xmax), M))
-    else:
-        xbounds = (max(args.xmin, m), min(args.xmax, M))
-
-    ymin, ymax = ax.get_ylim()
-    m, M = utils.data2range(y_cent[label])
-    if args.ycolumn in args.logcolumn:
-        ybounds = (max(np.log10(ymin), m), min(np.log10(ymax), M))
-    else:
-        ybounds = (max(ymin, m), min(ymax, M))
-
-    data_cent = np.array(zip(x_cent[label], y_cent[label]))
-    bounds = [xbounds, ybounds]
-    data_cent, weights_cent = utils.prune(data_cent, bounds, weights=w_cent[label])
-    if args.central_contours_reflect:
-        data_cent, weights_cent = utils.reflect(data_cent, bounds, weights=weights_cent)
-    x = data_cent[:,0]
-    y = data_cent[:,1]
-
-    xvect = np.linspace(xbounds[0], xbounds[1], args.central_contours_num_points)
-    dxvect = xvect[1]-xvect[0]
-    yvect = np.linspace(ybounds[0], ybounds[1], args.central_contours_num_points)
-    dyvect = yvect[1]-yvect[0]
-
-    if args.Verbose:
-        print("computing central kde for "+label)
-    kde = utils.logkde(
-        utils.vects2flatgrid(xvect, yvect),
-        data_cent,
-        variances,
-        weights=weights_cent,
-    )
-    kde = np.exp(kde-np.max(kde)).reshape((args.central_contours_num_points, args.central_contours_num_points))
-    kde /= np.sum(kde)*dxvect*dyvect # normalize kde
-
-    thrs = np.exp(plot.logkde2levels(np.log(kde), args.central_contours_level))
-
-    if args.xcolumn in args.logcolumn:
-        xvect = 10**xvect
-        x = 10**x
-
-    if args.ycolumn in args.logcolumn:
-        yvect = 10**yvect
-        y = 10**y
-
-    ax.contour(xvect, yvect, kde.transpose(), colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-    if not args.central_contours_no_scatter:
-        scatter_color=plot.weights2color(weights_cent, central_contours_colors[label])
-        ax.scatter(x, y, marker='o', s=2, color=scatter_color)
-
-    if args.residuals or args.ratios:
-        xvect, yvect = np.meshgrid(xvect, yvect, indexing='ij')
-        if args.residuals:
-            ax_res.contour(xvect, yvect-np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-            if not args.central_contours_no_scatter:
-                ax_res.scatter(x, y-np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
-
-        elif args.ratios:
-            ax_res.contour(xvect, yvect/np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-            if not args.central_contours_no_scatter:
-                ax_res.scatter(x, y/np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
+#for label in names:
+#    if central_contours[label] is None:
+#        continue
+#
+#    m, M = utils.data2range(x_cent[label])
+#    if args.xcolumn in args.logcolumn:
+#        xbounds = (max(np.log10(args.xmin), m), min(np.log10(args.xmax), M))
+#    else:
+#        xbounds = (max(args.xmin, m), min(args.xmax, M))
+#
+#    ymin, ymax = ax.get_ylim()
+#    m, M = utils.data2range(y_cent[label])
+#    if args.ycolumn in args.logcolumn:
+#        ybounds = (max(np.log10(ymin), m), min(np.log10(ymax), M))
+#    else:
+#        ybounds = (max(ymin, m), min(ymax, M))
+#
+#    data_cent = np.array(zip(x_cent[label], y_cent[label]))
+#    bounds = [xbounds, ybounds]
+#    data_cent, weights_cent = utils.prune(data_cent, bounds, weights=w_cent[label])
+#    if args.central_contours_reflect:
+#        data_cent, weights_cent = utils.reflect(data_cent, bounds, weights=weights_cent)
+#    x = data_cent[:,0]
+#    y = data_cent[:,1]
+#
+#    xvect = np.linspace(xbounds[0], xbounds[1], args.central_contours_num_points)
+#    dxvect = xvect[1]-xvect[0]
+#    yvect = np.linspace(ybounds[0], ybounds[1], args.central_contours_num_points)
+#    dyvect = yvect[1]-yvect[0]
+#
+#    if args.Verbose:
+#        print("computing central kde for "+label)
+#    kde = utils.logkde(
+#        utils.vects2flatgrid(xvect, yvect),
+#        data_cent,
+#        variances,
+#        weights=weights_cent,
+#    )
+#    kde = np.exp(kde-np.max(kde)).reshape((args.central_contours_num_points, args.central_contours_num_points))
+#    kde /= np.sum(kde)*dxvect*dyvect # normalize kde
+#
+#    thrs = np.exp(plot.logkde2levels(np.log(kde), args.central_contours_level))
+#
+#    if args.xcolumn in args.logcolumn:
+#        xvect = 10**xvect
+#        x = 10**x
+#
+#    if args.ycolumn in args.logcolumn:
+#        yvect = 10**yvect
+#        y = 10**y
+#
+#    ax.contour(xvect, yvect, kde.transpose(), colors=central_contours_colors[label], alpha=0.5, levels=thrs)
+#    if not args.central_contours_no_scatter:
+#        scatter_color=plot.weights2color(weights_cent, central_contours_colors[label])
+#        ax.scatter(x, y, marker='o', s=2, color=scatter_color)
+#
+#    if args.residuals or args.ratios:
+#        xvect, yvect = np.meshgrid(xvect, yvect, indexing='ij')
+#        if args.residuals:
+#            ax_res.contour(xvect, yvect-np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
+#            if not args.central_contours_no_scatter:
+#                ax_res.scatter(x, y-np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
+#
+#        elif args.ratios:
+#            ax_res.contour(xvect, yvect/np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
+#            if not args.central_contours_no_scatter:
+#                ax_res.scatter(x, y/np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
 
 ### add signposts
 ylim = ax.get_ylim()
