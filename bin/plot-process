@@ -462,12 +462,12 @@ if args.legend:
         legend = label
         if args.include_neff:
             legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(neff[i], nkde[i])
-#        if placement < center:
-#            ha='left'
-#        elif placement==center:
-#            ha='center'
-#        else:
-#            ha='right'
+        if placement < center:
+            ha='left'
+        elif placement==center:
+            ha='center'
+        else:
+            ha='right'
         ha = 'center'
         fig.text(placement, 0.5*(1+plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3]), legend, color=colors[label], ha=ha, va='center')
 
