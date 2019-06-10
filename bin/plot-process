@@ -200,7 +200,7 @@ for label, directory in args.eos_dir:
     assert label in names, 'specifying --eos-dir for unknown sample set: '+label
     eos_dirs[label] = directory
 
-eos_num_per_dir = dict((label, DEFAULT_NUM_PER_DIR) for label in names)
+eos_num_per_dir = dict((label, DEFAULT_EOS_NUM_PER_DIR) for label in names)
 for label, num in args.eos_num_per_dir:
     assert label in names, 'specifying --eos-num-per-dir for unknown sample set: '+label
     eos_num_per_dir[label] = int(num)
@@ -255,11 +255,11 @@ for column, value in args.signpost:
     assert column in columns, 'specifying --signpost for unknown column: '+column
     signposts[column].append(float(value))
 
-bandwidthdict = dict()
-for column, b in args.column_bandwidth:
-    assert column in columns, 'specifying --column-bandwidth for unknown column: '+column
-    bandwidthdict[column] = float(b)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
+#bandwidthdict = dict()
+#for column, b in args.column_bandwidth:
+#    assert column in columns, 'specifying --column-bandwidth for unknown column: '+column
+#    bandwidthdict[column] = float(b)
+#variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
 
 #if not args.central_contours_level:
 #    args.central_contours_level = plot.DEFAULT_LEVELS
@@ -362,9 +362,10 @@ for ind, (label, path) in enumerate(args.samples):
 
     y_test = np.empty((N, args.num_points), dtype='float')
     eos_temp = eos_temps[label]
+    eos_mod = eos_num_per_dir[label]
 
     for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-        eos_path = eos_temp%eos
+        eos_path = eos_temp%{'moddraw':eos//eos_mod, 'draw':eos}
         if args.Verbose:
             print('    '+eos_path)
         d, _ = utils.load(eos_path, columns)
