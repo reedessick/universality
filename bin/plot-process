@@ -468,7 +468,7 @@ if args.legend:
             ha='center'
         else:
             ha='right'
-        ha = 'center'
+#        ha = 'center'
         fig.text(placement, 0.5*(1+plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3]), legend, color=colors[label], ha=ha, va='center')
 
 # scaling, etc
