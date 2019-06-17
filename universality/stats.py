@@ -57,7 +57,7 @@ def vects2vol(vects):
 
 def samples2crbounds(data, levels, weights=None):
     """
-    expects 1D data and returns the smallest confidence region that contains a certain amount of the cumulative weight
+    expects 1D data and returns the smallest contiguous confidence region that contains a certain amount of the cumulative weight
     returns a contiguous confidence region for level
     does this by trying all possible regions (defined by data's sampling) that have at least as much cumulative weight as each level and selecting the smallest
     """
@@ -95,10 +95,16 @@ def samples2crbounds(data, levels, weights=None):
 
     return bounds
 
+def samples2cr(data, levels, weights=None):
+    """
+    expects 1D data and returns the smallest confidence region that contains a certain amount of cumulative weight. These regions may not be contiguous, and so a list (with an even number of elements) is returned for each level.
+    """
+    raise NotImplementedError
+
 def logkde2crbounds(vect, logkde, levels):
     """
     only works with 1D kde
-    returns the bounds on the smallest region that contain the specified confidence
+    returns the bounds on the smallest contiguous region that contain the specified confidence
     """
     assert vect.ndim==1 and logkde.ndim==1, 'logkde2cr only works with 1-dimensional vectors!'
 
@@ -120,7 +126,14 @@ def logkde2crbounds(vect, logkde, levels):
         bounds.append((low, high))
 
     return bounds
-    
+
+def logkde2cr(vect, logkde, levels):
+    """
+    only works with 1D kde
+    returns the smallest credible region associated with each level. These may not be contiguous, so a list (with an even number of elements) is returned for each level
+    """
+    raise NotImplementedError
+
 def logkde2crsize(vects, logkde, levels):
     """
     compute the volumes of confidence regions associated with levels
