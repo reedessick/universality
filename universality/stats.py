@@ -95,18 +95,12 @@ def samples2crbounds(data, levels, weights=None):
 
     return bounds
 
-def samples2cr(data, levels, weights=None):
-    """
-    expects 1D data and returns the smallest confidence region that contains a certain amount of cumulative weight. These regions may not be contiguous, and so a list (with an even number of elements) is returned for each level.
-    """
-    raise NotImplementedError
-
 def logkde2crbounds(vect, logkde, levels):
     """
     only works with 1D kde
     returns the bounds on the smallest contiguous region that contain the specified confidence
     """
-    assert vect.ndim==1 and logkde.ndim==1, 'logkde2cr only works with 1-dimensional vectors!'
+    assert vect.ndim==1 and logkde.ndim==1, 'logkde2crbounds only works with 1-dimensional vectors!'
 
     bounds = []
     inds = np.arange(len(vect))
@@ -132,7 +126,35 @@ def logkde2cr(vect, logkde, levels):
     only works with 1D kde
     returns the smallest credible region associated with each level. These may not be contiguous, so a list (with an even number of elements) is returned for each level
     """
-    raise NotImplementedError
+    assert vect.ndim==1 and logkde.ndim==1, 'logkde2cr only works with 1-dimensional vectors!'
+    dvect = vect[1]-vect[0] ### assume equal spacing
+
+    bounds = []
+    inds = np.arange(len(vect))
+    order = logkde.argsort()[::-1] ### from biggets to smallest
+    cordered = np.cumsum(logkde[order])
+    cordered /= cordered[-1] ### normalize the sum
+
+    for level in levels:
+        these = vects[order[cordered <= level]] ### extract the vector elements included up to this cumulative level
+        these.sort() ### put these in order
+        bound_list = []
+
+        if len(these):
+            start = these[0]-0.5*dvect
+            end = these[0]
+            for e in these[1:]:
+                if e == end+dvect: ### same segment
+                    end = e
+                else: # new segment
+                    bound_list.append( (start, end+0.5*dvect) )
+                    start = e-0.5*dvect
+                    end = e
+            bound_list.append( (start, end+0.5*dvect) )
+
+        bounds.append(bound_list)
+
+    return bounds
 
 def logkde2crsize(vects, logkde, levels):
     """
