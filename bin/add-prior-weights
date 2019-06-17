@@ -27,13 +27,25 @@ parser.add_argument('output', default=None, type=str,
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 args = parser.parse_args()
-assert args.prior in priors.KNOWN_PRIORS, 'prior=%s not understood! must be one of %s'%(args.prior, ', '.join(priors.KNOWN_PRIORS))
+
+if args.output is None:
+    args.output = args.source
 
 #-------------------------------------------------
 
-raise NotImplementedError('''
-load samples
-compute prior for each sample
-add it into the array
-write the resulting array into a CSV
-''')
+if args.verbose:
+    print('reading source samples from: '+args.source)
+data, columns = utils.load(args.source) ### read in all columns as-is
+
+if args.verbose:
+    print('computing prior weights with prior='+args.prior)
+logweights = priors.logprior(args.prior, data)
+
+if args.verbose:
+    print('writing output samples to: '+args.output)
+
+template = ','.join('%.9e' for _ in xrange(len(columns)+1))
+with open(args.output, 'w') as file_obj:
+    print >> file_obj, ','.join(columns+['logprior'])
+    for sample, logweight in zip(data, logweights):
+        print >> file_obj, template%tuple(list(sample)+[logweight])
