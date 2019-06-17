@@ -5,14 +5,16 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
-import os
-
 import numpy as np
 
 from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+
+#-------------------------------------------------
+
+DEFAULT_WEIGHT_COLUMN = 'logweight'
 
 #-------------------------------------------------
 
@@ -36,6 +38,12 @@ parser.add_argument('--weight-column-is-log', default=False, action='store_true'
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 parser.add_argument('--invert-weight-column', default=False, type=str,
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
+
+parser.add_argument('--output-weight-column', default=DEFAULT_WEIGHT_COLUMN, type=str,
+    help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this is consistent with whether or not you specified --do-not-log-output-weight! \
+DEFAULT='+DEFAULT_WEIGHT_COLUMN)
+parser.add_argument('--do-not-log-output-weight', default=False, action='store_true',
+    help='record the raw weights instead of the log(weight) in the output CVS. **BE CAREFUL!** You should make sure this is consistent with the name specified by --output-weight-column.')
 
 parser.add_argument('-b', '--bandwidth', default=0.03, type=float,
     help='the bandwidth (standard deviation) used within the Gaussian KDE over whitened data. \
@@ -63,11 +71,15 @@ if args.weight_column!=None:
     weights = weights.flatten()
 
     if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
+        if args.invert_weight_column:
+            weights *= -1
 
-    if args.invert_weight_column:
+        weights = np.exp(weights-np.max(weights))
+
+    elif args.invert_weight_column:
         weights = 1./weights
+
+    weights /= np.sum(weights)
 
 else:
     weights = None
@@ -89,12 +101,16 @@ for i, column in enumerate(columns): ### whiten the target data with the same tr
 if args.verbose:
     print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%(len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
 logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*args.bandwidth**2, weights=weights, num_proc=args.num_proc)
+if args.do_not_log_output_weights:
+    if args.verbose:
+        print('exponentiating weights')
+    logkde = np.exp(logkde)
 
 if args.verbose:
-    print('writing results into: '+args.output)
+    print('writing results with weight-column=%s into: %s'(args.output_weight_column, args.output))
 
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(args.output, 'w') as file_obj:
-    print >> file_obj, ','.join(tgtcolumns+['logweights'])
+    print >> file_obj, ','.join(tgtcolumns+[args.output_weight_column])
     for sample, logweight in zip(tgtdata, logkde):
         print >> file_obj, template%tuple(list(sample)+[logweight])
