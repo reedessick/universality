@@ -94,6 +94,45 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
         np.transpose([np.log(data[column]) if column in logcolumns else data[column] for column in columns]), \
         ['log(%s)'%column if column in logcolumns else column for column in columns]
 
+def load_weights(*args, **kwargs):
+    """loads and returns weights from multiple columns via  delegation to load_logweights
+    normalizes the weights while it's at it
+    """
+    return exp_weights(load_logweights(*args, **kwargs))
+
+def exp_weights(logweights):
+    """exponentiate logweights and normalize them (if desired)
+    """
+    logweights -= np.max(logweights)
+    weights = np.exp(logweights)
+    weights /= np.sum(weights)
+    return weights
+
+def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
+    """loads and returns logweights from multiple columns
+    """
+    data, columns = load(inpath, columns=weight_columns, max_num_samples=max_num_samples) ### load the raw data
+
+    for i, column in enumerate(columns): ### iterate through columns, transforming as necessary
+        if column in logweightcolumns:
+            if column in invweightcolumns:
+                data[:,i] *= -1
+
+        else:
+            if column in invweightcolumns:
+                data[:,i] = 1./data[:,1]
+
+            data[:,i] = np.log(data[:,i])
+
+    # multiply weights across all samples, which is the same as adding the logs
+    return np.sum(data, axis=1)
+
+def sum_log(logweights):
+    """returns the log of the sum of the weights, retaining high precision
+    """
+    m = np.max(logweights)
+    return np.log(np.sum(np.exp(logweights-m))) + m
+
 def check_columns(present, required):
     for column in required:
         assert column in present, 'required column=%s is missing!'%column

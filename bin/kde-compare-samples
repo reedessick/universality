@@ -8,7 +8,7 @@ __author__ = "reed.essick@ligo.org"
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -17,109 +17,103 @@ from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('label1', type=str)
+parser.add_argument('inpath1', type=str)
 
-parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+parser.add_argument('label2', type=str)
+parser.add_argument('inpath2', type=str)
+
+parser.add_argument('columns', nargs='+', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
-parser.add_option('', '--range', nargs=3, default=[], action='append', type='string',
+parser.add_argument('--range', nargs=3, default=[], action='append', type=str,
     help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
 Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 
-parser.add_option('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('', '--weight1-column', default=None, type='string',
+parser.add_argument('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--weight1-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_option('', '--weight1-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight1-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('', '--weight2-column', default=None, type='string',
+parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--weight2-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_option('', '--weight2-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight2-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('--num-points', default=plot.DEFAULT_NUM_POINTS, type='int',
+parser.add_argument('--num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
-parser.add_option('', '--bandwidth', nargs=2, default=[], type='string', action='append',
+parser.add_argument('--bandwidth', nargs=2, default=[], type=str, action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
-parser.add_option('', '--reflect', default=False, action='store_true',
+parser.add_argument('--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
-parser.add_option('', '--prune', default=False, action='store_true',
+parser.add_argument('--prune', default=False, action='store_true',
     help='throw away samples outside of the specified range')
 
 ### options about what to compute
-parser.add_option('--dkl', default=False, action='store_true')
-parser.add_option('--sym-dkl', default=False, action='store_true')
-parser.add_option('--dlogL', default=False, action='store_true')
-parser.add_option('--dtheta', default=False, action='store_true')
+parser.add_argument('--dkl', default=False, action='store_true')
+parser.add_argument('--sym-dkl', default=False, action='store_true')
+parser.add_argument('--dlogL', default=False, action='store_true')
+parser.add_argument('--dtheta', default=False, action='store_true')
 
-opts, args = parser.parse_args()
+args = parser.parse_args()
 assert len(args)>3, 'please supply at least 4 input argument\n%s'%__usage__
-inpath1, inpath2 = args[:2]
-label1, inpath1 = inpath1.split(',')
-label2, inpath2 = inpath2.split(',')
-columns = args[2:]
 
-rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
+rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in args.range)
 
-bandwidthdict = dict((col, float(val)) for col, val in opts.bandwidth)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
+bandwidthdict = dict((col, float(val)) for col, val in args.bandwidth)
+variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns])**2
 
 #-------------------------------------------------
 
 ### read in data from csv
-if opts.verbose:
-    print('reading samples from: '+inpath1)
-data1, columns = utils.load(inpath1, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples1)
+if args.verbose:
+    print('reading samples from: '+args.inpath1)
+data1, columns = utils.load(args.inpath1, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples1)
 
 ranges1 = []
-for i, col in enumerate(columns):
+for i, col in enumerate(args.columns):
     if rangesdict.has_key(col):
         ranges1.append(rangesdict[col])
     else:
         ranges1.append((np.min(data1[:,i]), np.max(data1[:,i])))
 
-if opts.weight1_column!=None:
-    if opts.verbose:
-        print('reading in non-trivial weights from: '+inpath1)
-    weights1, _ = utils.load(inpath1, [opts.weight1_column], max_num_samples=opts.max_num_samples1)
-    weights1 = weights1.reshape((len(weights1)))
-
-    if opts.weight1_column_is_log:
-        weights1 = np.exp(weights1-np.max(weights1))
-    weights1 /= np.sum(weights1)
+if args.weight1_column:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.inpath1)
+    weights1 = utils.load_weights(args.inpath1, args.weight1_column, logcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
 
 else:
     N = len(data1)
     weights1 = np.ones(N, dtype='float')/N
 
 ### read in data from csv
-if opts.verbose:
-    print('reading samples from: '+inpath2)
-data2, columns = utils.load(inpath2, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples2)
+if args.verbose:
+    print('reading samples from: '+args.inpath2)
+data2, columns = utils.load(args.inpath2, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples2)
 
 ranges2 = []
-for i, col in enumerate(columns):
+for i, col in enumerate(args.columns):
     if rangesdict.has_key(col):
         ranges2.append(rangesdict[col])
     else:
         ranges2.append((np.min(data2[:,i]), np.max(data2[:,i])))
 
-if opts.weight2_column!=None:
-    if opts.verbose:
-        print('reading in non-trivial weights from: '+inpath2)
-    weights2, _ = utils.load(inpath2, [opts.weight2_column], max_num_samples=opts.max_num_samples2)
-    weights2 = weights2.reshape((len(weights2)))
-
-    if opts.weight2_column_is_log:
-        weights2 = np.exp(weights2-np.max(weights2))
-    weights2 /= np.sum(weights2)
+if args.weight2_column:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.inpath2)
+    weights2 = utils.load(args.inpath2, args.weight2_column, logcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples2)
 
 else:
     N = len(data2)
@@ -127,15 +121,15 @@ else:
 
 #------------------------
 
-if opts.verbose:
+if args.verbose:
     print('computing kde')
 ranges = [(min(m1,m2), max(M1,M2)) for (m1, M1), (m2, M2) in zip(ranges1, ranges2)]
-vects = [np.linspace(m, M, opts.num_points) for m, M in ranges]
+vects = [np.linspace(m, M, args.num_points) for m, M in ranges]
 flatgrid = utils.vects2flatgrid(*vects)
 
-if opts.prune:
+if args.prune:
     data1, weights1 = utils.prune(data1, ranges, weights=weights1)
-if opts.reflect:
+if args.reflect:
     data1, weights1 = utils.reflect(data1, ranges, weights=weights1)
 logkde1 = utils.logkde(
     flatgrid,
@@ -144,9 +138,9 @@ logkde1 = utils.logkde(
     weights=weights1,
 )
 
-if opts.prune:
+if args.prune:
     data2, weights2 = utils.prune(data2, ranges, weights=weights2)
-if opts.reflect:
+if args.reflect:
     data2, weights2 = utils.reflect(data2, ranges, weights=weights2)
 logkde2 = utils.logkde(
     flatgrid,
@@ -155,21 +149,21 @@ logkde2 = utils.logkde(
     weights=weights2,
 )
 
-if opts.verbose:
+if args.verbose:
     print('computing statistics')
 
-if opts.dkl:
+if args.dkl:
     print('Dkl(1||2) = %.6e'%stats.kldiv(vects, logkde1, logkde2))
     print('Dkl(2||1) = %.6e'%stats.kldiv(vects, logkde2, logkde1))
 
-if opts.sym_dkl:
+if args.sym_dkl:
     print('sym Dkl(1,2) = %.6e'%stats.sym_kldiv(vects, logkde1, logkde2))
 
-if opts.dlogL:
+if args.dlogL:
     print('dlogL1(argmax2) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde2)]), data1, variances, weights=weights1) - np.max(logkde1)))
     print('dlogL2(argmax1) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde1)]), data2, variances, weights=weights2) - np.max(logkde2)))
 
-if opts.dtheta:
+if args.dtheta:
     dtheta = stats.logkde2argmax(vects, logkde1) - stats.logkde2argmax(vects, logkde2)
     print('dtheta = %s'%dtheta)
     print('|dtheta| = %.6e'%np.sum(dtheta**2)**0.5)

@@ -22,13 +22,14 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 ### required arguments
 parser.add_argument('outpath', type=str,
     help='the path for the resulting summed process')
+
 parser.add_argument('-i', '--weight-and-inpath', nargs=2, default=[], action='append', type=str,
     help='a weight and the path for the input process (e.g.: "--i 0.5 path"). Weights do not need to be normalized and this argument should be repeated to specify all the input processes we wish to sum.')
 
 args = parser.parse_args()
 
-assert len(args.inpath)>1, 'please supply at least 2 --inpath arguments'
-args.inpath = [(float(w), p) for w, p in args.inpath]
+assert len(args.weight_and_inpath)>1, 'please supply at least 2 --inpath arguments'
+args.weight_and_inpath = [(float(w), p) for w, p in args.weight_and_inpath]
 
 #-------------------------------------------------
 
@@ -36,7 +37,7 @@ if args.verbose:
     print('writing summed process to: '+args.outpath)
 i = 0
 with open(args.outpath, 'w') as out_obj:
-    for weight, inpath in args.inpath:
+    for weight, inpath in args.weight_and_inpath:
         if args.verbose:
             print('reading process from %s and multiplying weights by %f'%(inpath, weight))
         for process in gp.hdf5load(inpath):

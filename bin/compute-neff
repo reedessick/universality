@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "compute_neff [--options] samples.csv [samples.csv ...]"
 __doc__ = "a quick little script to compute the effective number of samples"
 __author__ = "reed.essick@ligo.org"
 
@@ -9,7 +8,7 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -23,53 +22,48 @@ WARNING = "WARNING: %s does not exist!"
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('samples', nargs='+', type=str)
 
-parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
-parser.add_option('--weight-column', default=None, type='string')
-parser.add_option('--weight-column-is-log', default=False, action='store_true')
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--weight-column', default=None, type=str)
+parser.add_argument('--weight-column-is-log', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
-parser.add_option('--range', nargs=3, default=[], action='append', type='string',
+parser.add_argument('--range', nargs=3, default=[], action='append', type=str,
     help='specify the ranges used in corner.corner (eg.: "--range column minimum maximum"). \
 Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
-parser.add_option('--prune', default=False, action='store_true')
+parser.add_argument('--prune', default=False, action='store_true')
 
-opts, args = parser.parse_args()
-assert len(args), 'please supply at least 1 input argument\n%s'%__usage__
+args = parser.parse_args()
 
-rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in opts.range)
+rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in args.range)
 columns = rangesdict.keys()
+ranges = [rangedict[col] for col in columns]
 
 #-------------------------------------------------
 
 print(HEAD)
-for inpath in args:
+for inpath in args.samples:
     if not os.path.exists(inpath):
         if opts.verbose:
             print(WARNING%inpath)
         continue ### just skip crap that doesn't exist...
 
-    data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples)
+    data, columns = utils.load(inpath, columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 
-    ranges = []
-    for i, col in enumerate(columns):
-        if rangesdict.has_key(col):
-            ranges.append(rangesdict[col])
-        else:
-            ranges.append((np.min(data[:,i]), np.max(data[:,i])))
-
-    if opts.weight_column!=None:
-        weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
+    if args.weight_column!=None:
+        weights, _ = utils.load(inpath, [args.weight_column], max_num_samples=args.max_num_samples)
         weights = weights.reshape((len(weights)))
   
-        if opts.weight_column_is_log:
+        if args.weight_column_is_log:
             weights = np.exp(weights-np.max(weights))
         weights /= np.sum(weights)
 
@@ -77,7 +71,7 @@ for inpath in args:
         N = len(data)
         weights = np.ones(N, dtype='float')/N
 
-    if opts.prune:### throw away data that's outside the bounds
+    if args.prune:### throw away data that's outside the bounds
         data, weights = utils.prune(data, ranges, weights=weights)
 
     print(ROW%(len(weights), stats.neff(weights), stats.nkde(weights), inpath))

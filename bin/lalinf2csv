@@ -8,33 +8,31 @@ __author__ = 'reed.essick@ligo.org'
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('inpath', type=str)
+parser.add_argument('outpath', default=None, type=str)
 
-opts, args = parser.parse_args()
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-n = len(args)
-assert n in [1,2], 'please supply at least 1 input argument\n%s'%__usage__
-inpath = args[0]
-if n==2:
-    outpath = args[1]
+args = parser.parse_args()
+
+if args.outpath is None:
+    args.outpath = '.'.join(args.inpath.split('.')[:-1]+['csv'])
 else:
-    outpath = '.'.join(args[0].split('.')[:-1]+['csv'])
-
-assert outpath!=inpath, 'output filename is identical to input filename!'
+    assert args.outpath!=args.inpath, 'output filename is identical to input filename!'
 
 #-------------------------------------------------
 
 ### read input file
-if opts.verbose:
-    print('reading samples from: '+inpath)
-    print('writing samples to: '+outpath)
-with open(inpath, 'r') as infile:
-    with open(outpath, 'w') as outfile:
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+    print('writing samples to: '+args.outpath)
+with open(args.inpath, 'r') as infile:
+    with open(args.outpath, 'w') as outfile:
         for line in infile:
             outfile.write(','.join(line.strip().split())+'\n')

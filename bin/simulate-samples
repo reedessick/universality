@@ -8,41 +8,47 @@ __usage__ = "simulate_samples [--options] outpath.csv column,mean,std,min,max [c
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+DEFAULT_NUM_SAMPLES = 10000
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+#-------------------------------------------------
 
-parser.add_option('-n', '--num-samples', default=10000, type='int',
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('outpath', type=str)
+parser.add_argument('column_mean_std_min_max', nargs='+', type=str,
+    help='comma-delimited list of column name, mean, standard deviation, minimum, and maximum')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-n', '--num-samples', default=DEFAULT_NUM_SAMPLES, type=int,
     help='number of samples to draw. \
-DEFAULT=10000')
+DEFAULT=%d'%DEFAULT_NUM_SAMPLES)
 
-opts, args = parser.parse_args()
-assert len(args)>1, 'please supply at least 2 input arguments\n%s'%__usage__
-outpath = args[0]
-columns = [col.split(',') for col in args[1:]]
+args = parser.parse_args()
+columns = [col.split(',') for col in args.column_mean_std_min_max]
 columns = [(col, float(mean), float(std), float(m), float(M)) for col, mean, std, m, M in columns]
 Ncol = len(columns)
 
 #-------------------------------------------------
 
 ### iterate through columns and fill in data
-data = np.empty((opts.num_samples, Ncol), dtype='float')
+data = np.empty((args.num_samples, Ncol), dtype=float)
 for i, (col, mean, std, m, M) in enumerate(columns):
-    if opts.verbose:
-        print('drawing %d samples for %s with mean=%.6e and stdv=%.6e within [%.6e, %.6e]'%(opts.num_samples, col, mean, std, m, M))
-    data[:,i] = utils.draw(mean, std, size=opts.num_samples, bounds=[m, M])
+    if args.verbose:
+        print('drawing %d samples for %s with mean=%.6e and stdv=%.6e within [%.6e, %.6e]'%(args.num_samples, col, mean, std, m, M))
+    data[:,i] = utils.draw(mean, std, size=args.num_samples, bounds=[m, M])
 
 ### write to outpath.csv
-if opts.verbose:
-    print('writing samples to: '+outpath)
-with open(outpath,'w') as file_obj:
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+with open(args.outpath,'w') as file_obj:
     print >> file_obj, ','.join(col[0] for col in columns)
     for sample in data:
         print >> file_obj, ','.join('%.9e'%_ for _ in sample)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 __doc__ = "finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space"
-__usage__ = "investigate_bandwidth [--options] samples.csv column1 [column2 column3...]"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -9,7 +8,7 @@ __author__ = "reed.essick@ligo.org"
 import os
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -17,64 +16,64 @@ from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
-parser.add_option('-V', '--Verbose', default=False, action='store_true')
+parser.add_argument('inpath', type=str)
+parser.add_argument('columns', nargs='+', type=str)
 
-parser.add_option('', '--logcolumn', default=[], type='string', action='append',
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
 
-parser.add_option('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
     help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
-parser.add_option('-b', '--bandwidth', default=[], type='float', action='append',
+parser.add_argument('-b', '--bandwidth', default=[], type=float, action='append',
     help='the bandwidth (standard deviation) used within the Gaussian KDE. \
 User can investigate multiple bandwidths by repeating this option. \
 DEFAULT=[]')
 
-parser.add_option('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type='int')
+parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
-parser.add_option('', '--num-points', default=101, type='int',
+parser.add_argument('--num-points', default=101, type=int,
     help='the number of points used on each dimension of the hyper-cube used to estimate the KDE when plotting the results. \
 NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
 DEFAULT=101')
 
-parser.add_option('', '--weight-column', default=None, type='string',
+parser.add_argument('--weight-column', default=None, type=str,
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_option('', '--weight-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight-column-is-log', default=False, action='store_true',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
 
-opts, args = parser.parse_args()
-assert len(args)>1, 'please supply at least 2 input argument\n%s'%__usage__
-inpath = args[0]
-columns = args[1:]
-Ncol = len(columns)
+args = parser.parse_args()
+Ncol = len(args.columns)
 
-assert len(opts.bandwidth), 'please supply at least 1 bandwidth\n%s'%__usage__
-opts.bandwidth = sorted(opts.bandwidth)
+assert len(args.bandwidth), 'please supply at least 1 bandwidth'
+args.bandwidth = sorted(args.bandwidth)
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+if args.tag:
+    args.tag = "_"+args.tag
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
-opts.verbose |= opts.Verbose
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
 ### read in data from csv
-if opts.verbose:
-    print('reading samples from: '+inpath)
-data, columns = utils.load(inpath, columns, logcolumns=opts.logcolumn, max_num_samples=opts.max_num_samples)
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 Nsamp = len(data)
 
-if opts.verbose:
+if args.verbose:
     print('Nsamples = %d'%Nsamp)
     if Ncol > 1:
         print(('Covar\n  '+' '.join(['%-10s']*Ncol))%tuple(columns))
@@ -85,18 +84,18 @@ if opts.verbose:
         print('  %+02.3e'%np.std(data))
 
 # whiten data so a single bandwidth makes more sense
-data, means, stds = utils.whiten(data, verbose=opts.verbose)
+data, means, stds = utils.whiten(data, verbose=args.verbose)
 
 #------------------------
 
 ### load in weights
-if opts.weight_column!=None:
-    if opts.verbose:
-        print('reading in non-trivial weights from: '+inpath)
-    weights, _ = utils.load(inpath, [opts.weight_column], max_num_samples=opts.max_num_samples)
+if args.weight_column!=None:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.inpath)
+    weights, _ = utils.load(args.inpath, [args.weight_column], max_num_samples=args.max_num_samples)
     weights = weights.flatten()
 
-    if opts.weight_column_is_log:
+    if args.weight_column_is_log:
         weights = np.exp(weights-np.max(weights))
 
     weights /= np.sum(weights)
@@ -107,18 +106,18 @@ else:
 #------------------------
 
 ### iterate over bandwidths and compute things like log(likelihood) and grad(log(likelihood))
-if opts.verbose:
+if args.verbose:
     print('analyzing bandwidths')
 
 metrics = dict()
 v = np.empty(Ncol, dtype='float')
-for b in opts.bandwidth:
-    if opts.verbose:
+for b in args.bandwidth:
+    if args.verbose:
         print('  b=%.3e'%b)
 
     v[:] = b**2 ### convert standard deviation into variances. 
                 ### Assume diagonal covariance matrix with the same value throughout
-    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v, weights=weights, num_proc=opts.num_proc)
+    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleave1outLikelihood(data, v, weights=weights, num_proc=args.num_proc)
     metrics[b] = {
         'mean_logL' : mlogL,
         'stdv_logL' : vlogL**0.5,
@@ -126,7 +125,7 @@ for b in opts.bandwidth:
         'stdv_dlogLdlogb' : 2*v[0]*(np.sum(vdlogLdvp))**0.5,  ### this is also correct assuming all variances are the same
     }
 
-    if opts.verbose:
+    if args.verbose:
         print('''\
     mean_logL = %(mean_logL)+.6e
     stdv_logL = %(stdv_logL)+.6e
@@ -136,11 +135,11 @@ for b in opts.bandwidth:
 #------------------------
 ### generate plots/visualizations representing results
 
-if opts.verbose:
+if args.verbose:
     print('plotting')
 
 #--- likelihood vs bandwidth
-if opts.verbose:
+if args.verbose:
     print('bandwidth vs logLikelihood')
 
 fig = plot.plt.figure()
@@ -150,7 +149,7 @@ ax_glogL = plot.plt.subplot(2,1,2)
 #norm = Nsamp**-0.5 ### normalization for how I expect the std to scale
                    ### we compute it based on single-event validation sets, and we have Nsamp of those
 # plot results for each bandwidth
-for b in opts.bandwidth:
+for b in args.bandwidth:
    d = metrics[b]
    mlogL = d['mean_logL']
    slogL = d['stdv_logL']#*norm
@@ -164,7 +163,7 @@ for b in opts.bandwidth:
    ax_glogL.semilogx([b], mglogL, marker='o', color=color)
 
 # decorate
-xlim = opts.bandwidth[0]/1.1, opts.bandwidth[-1]*1.1
+xlim = args.bandwidth[0]/1.1, args.bandwidth[-1]*1.1
 for ax in [ax_logL, ax_glogL]:
     ax.set_xlim(xlim)
     ax.grid(True, which='both')
@@ -182,30 +181,30 @@ ax_logL.set_ylabel('$\log L$')
 ax_glogL.set_ylabel(r'$\left.d \log L\right/d \log b$')
 
 # save
-figname = os.path.join(opts.output_dir, 'investigate_bandwidth-logLike%s.png'%opts.tag)
-if opts.verbose:
+figname = os.path.join(args.output_dir, 'investigate_bandwidth-logLike%s.png'%args.tag)
+if args.verbose:
     print('saving: '+figname)
 fig.savefig(figname)
 plot.close(fig)
 
 #--- visualization of resulting KDEs...
-if opts.verbose:
+if args.verbose:
     print('visualization of KDE for each bandwidth')
 
-vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), opts.num_points) for i in xrange(Ncol)])
+vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in xrange(Ncol)])
 bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
 
 N = len(data)
 Nbins = max(10, int(N**0.5)/2)
 v = np.empty(Ncol, dtype='float')
 
-shape = (opts.num_points, opts.num_points) # used to reshape 2D sampling kdes
+shape = (args.num_points, args.num_points) # used to reshape 2D sampling kdes
 
-for b in opts.bandwidth:
+for b in args.bandwidth:
     v[:] = b
 
     # actually generate figure
-    if opts.verbose:
+    if args.verbose:
         print('  plotting')
     fig = plot.kde_corner(
         data,
@@ -213,15 +212,15 @@ for b in opts.bandwidth:
         range=bounds,
         weights=weights,
         hist1D=True,
-        verbose=opts.Verbose,
+        verbose=args.Verbose,
     )
 
     # further decorate
     fig.suptitle('$b=%.3e$'%b)
 
     # save
-    figname = os.path.join(opts.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, opts.tag))
-    if opts.verbose:
+    figname = os.path.join(args.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, args.tag))
+    if args.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
     plot.close(fig)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-__usage__ = "plot_dedp [--options] eos.csv [eos.csv eos.csv ...]"
 __doc__ = "generate some simple plots of the EOS to make sure they're reasonable. Assumes all columns are in g/cm^3, and converts to more standard units as appropriate"
 __author__ = "reed.essick@ligo.org"
 
@@ -10,7 +9,7 @@ import os
 
 import numpy as np
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
@@ -18,32 +17,33 @@ from universality import plot
 
 #-------------------------------------------------
 
-parser = OptionParser(usage=__usage__, description=__doc__)
+parser = ArgumentParser(description=__doc__)
 
-parser.add_option('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('inpaths', nargs='+', type=str)
 
-parser.add_option('','--min-pressure', default=None, type='float')
-parser.add_option('','--max-pressure', default=None, type='float')
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_option('', '--linestyle', default='-', type='string')
-parser.add_option('', '--show-errors', default=False, action='store_true')
+parser.add_argument('--min-pressure', default=None, type=float)
+parser.add_argument('--max-pressure', default=None, type=float)
 
-parser.add_option('-o', '--output-dir', default='.', type='string')
-parser.add_option('-t', '--tag', default='', type='string')
-parser.add_option('--figtype', default=[], type='string', action='append')
-parser.add_option('--dpi', default=plot.DEFAULT_DPI, type='float')
+parser.add_argument('--linestyle', default='-', type=str)
+parser.add_argument('--show-errors', default=False, action='store_true')
 
-opts, args = parser.parse_args()
-assert len(args), 'please supply at least 1 eos.csv\n%s'%__usage__
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+parser.add_argument('--figtype', default=[], type=str, action='append')
+parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
-if not os.path.exists(opts.output_dir):
-    os.makedirs(opts.output_dir)
+args = parser.parse_args()
 
-if opts.tag:
-    opts.tag = "_"+opts.tag
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 
-if not opts.figtype:
-    opts.figtype = plot.DEFAULT_FIGTYPES
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
 
 alpha = 0.5
 
@@ -56,12 +56,12 @@ ax_pdedp = plot.plt.subplot(3,1,2)
 ax_pv = plot.plt.subplot(3,1,3)
 
 ### iterate and plot
-for path in args:
-    if opts.verbose:
+for path in args.inpaths:
+    if args.verbose:
         print('reading EOS data from: '+path)
     d = np.genfromtxt(path, names=True, delimiter=',')
 
-    if opts.verbose:
+    if args.verbose:
         print('plotting')
 
     label = os.path.basename(path)[:-4]
@@ -70,21 +70,21 @@ for path in args:
     dedp = d['denergy_densitydpressure']
 
     truth = np.ones_like(p, dtype=bool)
-    if opts.min_pressure!=None:
-        truth *= p>=opts.min_pressure
-    if opts.max_pressure!=None:
-        truth *= p<=opts.max_pressure
+    if argss.min_pressure!=None:
+        truth *= p>=args.min_pressure
+    if args.max_pressure!=None:
+        truth *= p<=args.max_pressure
 
     p = p[truth]
     e = e[truth]
     dedp = dedp[truth]
 
-    color = ax_pe.plot(p, e, opts.linestyle, label=label)[0].get_color()
-    ax_pdedp.plot(p, p/e * dedp, opts.linestyle, label=label, color=color)
-    ax_pv.plot(p, 1./dedp, opts.linestyle, label=label, color=color)
+    color = ax_pe.plot(p, e, args.linestyle, label=label)[0].get_color()
+    ax_pdedp.plot(p, p/e * dedp, args.linestyle, label=label, color=color)
+    ax_pv.plot(p, 1./dedp, args.linestyle, label=label, color=color)
 
     ### check for error estimates on dedp
-    if d.dtype.fields.has_key('sigma_denergy_densitydpressure') and opts.show_errors:
+    if d.dtype.fields.has_key('sigma_denergy_densitydpressure') and args.show_errors:
         s = 3*d['sigma_denergy_densitydpressure'] ### plot 3-sigma confidence regions
         s = s[truth]
         high = (dedp + s)
@@ -115,10 +115,10 @@ for ax in [ax_pe, ax_pdedp, ax_pv]:
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-if opts.min_pressure!=None:
-    ax_pe.set_xlim(xmin=opts.min_pressure)
-if opts.max_pressure!=None:
-    ax_pe.set_xlim(xmax=opts.max_pressure)
+if args.min_pressure!=None:
+    ax_pe.set_xlim(xmin=args.min_pressure)
+if args.max_pressure!=None:
+    ax_pe.set_xlim(xmax=args.max_pressure)
 xlim = ax_pe.get_xlim()
 ax_pdedp.set_xlim(xlim)
 ax_pv.set_xlim(xlim)
@@ -126,5 +126,5 @@ ax_pv.set_xlim(xlim)
 plot.plt.subplots_adjust(hspace=0.1, wspace=0.1)
 
 ### save
-plot.save('plot_dedp%s'%opts.tag, fig, directory=opts.output_dir, figtypes=opts.figtype, dpi=opts.dpi, verbose=opts.verbose)
+plot.save('plot_dedp%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.close(fig)
