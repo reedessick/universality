@@ -9,6 +9,7 @@ import numpy as np
 import multiprocessing as mp
 
 from . import eos
+from . import stats
 
 #-------------------------------------------------
 
@@ -21,6 +22,14 @@ DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for p
 
 DEFAULT_BANDWIDTH = 0.1
 DEFAULT_MAX_NUM_SAMPLES = np.infty
+
+KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS = [
+    'increasing',
+    'decreasing',
+]
+DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION = 'increasing'
+
+DEFAULT_WEIGHT_COLUMN = 'logweight'
 
 #-------------------------------------------------
 # basic utilities for simulating samples
@@ -208,7 +217,30 @@ def logaddexp(logx):
     return max_logx + np.log( np.sum(np.exp(logx - np.outer(max_logx, np.ones(N)).reshape(logx.shape)) , axis=-1) )
 
 #-------------------------------------------------
-# cross-validation likelihood
+# 1D CDF estimation
+#-------------------------------------------------
+
+def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
+    """estimates the log(cdf) at all points in samples based on data and integration in "direction".
+    Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
+    data, cweights = stats.samples(data, weights=weights)
+    if direction=='increasing':
+        pass
+    elif direction=='decreasing':
+        cweights = 1. - cweights ### reverse the order of the integral
+    else:
+        raise ValueError('direction=%s not understood!'%direction)
+
+    return np.log(np.interp(samples, data, cweights)) ### return the linear interpolation of the numeric CDF
+
+def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
+    """estimates the log(cdf) at all points in samples based on data and integration in "direction"
+    This is done with a 1D KDE-based CDF estimate between bounds
+    """
+    raise NotImplementedError('This is a non-trivial thing to do, and I have not done it yet')
+
+#-------------------------------------------------
+# KDE and cross-validation likelihood
 #-------------------------------------------------
 
 def data2range(data, pad=0.1):

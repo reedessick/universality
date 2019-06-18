@@ -55,6 +55,21 @@ def vects2vol(vects):
     """
     return np.prod([vect[1]-vect[0] for vect in vects])
 
+def samples2cdf(data, weights=None):
+    """estimate a CDF (integrating from small values to large values in data) based on weighted samples
+    returns data, cweights (data is sorted from smallest to largest values)
+    """
+    N = len(data)
+    if weights is None:
+        weights = np.ones(N, dtype=float)/N
+
+    order = data.argsort()
+    data = data[order]
+    weights = weights[order]
+    cweights = np.cumsum(weights)/np.sum(weights)
+
+    return data, cweights
+
 def samples2crbounds(data, levels, weights=None):
     """
     expects 1D data and returns the smallest contiguous confidence region that contains a certain amount of the cumulative weight
@@ -66,10 +81,7 @@ def samples2crbounds(data, levels, weights=None):
     if weights is None:
         weights = np.ones(N, dtype=float)/N
 
-    order = data.argsort()
-    data = data[order]
-    weights = weights[order]
-    cweights = np.cumsum(weights)/np.sum(weights)
+    data, cweights = samples2cdf(data, weights=weights)
 
     # perform a direct search over confidence bands, looking for the smallest one at each level
     bounds = []
