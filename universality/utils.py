@@ -12,10 +12,12 @@ from . import eos
 
 #-------------------------------------------------
 
-DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
-
 c = (299792458*100) # speed of light in (cm/s)
 c2 = c**2
+
+#------------------------
+
+DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
 
 DEFAULT_BANDWIDTH = 0.1
 DEFAULT_MAX_NUM_SAMPLES = np.infty
