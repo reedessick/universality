@@ -70,8 +70,9 @@ def mdet_d(data, distance_name=DEFAULT_DISTANCE_NAME, m1_name=DEFAULT_M1_NAME, m
 
 def msrc_Vcov(data, distance_name=DEFAULT_DISTANCE_NAME, m1_name=DEFAULT_M1_NAME, m2_name=DEFAULT_M2_NAME, cosmology=cosmo.DEFAULT_COSMOLOGY, **kwargs):
     """returns induced logprior over source-frame component masses and comoving volume
-    p(m1_source, m2_source, Vc) ~ (1+z)**2 * d**2 * (dd/dz) * (dVc/dz)**-1
+    p(m1_source, m2_source, Vc) ~ d**2 * [ (1+z)**2 * (dd/dz) * (dVc/dz)**-1 ]
+This is the prior LALInf assumes for detector-frame component masses and luminosity distance multiplied by the appropriate Jacobian to change coordinates to source-frame component masses and (enclosed) comoving volumne
     """
-    d = data[distance_name]
+    d = data[distance_name] * cosmo.cm_per_Mpc ### convert Mpc (LALInference's units) to cm (our units)
     z = cosmology.DL2z(d)
     return np.log(d) + 2*np.log(1+z) + np.log( (1+z)**2/d + cosmology.z2E(z)/cosmology.c_over_Ho )

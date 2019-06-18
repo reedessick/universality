@@ -13,6 +13,20 @@ from . import utils
 
 DEFAULT_DZ = 1e-2 ### should be good enough for most things we want to do
 
+#------------------------
+
+lyr_per_Mpc = 3.216156*1e6
+Mpc_per_lyr = 1./lyr_per_Mpc
+
+cm_per_lyr = utils.c*86400*365
+lyr_per_cm = 1./cm_per_ly
+
+Mpc_per_cm = Mpc_per_lyr * lyr_per_cm
+cm_per_Mpc = 1./Mpc_per_cm
+
+cm_per_km = 1e5
+km_per_cm = 1./cm_per_km
+
 #-------------------------------------------------
 
 class Cosmology(object):
@@ -96,7 +110,7 @@ class Cosmology(object):
 #-------------------------------------------------
 
 ### Planck 2018 Cosmology (Table1 in arXiv:1807.06209)
-PLANCK_2018_Ho = 67.32 * (3.216156*1e6)**-1 * (utils.c*86400*365)**-1 * (1e5) ### km/s/Mpc * (Mpc/lyr) * (lyr/cm) * (cm/km) = s**-1
+PLANCK_2018_Ho = 67.32 * cm_per_Mpc * cm_per_km ### km/s/Mpc * (Mpc/lyr) * (lyr/cm) * (cm/km) = s**-1
 PLANCK_2018_OmegaMatter = 0.3158
 PLANCK_2018_OmegaLambda = 1. - PLANCK_2018_OmegaMatter
 PLANCK_2018_OmegaRadiation = 0.
