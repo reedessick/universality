@@ -26,9 +26,9 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-sgroup.add_argument('--weight-column', default=None, type=str,
+sgroup.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-sgroup.add_argument('--weight-column-is-log', default=False, action='store_true',
+sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 cgroup = parser.add_argument_group('column-specific arguments')
@@ -104,12 +104,7 @@ for i, col in enumerate(columns):
 if args.weight_column!=None:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.samples)
-    weights, _ = utils.load(args.samples, [args.weight_column], max_num_samples=args.max_num_samples)
-    weights = weights.reshape((len(weights)))
-
-    if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
+    weights = utils.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
 else:
     N = len(data)

@@ -43,9 +43,9 @@ parser.add_argument('--num-points', default=101, type=int,
 NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
 DEFAULT=101')
 
-parser.add_argument('--weight-column', default=None, type=str,
+parser.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-parser.add_argument('--weight-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
@@ -89,19 +89,13 @@ data, means, stds = utils.whiten(data, verbose=args.verbose)
 #------------------------
 
 ### load in weights
-if args.weight_column!=None:
+if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath)
-    weights, _ = utils.load(args.inpath, [args.weight_column], max_num_samples=args.max_num_samples)
-    weights = weights.flatten()
-
-    if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-
-    weights /= np.sum(weights)
+    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
 else:
-    weights = None
+    weights = np.ones(Nsamp, dtype=float)/Nsamp
 
 #------------------------
 

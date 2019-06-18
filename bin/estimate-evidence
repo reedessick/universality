@@ -20,12 +20,12 @@ from universality import stats
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('inpath', type=str)
-parser.add_argument('weightcolumn', type=str)
+parser.add_argument('weightcolumn', type=str, nargs='+')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 args = parser.parse_args()
@@ -35,13 +35,9 @@ args = parser.parse_args()
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+args.inpath)
-weights = utils.load(args.inpath, [args.weightcolumn], max_num_samples=args.max_num_samples)[0][:,0]
+weights = utils.load(args.inpath, args.weightcolumn, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)[0][:,0]
 N = len(weights)
 sqrtN = N**0.5
-weights.reshape(N)
-
-if args.weight_column_is_log:
-    weights = np.exp(weights)
 
 if args.verbose:
     print('N    = %5d'%N)

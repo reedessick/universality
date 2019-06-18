@@ -92,7 +92,7 @@ for i, col in enumerate(args.columns):
 if args.weight1_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath1)
-    weights1 = utils.load_weights(args.inpath1, args.weight1_column, logcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
+    weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
 
 else:
     N = len(data1)
@@ -113,7 +113,7 @@ for i, col in enumerate(args.columns):
 if args.weight2_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath2)
-    weights2 = utils.load(args.inpath2, args.weight2_column, logcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples2)
+    weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2)
 
 else:
     N = len(data2)

@@ -20,18 +20,18 @@ from universality import stats
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('inpath1', type=str)
-parser.add_argument('weight1_column', type=str)
+parser.add_argument('weight1_column', type=str, nargs='+')
 parser.add_argument('inpath2', type=str)
-parser.add_argument('weight2_column', type=str)
+parser.add_argument('weight2_column', type=str, nargs='+')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight1-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight1-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight2-column-is-log', default=False, action='store_true',
+parser.add_argument('--weight2-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 args = parser.parse_args()
@@ -41,12 +41,8 @@ args = parser.parse_args()
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+args.inpath1)
-weights1 = utils.load(args.inpath1, [args.weight1_column], max_num_samples=args.max_num_samples1)[0][:,0]
+weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
 N1 = len(weights1)
-weights1.reshape(N1)
-
-if args.weight1_column_is_log:
-    weights1 = np.exp(weights1)
 
 if args.verbose:
     print('N1    = %5d'%N1)
@@ -54,12 +50,8 @@ if args.verbose:
 
 if args.verbose:
     print('reading samples from: '+args.inpath2)
-weights2 = utils.load(args.inpath2, [args.weight2_column], max_num_samples=args.max_num_samples2)[0][:,0]
+weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2)
 N2 = len(weights2)
-weights2.reshape(N2)
-
-if args.weight2_column_is_log:
-    weights2 = np.exp(weights2)
 
 if args.verbose:
     print('N2    = %5d'%N2)

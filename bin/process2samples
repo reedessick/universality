@@ -40,8 +40,9 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-sgroup.add_argument('--weight-column', default=None, type=str,
+sgroup.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights')
+sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -70,11 +71,13 @@ data, _ = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_nu
 data = data[:,0]
 N = len(data)
 
-if args.weight_column is not None:
+if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath)
-    weights, _ = utils.load(args.inpath, [args.weight_column], max_num_samples=args.max_num_samples)
-    weights = weights.reshape((len(weights)))
+    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+
+else:
+    weights = np.ones(N, dtype=float)/N
 
 #------------------------
 

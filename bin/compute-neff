@@ -29,8 +29,8 @@ parser.add_argument('samples', nargs='+', type=str)
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight-column', default=None, type=str)
-parser.add_argument('--weight-column-is-log', default=False, action='store_true')
+parser.add_argument('--weight-column', default=[], type=str, action='append')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 parser.add_argument('--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
@@ -59,13 +59,8 @@ for inpath in args.samples:
 
     data, columns = utils.load(inpath, columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 
-    if args.weight_column!=None:
-        weights, _ = utils.load(inpath, [args.weight_column], max_num_samples=args.max_num_samples)
-        weights = weights.reshape((len(weights)))
-  
-        if args.weight_column_is_log:
-            weights = np.exp(weights-np.max(weights))
-        weights /= np.sum(weights)
+    if args.weight_column:
+        weights = utils.load_weights(inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
     else:
         N = len(data)

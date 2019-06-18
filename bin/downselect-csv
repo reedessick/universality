@@ -24,8 +24,8 @@ parser = ArgumentParser(description=__doc__)
 rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('sourcepath', type=str)
 rgroup.add_argument('targetpath', type=str)
-rgroup.add_argument('--weight-column', default=None, type=str)
-rgroup.add_argument('--weight-column-is-log', default=False, action='store_true')
+rgroup.add_argument('--weight-column', default=[], type=str, action='append')
+rgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 ### verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -48,16 +48,8 @@ if args.verbose:
     print('reading samples from: '+args.sourcepath)
 data, columns = utils.load(args.sourcepath)
 
-if args.weight_column is not None:
-    try:
-        ind = columns.index(args.weight_column)
-    except ValueError:
-        raise ValueError('--weight-column=%s not found!'%args.weight_column)
-    weights = data[:,ind]
-
-    if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
+if args.weight_column:
+    weights = utils.load_weights(args.sourcepath, args.weight_column, logweightcolumns=args.weight_column_is_log)
 
 else:
     N = len(data)

@@ -24,8 +24,8 @@ DEFAULT_NUM_POINTS = 50
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('samples', type=str)
-parser.add_argument('--weight-column', default=None, type=str)
-parser.add_argument('--weight-column-is-log', default=False, action='store_true')
+parser.add_argument('--weight-column', default=[], type=str, action='append')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 parser.add_argument("-v", '--verbose', default=False, action='store_true')
 parser.add_argument("-V", '--Verbose', default=False, action='store_true')
@@ -82,14 +82,10 @@ Nsamp = len(data)
 if args.verbose:
     print('found %d samples for %d columns'%(Nsamp, len(columns)))
 
-if args.weight_column is not None:
+if args.weight_column:
     if args.verbose:
         print('reading weights as %s from: %s'%(args.weight_column, args.samples))
-    weights = utils.load(args.samples, [args.weight_column])[0][:,0]
-
-    if args.weight_column_is_log:
-        weights = np.exp(weights-np.max(weights))
-    weights /= np.sum(weights)
+    weights = utils.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log)[0][:,0]
 
     truth = weights>0
     data = data[truth,:]
