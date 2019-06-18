@@ -1,0 +1,147 @@
+#!/usr/bin/env python
+
+__doc__ = "a script that prints the cross-validation likelihood associated with each of a sequence of bandwidths over whitened data. This is similar in spirit to investigate-bandwidth, but reports the output in a format more convenient for marginalization at a later time"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+DEFAULT_MIN_BANDWIDTH = 1e-2
+DEFAULT_MAX_BANDWIDTH = 1e-0
+
+DEFAULT_NUM_BANDWIDTH_SAMPLES = 100
+
+DEFAULT_BANDWIDTH_PRIOR = 'lin'
+KNOWN_BANDWIDTH_PRIORS = ['log', 'lin']
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('inpath', type=str)
+parser.add_argument('outpath', type=str, default=None)
+parser.add_argument('columns', nargs='+', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', type=str, default=[], action='append')
+parser.add_argument('--max-num-samples', type=int, default=np.infty)
+
+parser.add_argument('--weight-column', default=[], type=str, action='append')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
+
+parser.add_argument('--column-range', nargs=3, type=str, action='append',
+    help='eg, "--column-range col min max')
+
+parser.add_argument('--prune', default=False, action='store_true')
+parser.add_argument('--reflect', default=False, action='store_true')
+
+parser.add_argument('--min-bandwidth', default=DEFAULT_MIN_BANDWIDTH, type=float)
+parser.add_argument('--max-bandwidth', default=DEFAULT_MAX_BANDWIDTH, type=float)
+parser.add_argument('--num-bandwidth-samples', default=DEFAULT_NUM_BANDWIDTH_SAMPLES, type=int)
+
+parser.add_argument('--bandwidth-prior', default=DEFAULT_BANDWIDTH_PRIOR, type=str,
+    help='must be one of: %s'%', '.join(KNOWN_BANDWIDTH_PRIORS))
+
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
+
+args = parser.parse_args()
+
+assert args.bandwidth_prior in KNOWN_BANDWIDTH_PRIORS
+
+if args.outpath is None:
+    args.outpath = args.inpath[:-4]+'-loglike.csv'
+
+rangesdict = dict()
+for column, _min, _max in args.column_range:
+    assert column in args.columns, 'specifying --column-range for unknown column: '+column
+    rangesdict[column] = (float(_min), float(_max))
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+### read in samples and weights
+
+if opts.verbose:
+    print('reading samples from: '+args.inpath)
+data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+
+ranges = []
+for i, col in enumerate(columns):
+    if rangesdict.has_key(col):
+        ranges.append(rangesdict[col])
+    else:
+        ranges.append((np.min(data[:,i]), np.max(data[:,i])))
+
+if args.weight_column:
+    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype=float)/N
+
+#------------------------
+
+### clean up samples as requested
+
+if opts.prune:
+    if args.verbose:
+        print('pruning samples')
+    data, weights = utils.prune(data, ranges, weights=weights)
+
+if opts.reflect:
+    if args.verbose:
+        print('reflecting samples about ranges')
+    data, weights = utils.reflect(data, ranges, weights=weights)
+
+#------------------------
+
+### whiten samples
+if args.verbose:
+    print('whitening data')
+data, means, stds = utils.whiten(data, verbose=args.verbose)
+ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
+
+#-------------------------------------------------
+
+### generate bandwidth samples
+if args.bandwidth_prior=='lin':
+    if args.verbose:
+        print('generating %d bandwidth samples from a linear prior within [%3e, %.3e]'%(args.num_bandwidth_samples, args.min_bandwidth, args.max_bandwidth))
+    bandwidths = np.linspace(args.min_bandwidth, args.max_bandwidth, args.num_bandwidth_samples)
+
+elif args.bandwidth_prior=='log':
+    if args.verbose:
+        print('generating %d bandwidth samples from a logarithmic prior within [%3e, %.3e]'%(args.num_bandwidth_samples, args.min_bandwidth, args.max_bandwidth))
+    bandwidths = np.logspace(np.log10(args.min_bandwidth), np.log10(args.max_bandwidth), args.num_bandwidth_samples)
+
+else:
+    raise ValueError('--bandwidth-prior=%s not understood!'%args.prior_bandwidth)
+
+#-------------------------------------------------
+
+Ndim = len(columns)
+if args.verbose:
+    print('evaluating logLike for whitened %d-dimensional data'%Ndim)
+    print('writing samples to: '+args.outpath)
+
+variances = np.empty(Ndim, dtype=float)
+tmp = '%.9e,%.9e'
+with open(args.outpath, 'w') as outfile:
+    print >> outfile, 'bandwidth,logLike'
+    for b in bandwidths:
+        if args.Verbose:
+            print('    bandwidth = %.3e'%b)
+        variances[:] = b**2
+        loglike = utils.logleave1outLikelihood(data, variances, weights=weights, num_proc=args.num_proc)
+        print >> outfile, tmp%(b, loglike)
