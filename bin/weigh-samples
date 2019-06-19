@@ -38,7 +38,7 @@ parser.add_argument('--invert-weight-column', default=[], type=str, action='appe
 parser.add_argument('--output-weight-column', default=utils.DEFAULT_WEIGHT_COLUMN, type=str,
     help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this is consistent with whether or not you specified --do-not-log-output-weight! \
 DEFAULT='+utils.DEFAULT_WEIGHT_COLUMN)
-parser.add_argument('--do-not-log-output-weight', default=False, action='store_true',
+parser.add_argument('--do-not-log-output-weights', default=False, action='store_true',
     help='record the raw weights instead of the log(weight) in the output CVS. **BE CAREFUL!** You should make sure this is consistent with the name specified by --output-weight-column.')
 
 parser.add_argument('-b', '--bandwidth', default=0.03, type=float,
@@ -92,7 +92,7 @@ if args.do_not_log_output_weights:
     logkde = np.exp(logkde)
 
 if args.verbose:
-    print('writing results with weight-column=%s into: %s'(args.output_weight_column, args.output))
+    print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
 
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(args.output, 'w') as file_obj:
