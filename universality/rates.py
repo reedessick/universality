@@ -73,7 +73,10 @@ class GravitationalWaveExposure(Exposure):
         """A very simple model of VT, assuming that the VT for masses simply scales as (Mchirp)**3
         """
         samples = population._sample_prior(params, population, size=size, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME)
-        return m1m2_to_mc(samples[DEFAULT_M1_NAME], samples[DEFAULT_M2_NAME])**3
+        m1 = samples[DEFAULT_M1_NAME]
+        m2 = samples[DEFAULT_M2_NAME]
+        mc = (m1*m2)**0.6 / (m1+m2)**0.2
+        return np.sum(mc**3)/size ### monte-carlo integral approximation
 
 class NicerExposure(Exposure):
     """an object representing the exposure of Nicer observations. Does some basic type checking
@@ -106,7 +109,7 @@ class Population(object):
 This object should be extended to implement different population models (eg, power law vs Gaussian in component masses).
     """
 
-    def __init__(self, rate, *params):
+    def __init__(self, rate, params):
         self.rate = rate
         self._params = params
 
@@ -215,11 +218,28 @@ and a flat hyperprior
         """sample from the prior induced by params and return a structured array with names given by m1, m2
         """
         alpha, mmin, mmax = params
-        if alpha==-1:
-            raise NotImplementedError
+        if alpha==-1: ### just do rejection sampling here 'cause the analytic expression is transcendental...
+            m1_data = []
+            m2_data = []
+            N = len(m1_data)
+            while N<size:
+                rand1, rand2 = np.random.rand(2*(size-N)) ### expect to throw some away
+                m1_data = mmin * np.exp(rand1*np.log(mmax/mmin))
+                m2_data = mmin * np.exp(rand2*np.log(mmax/mmin))
+                truth = m1_data >= m2_data
+                m1_data += list(m1_data[truth])
+                m2_data += list(m2_data[truth])
+
+            m1_data = m1_data[:size] ### only keep some of them
+            m2_data = m2_data[:size]
 
         else:
-            raise NotImplementedError
+            rand1, rand2 = np.random.random((2,size))
+            a1 = alpha+1
+            m2_data = (mmax**a1 - (1-rand2)**0.5 * (mmax**a1 - mmin**a1))**(1./a1)
+            m1_data = (rand1*(mmax**a1 - mmin**a1) + m2_data**a1)**(1./a1)
+
+        return np.array( zip(m1_data, m2_data), dtype=[(m1, float), (m2, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):
@@ -269,18 +289,15 @@ and a flat hyperprior
         """sample from the prior induced by params and return a structured array with column-name given by m
         """
         alpha, mmin, mmax = params
+        rand = np.random.random(size)
         if alpha==-1:
-            return np.array(
-                mmin * np.exp(np.log(mmax/mmin)*np.random.random(size)),
-                dtype=[(m, float)],
-            )
+            m_data = mmin * np.exp(np.log(mmax/mmin)*rand),
 
         else:
-            alpha_plus_one = alpha+1
-            return np.array(
-                ( (mmax**alpha_plus_one - mmin**alpha_plus_1)*np.random.random(size) + mmin**alpha_plus_one )**(1./alpha_plus_one),
-                dtype=[(m, float)],
-            )
+            a1 = alpha+1
+            m_data = ((mmax**a1 - mmin**a1)*rand + mmin**a1)**(1./a1)
+
+        return np.array(m_data, dtype=[(m, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):

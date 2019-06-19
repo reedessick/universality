@@ -10,6 +10,11 @@ import numpy as np
 
 import emcee
 
+try: ### Python 2 vs 3 naming differences
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -20,19 +25,10 @@ from universality import utils
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('-s', '--samples', default=[], nargs=2, type=str, action='append',
-    help='eg, "--samples label samples.csv'; can be repeated)
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_argument('-e', '--exposure', type=str,
-    help='eg, "--exposure exposure.hdf5')
+parser.add_argument('config', type=str)
 
-parser.add_arugment('--hyperparam-range', default=[], nargs=3, type=str, action='append',
-    help='eg, "--hyperparam-range param min max"; can be repeated')
-
-parser.add_argument('--hyperparam-initial-value', default=[], nargs=2, type=str, action='append',
-    help='eg, "--hyperparam-initial-value param val"; can be repeated')
-
-parser.add_argument('population_type', type=str)
 parser.add_argument('num_samples', type=int)
 parser.add_argument('num_walkders', type=int)
 parser.add_argument('--num-proc', type=int, default=utils.DEFAULT_NUM_PROC)
@@ -41,9 +37,38 @@ parser.add_argument('outpath', default=None, type=str)
 
 args = parser.parse_args()
 
-args.hyperparam_range = dict((p, (float(m), float(M))) for p, m, M in args.hyperparam_range)
-args.hyperparam_initial_value = dict((p, float(v)) for p, v in args.hyperparam_initial_value)
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading configuration from: '+args.config)
+config = ConfigParser()
+config.read(args.config)
 
 #-------------------------------------------------
 
-raise NotImplementedError
+### read in GW data
+raise NotImplementedError('''\
+need to define a configuration format to let me read in everything I need to set up (GW) observations
+
+for each GW observation set (point to other sections here)
+    labels for GW observations
+    exposure
+
+for each exposure
+    population (pointer to section)
+    relevant scalings for that population (ie, parameters to model VT)
+
+for each population
+    initial rate
+    initial params
+
+for each GW observation
+    inpath
+    weight_columns
+    max_num_samples
+    label
+    m1      (names)
+    m2
+    lambda1
+    lambda2
+''')
