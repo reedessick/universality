@@ -217,7 +217,7 @@ and a flat hyperprior
         m_data = priors.sample_ordered_joint_pareto(exp=alpha, minval=mmin, maxval=mmax, size=size)
         dl_data = priors.sample_pareto(exp=2, minval=dlmin, maxval=dlmax, size=size)
 
-        return np.array(zip(m_data[:,0[, m_data[:,1], dl_data), dtype=[(m1, float), (m2, float), (DL, float)])
+        return np.array(zip(m_data[:,0], m_data[:,1], dl_data), dtype=[(m1, float), (m2, float), (DL, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):
