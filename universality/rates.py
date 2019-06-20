@@ -9,27 +9,23 @@ import numpy as np
 
 ### non-standard libraries
 from . import utils
+from . import priors
 
 #-------------------------------------------------
 
-DEFAULT_SAMPLE_SIZE = 1000
+DEFAULT_SAMPLE_SIZE = priors.DEFAULT_SAMPLE_SIZE
 
 #------------------------
 
 DEFAULT_M_NAME = 'm'
 DEFAULT_R_NAME = 'R'
 
-DEFAULT_DL_NAME = 'dist'
+DEFAULT_DL_NAME = priors.DEFAULT_DL_NAME
 
-DEFAULT_M1_NAME = 'm1'
-DEFAULT_M2_NAME = 'm2'
+DEFAULT_M1_NAME = priors.DEFAULT_M1_NAME
+DEFAULT_M2_NAME = priors.DEFAULT_M2_NAME
 DEFAULT_L1_NAME = 'lambda1'
 DEFAULT_L2_NAME = 'lambda2'
-
-#-------------------------------------------------
-
-def m1m2_to_mc(m1, m2):
-    return (m1*m2)**0.6/(m1+m2)**0.2
 
 #-------------------------------------------------
 
@@ -75,11 +71,12 @@ class GravitationalWaveExposure(Exposure):
         """A very simple model of VT, assuming that the VT for masses simply scales as (Mchirp)**3
         """
         samples = population._sample_prior(params, population, size=size, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME)
+
         m1 = samples[DEFAULT_M1_NAME]
         m2 = samples[DEFAULT_M2_NAME]
         mc = (m1*m2)**0.6 / (m1+m2)**0.2
 
-        raise NotImplementedError('need to include DL in VT estimate...')
+        ### FIXME: need to include DL in monte-carlo to estimate VT
 
         return np.sum(mc**3)/size ### monte-carlo integral approximation
 
@@ -189,7 +186,7 @@ This is essentially a distribution of component masses and distances
 
 NOTE: this implementes a simple prior on component masses
 
-    p(m1, m2) ~ m1**alpha * m2**alpha | mmin <= m2 <= m1 < mmax
+    p(m1, m2, DL) ~ m1**alpha * m2**alpha * DL**2 | mmin <= m2 <= m1 < mmax AND DLmin <= DL < DLmax
 
 and a flat hyperprior
 
@@ -200,65 +197,32 @@ and a flat hyperprior
     def _logprior(rate, params, data, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME):
         """evaluate the prior induced by params at all the samples in data with names in data given by m1, m2
         """
-
-        raise NotImplementedError('need to evaluate prior based on DL')
-
         ### extract samples from data
         m1 = data[m1]
         m2 = data[m2]
+        dl = data[DL]
 
         ### extract hyperparameters
-        alpha, mmin, mmax = params
+        alpha, mmin, mmax, dlmin, dlmax = params
 
         ### compute prior at these samples and return
-        ans = np.log(rate) + alpha*np.log(m1) + alpha*np.log(m2)
-
-        ans[m2<mmin] = -np.infty ### out of bounds
-        ans[m1<mmin] = -np.infty
-        ans[m2>=mmax] = -np.infty
-        ans[m2>=mmax] = -np.infty
-        ans[m2>m1] = -np.infty
-
-        return ans
+        return np.log(rate) + priors.ordered_joint_pareto(data, name1=m1, name2=m2, exp=alpha, minval=mmin, maxval=mmax) + priors.pareto(data, name=DL, exp=2, minval=dlmin, maxval=dlmax)
 
     @staticmethod
     def _sample_prior(params, size=DEFAULT_SAMPLE_SIZE, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME):
         """sample from the prior induced by params and return a structured array with names given by m1, m2
         """
+        alpha, mmin, mmax, dlmin, dlmax = params
 
-        raise NotImplementedError('need to sample from DL prior')
+        m_data = priors.sample_ordered_joint_pareto(exp=alpha, minval=mmin, maxval=mmax, size=size)
+        dl_data = priors.sample_pareto(exp=2, minval=dlmin, maxval=dlmax, size=size)
 
-        alpha, mmin, mmax = params
-        if alpha==-1: ### just do rejection sampling here 'cause the analytic expression is transcendental...
-            m1_data = []
-            m2_data = []
-            N = len(m1_data)
-            while N<size:
-                rand1, rand2 = np.random.rand(2*(size-N)) ### expect to throw some away
-                m1_data = mmin * np.exp(rand1*np.log(mmax/mmin))
-                m2_data = mmin * np.exp(rand2*np.log(mmax/mmin))
-                truth = m1_data >= m2_data
-                m1_data += list(m1_data[truth])
-                m2_data += list(m2_data[truth])
-
-            m1_data = m1_data[:size] ### only keep some of them
-            m2_data = m2_data[:size]
-
-        else:
-            rand1, rand2 = np.random.random((2,size))
-            a1 = alpha+1
-            m2_data = (mmax**a1 - (1-rand2)**0.5 * (mmax**a1 - mmin**a1))**(1./a1)
-            m1_data = (rand1*(mmax**a1 - mmin**a1) + m2_data**a1)**(1./a1)
-
-        return np.array( zip(m1_data, m2_data), dtype=[(m1, float), (m2, float)])
+        return np.array(zip(m_data[:,0[, m_data[:,1], dl_data), dtype=[(m1, float), (m2, float), (DL, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):
-        ans, mmin, mmax = params
-
-        raise NotImplementedError('need to include hyperparams for DL')
-
-        if (mmin < 0) or (mmax < 0) or (mmax < mmin):
+        ans, mmin, mmax, dlmin, dlmax = params
+        if (mmin < 0) or (mmax < 0) or (mmax < mmin) or (dlmin < 0) or (dlmax < 0) or (dlmax < dlmin):
             return -np.infty
         else:
             return 0.
@@ -284,38 +248,23 @@ and a flat hyperprior
     def _logprior(rate, params, data, m=DEFAULT_M_NAME):
         """evaluate the prior induced by params at all the samples within data with the column-name in data given by m
         """
-        ### extract samples from data
-        m = data[m]
-
-        ### extract parameters
         alpha, mmin, mmax = params
-
-        ### compute prior at these samples
-        ans = np.log(rate) + alpha*np.log(m)
-
-        ans[m<mmin] = -np.infty  ### add the prior bounds
-        ans[m>=mmax] = -np.infty
-
-        return ans
+        return np.log(rate) + priors.pareto(data, name=m, exp=alpha, minval=mmin, maxval=mmax)
 
     @staticmethod
     def _sample_prior(params, size=DEFAULT_SAMPLE_SIZE, m=DEFAULT_M_NAME):
         """sample from the prior induced by params and return a structured array with column-name given by m
         """
         alpha, mmin, mmax = params
-        rand = np.random.random(size)
-        if alpha==-1:
-            m_data = mmin * np.exp(np.log(mmax/mmin)*rand),
-
-        else:
-            a1 = alpha+1
-            m_data = ((mmax**a1 - mmin**a1)*rand + mmin**a1)**(1./a1)
-
-        return np.array(m_data, dtype=[(m, float)])
+        return np.array(priors.sample_pareto(alpha, mmin, mmax, size=size), dtype=[(m, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):
-        return GravitationalWavePopulation._loghyperprior(rate, params)
+        alpha, mmin, mmax = params
+        if (mmin < 0) or (mmax < 0) or (mmax < mmin):
+            return -np.infty
+        else:
+            return 0.
 
 #    @staticmethod
 #    def _sample_hyperprior(rate, params, size=DEFAULT_SAMPLE_SIZE):
@@ -340,15 +289,21 @@ ALSO NOTE: we current delegate to NicerPopulation for pretty much everything bec
     def _logprior(rate, params, data, m=DEFAULT_M_NAME):
         """evaluate the prior induced by params at all samples within data with the column-name in data given by m
         """
-        return NicerPopulation._logprior(rate, params, data, m=m)
+        alpha, mmin, mmax = params
+        return np.log(rate) + priors.pareto(data, name=m, exp=alpha, minval=mmin, maxval=mmax)
 
     @staticmethod
     def _sample_prior(params, size=DEFAULT_SAMPLE_SIZE, m=DEFAULT_M_NAME):
-        return NicerPopulation._logprior(params, size=size, m=m)
+        alpha, mmin, mmax = params
+        return np.array(priors.sample_pareto(alpha, mmin, mmax, size=size), dtype=[(m, float)])
 
     @staticmethod
     def _loghyperprior(rate, params):
-        return NicerPopulation._loghyperprior(rate, params)
+        alpha, mmin, mmax = params
+        if (mmin < 0) or (mmax < 0) or (mmax < mmin):
+            return -np.infty
+        else:
+            return 0.
 
 #    @staticmethod
 #    def _sample_hyperprior(params, size=DEFAULT_SAMPLE_SIZE):
@@ -405,8 +360,9 @@ class GravitationalWaveObservation(Observation):
             m2=DEFAULT_M2_NAME,
             lambda1=DEFAULT_L1_NAME,
             lambda2=DEFAULT_L2_NAME,
+            DL=DEFAULT_DL_NAME,
         ):
-        columns = [m1, m2, lambda1, lambda2]
+        columns = [m1, m2, lambda1, lambda2, DL]
         Observation.__init__(self, inpath, columns, weight_columns, max_num_samples=max_num_samples, logweightcolumns=logweightcolumns, label=label)
 
         ### overwrite what was set
@@ -415,6 +371,7 @@ class GravitationalWaveObservation(Observation):
             'm2':m2,
             'lambda1':lambda1,
             'lambda2':lambda2,
+            'DL':DL,
         }
 
 class NicerObservation(Observation):
