@@ -40,19 +40,38 @@ def logprior(prior_type, data, **kwargs):
     """compute the prior weight associated with each sample in data. This is a general routing function that should delegate to different types of priors, as specified in KNOWN_PRIORS"""
     assert prior_type in KNOWN_PRIORS, 'prior=%s not understood! must be one of %s'%(prior_type, ', '.join(KNOWN_PRIORS))
 
-    raise NotImplementedError
+    #--- general priors; useful when applying weights to a set of samples
 
     if prior_type=='uniform':
-        return lalinf_uniform(data, **kwargs)
+        return uniform(data, **kwargs)
 
-    elif prior_type=='Dsqrd':
-        return lalinf_dsqrd(data, **kwargs)
+    elif prior_type=='uniform_in_log':
+        return uniform_in_log(data, **kwargs)
 
-    elif prior_type=="mdet_dsqrd":
-        return lalinf_mdet_dsqrd(data, **kwargs)
+    elif prior_type=='pareto':
+        return pareto(data, **kwargs)
 
-    elif prior_type=="msrc_Vcov":
-        return lalinf_msrc_Vcov(data, **kwargs)
+    elif prior_type=='ordered_joint_pareto':
+        return ordered_joint_pareto(data, **kwargs)
+
+    elif prior_type=='comoving_volume_DL':
+        return comoving_volume_DL(data, **kwargs)
+
+    elif prior_type=='comoving_volume_z':
+        return comoving_volume_z(data, **kwargs)
+
+    #--- priors induced by lalinference's scalings; useful if inverted to un-weight samples
+
+    elif prior_type=='lalinf_DL':
+        return lalinf_DL(data, **kwargs)
+
+    elif prior_type=="lalinf_mdet_DL":
+        return lalinf_mdet_DL(data, **kwargs)
+
+    elif prior_type=="lalinf_msrc_Vc":
+        return lalinf_msrc_Vc(data, **kwargs)
+
+    #---
 
     else:
         raise ValueError('prior_type=%s not understood'%prior_type)

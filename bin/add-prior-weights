@@ -48,7 +48,11 @@ data, columns = utils.load(args.source) ### read in all columns as-is
 
 if args.verbose:
     print('computing prior weights with prior='+args.prior)
-logweights = priors.logprior(args.prior, data, **kwargs)
+logweights = priors.logprior(
+    args.prior,
+    np.array(zip(*[data[:,i] for i in range(len(columns))]), dtype=[(col, float) for col in columns]), ### pass a structured array to make look-up simpler inside priors.logprior
+    **kwargs
+)
 
 if args.verbose:
     print('writing output samples to: '+args.output)

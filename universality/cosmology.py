@@ -7,18 +7,18 @@ __author__ = "reed.essick@ligo.org"
 import numpy as np
 
 ### non-standard libraries
-from . import utils
+from universality.utils import c ### speed of light in cm/s
 
 #-------------------------------------------------
 
-DEFAULT_DZ = 1e-2 ### should be good enough for most things we want to do
+DEFAULT_DZ = 1e-3 ### should be good enough for most things we want to do
 
 #------------------------
 
 lyr_per_Mpc = 3.216156*1e6
 Mpc_per_lyr = 1./lyr_per_Mpc
 
-cm_per_lyr = utils.c*86400*365
+cm_per_lyr = c*86400*365
 lyr_per_cm = 1./cm_per_lyr
 
 Mpc_per_cm = Mpc_per_lyr * lyr_per_cm
@@ -27,20 +27,22 @@ cm_per_Mpc = 1./Mpc_per_cm
 cm_per_km = 1e5
 km_per_cm = 1./cm_per_km
 
+Mpc_per_km = Mpc_per_lyr * lyr_per_cm * cm_per_km
+km_per_Mpc = 1./Mpc_per_km
+
 #-------------------------------------------------
 
 class Cosmology(object):
     """a class that implements specific cosmological computations.
 **NOTE**, we work in CGS units throughout, so Ho must be specified in s**-1
     """
-    c = utils.c ### speed of light in cm/s
 
     def __init__(self, Ho, OmegaMatter, OmegaRadiation, OmegaLambda, OmegaKappa):
         self.Ho = Ho
-        self.c_over_Ho = self.c/self.Ho
+        self.c_over_Ho = c/self.Ho
 
         self.OmegaMatter = OmegaMatter
-        self.OmegaRatiation = OmegaRadiation
+        self.OmegaRadiation = OmegaRadiation
         self.OmegaLambda = OmegaLambda
         self.OmegaKappa = 1 - (OmegaMatter + OmegaRadiation + OmegaLambda)
 
@@ -133,7 +135,9 @@ class Cosmology(object):
     #---
 
     def _extend(self, max_DL=-np.infty, max_Dc=-np.infty, max_z=-np.infty, max_Vc=-np.infty, dz=DEFAULT_DZ):
-
+        """integrate out integration objects.
+NOTE, this could be slow...
+        """
         z_list = list(self._distances['z'])
         Dc_list = list(self._distances['Dc'])
         Vc_list = list(self._distances['Vc'])
@@ -151,7 +155,7 @@ class Cosmology(object):
         while (current_Dc < max_Dc) or (current_DL < max_DL) or (current_z < max_z) or (current_Vc < max_Vc):
             current_z += dz                                ### increment
 
-            dDcdz = self.dDLdz(current_z)                  ### evaluated at the next step
+            dDcdz = self.dDcdz(current_z)                  ### evaluated at the next step
             current_Dc += 0.5*(current_dDcdz + dDcdz) * dz ### trapazoidal approximation
             current_dDcdz = dDcdz                          ### update
 
@@ -174,7 +178,7 @@ class Cosmology(object):
 #-------------------------------------------------
 
 ### Planck 2018 Cosmology (Table1 in arXiv:1807.06209)
-PLANCK_2018_Ho = 67.32 * cm_per_Mpc * cm_per_km ### km/s/Mpc * (Mpc/lyr) * (lyr/cm) * (cm/km) = s**-1
+PLANCK_2018_Ho = 67.32 * Mpc_per_km ### (km/s/Mpc) * (Mpc/km) = s**-1
 PLANCK_2018_OmegaMatter = 0.3158
 PLANCK_2018_OmegaLambda = 1. - PLANCK_2018_OmegaMatter
 PLANCK_2018_OmegaRadiation = 0.
