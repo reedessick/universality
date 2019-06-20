@@ -23,11 +23,18 @@ from universality import utils
 
 #-------------------------------------------------
 
+DEFAULT_GW_OBS_SET = 'Graviational Wave Observation Set'
+
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('config', type=str)
+
+parser.add_argument('--gw-observation-set', type=str, default=DEFAULT_GW_OBS_SET,
+    help='the name of the GW observation set section in config')
 
 parser.add_argument('num_samples', type=int)
 parser.add_argument('num_walkders', type=int)
@@ -46,16 +53,41 @@ config.read(args.config)
 
 #-------------------------------------------------
 
-### read in GW data
+### create GW population model
+if args.verbose:
+    print('instantiating GravitationalWavePopulation')
+section = config.get(args.gw_observation_set, 'population')
+
+initial_rate = config.getfloat(section, 'initial_rate')
+initial_params = [
+    config.getfloat(section, 'initial_alpha'),
+    config.getfloat(section, 'initial_mmin'),
+    config.getfloat(section, 'initial_mmax'),
+]
+
+gwpop = rates.GravitationalWavePopulation(initial_rate, initial_params)
+
+### create GW exposure model
+if args.verbose:
+    print('instantiating GravitationalWaveExposure')
+section = config.get(args.gw_observation_set, 'exposure')
+
+gwexp = rates.GravitationalWaveExposure(gwpop)
+
+### create GW observation models
+if args.verbose:
+    print('instantiating GravitationalWaveObservations')
+raise NotImplementedError
+
 raise NotImplementedError('''\
 need to define a configuration format to let me read in everything I need to set up (GW) observations
 
 for each GW observation set (point to other sections here)
     labels for GW observations
     exposure
+    population
 
 for each exposure
-    population (pointer to section)
     relevant scalings for that population (ie, parameters to model VT)
 
 for each population

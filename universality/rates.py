@@ -19,6 +19,8 @@ DEFAULT_SAMPLE_SIZE = 1000
 DEFAULT_M_NAME = 'm'
 DEFAULT_R_NAME = 'R'
 
+DEFAULT_DL_NAME = 'dist'
+
 DEFAULT_M1_NAME = 'm1'
 DEFAULT_M2_NAME = 'm2'
 DEFAULT_L1_NAME = 'lambda1'
@@ -72,10 +74,13 @@ class GravitationalWaveExposure(Exposure):
     def _vt(params, population, size=DEFAULT_SAMPLE_SIZE):
         """A very simple model of VT, assuming that the VT for masses simply scales as (Mchirp)**3
         """
-        samples = population._sample_prior(params, population, size=size, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME)
+        samples = population._sample_prior(params, population, size=size, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME)
         m1 = samples[DEFAULT_M1_NAME]
         m2 = samples[DEFAULT_M2_NAME]
         mc = (m1*m2)**0.6 / (m1+m2)**0.2
+
+        raise NotImplementedError('need to include DL in VT estimate...')
+
         return np.sum(mc**3)/size ### monte-carlo integral approximation
 
 class NicerExposure(Exposure):
@@ -192,9 +197,12 @@ and a flat hyperprior
     """
 
     @staticmethod
-    def _logprior(rate, params, data, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME):
+    def _logprior(rate, params, data, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME):
         """evaluate the prior induced by params at all the samples in data with names in data given by m1, m2
         """
+
+        raise NotImplementedError('need to evaluate prior based on DL')
+
         ### extract samples from data
         m1 = data[m1]
         m2 = data[m2]
@@ -214,9 +222,12 @@ and a flat hyperprior
         return ans
 
     @staticmethod
-    def _sample_prior(params, size=DEFAULT_SAMPLE_SIZE, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME):
+    def _sample_prior(params, size=DEFAULT_SAMPLE_SIZE, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, DL=DEFAULT_DL_NAME):
         """sample from the prior induced by params and return a structured array with names given by m1, m2
         """
+
+        raise NotImplementedError('need to sample from DL prior')
+
         alpha, mmin, mmax = params
         if alpha==-1: ### just do rejection sampling here 'cause the analytic expression is transcendental...
             m1_data = []
@@ -244,6 +255,9 @@ and a flat hyperprior
     @staticmethod
     def _loghyperprior(rate, params):
         ans, mmin, mmax = params
+
+        raise NotImplementedError('need to include hyperparams for DL')
+
         if (mmin < 0) or (mmax < 0) or (mmax < mmin):
             return -np.infty
         else:
