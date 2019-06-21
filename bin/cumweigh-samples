@@ -84,7 +84,7 @@ utils.check_columns(tgtcolumns, [args.target_column]) ### make sure we have the 
 
 if args.verbose:
     print('computing weights from cumulative distribution')
-logcdf = utils.logcdf(tgtdata[args.target_column], srcdata, weights=weights, direction=args.cumulative_intergral_direction)
+logcdf = utils.logcdf(tgtdata[args.target_column], srcdata, weights=weights, direction=args.cumulative_integral_direction)
 if args.do_not_log_output_weights:
     logcdf = np.exp(logcdf)
 
