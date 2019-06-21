@@ -223,10 +223,10 @@ def sample_comoving_volume_DL(minDL=None, maxDL=None, cosmology=cosmo.DEFAULT_CO
 
 #--- UNIFORM IN COMOVING VOLUME (in terms of redshift)
 
-def comoving_volumne_z(data, z=None, minz=None, maxz=None, cosmology=cosmo.DEFAULT_COSMOLOGY, **kwargs):
+def comoving_volume_z(data, z=None, minz=None, maxz=None, cosmology=cosmo.DEFAULT_COSMOLOGY, **kwargs):
     """evaluate the prior for redshift given a cosmology and uniform-in-comoving volume distribution
     """
-    assert (minz is not None) and (maxz is not None) and (cosmoloyg is not None), \
+    assert (minz is not None) and (maxz is not None) and (cosmology is not None), \
         'must supply minz, maxz, and cosmology!'
     if z is not None:
         data = data[z]
@@ -236,10 +236,10 @@ def comoving_volumne_z(data, z=None, minz=None, maxz=None, cosmology=cosmo.DEFAU
     ans[truth] = np.log(cosmology.dVcdz(data[truth]))
     return ans
 
-def sample_comoving_volumne_z(minz=None, maxz=None, cosmology=cosmo.DEFAULT_COSMOLOGY, size=DEFAULT_SAMPLE_SIZE, **kwargs):
+def sample_comoving_volume_z(minz=None, maxz=None, cosmology=cosmo.DEFAULT_COSMOLOGY, size=DEFAULT_SAMPLE_SIZE, **kwargs):
     """sample from the distribution over redshift given a uniform distribution in comoving volume
     """
-    assert (minz is not None) and (maxz is not None) and (cosmoloyg is not None), \
+    assert (minz is not None) and (maxz is not None) and (cosmology is not None), \
         'must supply minz, maxz, and cosmology!'
     cosmology._extend(max_z=maxz)
     minVc = cosmology.z2Vc(minz)
@@ -267,7 +267,7 @@ def lalinf_mdet_DL(data, DL=DEFAULT_DL_NAME, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_N
 def lalinf_msrc_Vc(data, DL=DEFAULT_DL_NAME, m1=DEFAULT_M1_NAME, m2=DEFAULT_M2_NAME, cosmology=cosmo.DEFAULT_COSMOLOGY, **kwargs):
     """returns induced logprior over source-frame component masses and comoving volume
     p(m1_source, m2_source, Vc) ~ d**2 * [ (1+z)**2 * (dd/dz) * (dVc/dz)**-1 ]
-This is the prior LALInf assumes for detector-frame component masses and luminosity distance multiplied by the appropriate Jacobian to change coordinates to source-frame component masses and (enclosed) comoving volumne
+This is the prior LALInf assumes for detector-frame component masses and luminosity distance multiplied by the appropriate Jacobian to change coordinates to source-frame component masses and (enclosed) comoving volume
     """
     d = data[DL] * cosmo.cm_per_Mpc ### convert Mpc (LALInference's units) to cm (our units)
     z = cosmology.DL2z(d)
