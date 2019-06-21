@@ -223,9 +223,9 @@ def logaddexp(logx):
 def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
     """estimates the log(cdf) at all points in samples based on data and integration in "direction".
     Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
-    data, cweights = stats.samples(data, weights=weights)
+    data, cweights = stats.samples2cdf(data, weights=weights)
     if direction=='increasing':
-        pass
+        pass ### we already integrate up from the lower values to higher values
     elif direction=='decreasing':
         cweights = 1. - cweights ### reverse the order of the integral
     else:
