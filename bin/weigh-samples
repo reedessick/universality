@@ -84,8 +84,15 @@ for i, column in enumerate(columns): ### whiten the target data with the same tr
 #-------------------------------------------------
 
 if args.verbose:
-    print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%(len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
-logkde = utils.logkde(tgtsamples, srcdata, np.ones(Ncol, dtype=float)*args.bandwidth**2, weights=weights, num_proc=args.num_proc)
+    print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%\
+        (len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
+logkde = utils.logkde(
+    tgtsamples,
+    srcdata,
+    np.ones(Ncol, dtype=float)*args.bandwidth**2,
+    weights=weights,
+    num_proc=args.num_proc
+)
 if args.do_not_log_output_weights:
     if args.verbose:
         print('exponentiating weights')

@@ -40,17 +40,27 @@ parser.add_argument('--weight-column', default=[], type=str, action='append',
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
-    help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
+    help='After extracting the weights from source_samples.csv, this will compute the KDE using \
+the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior \
+samples so the effective sampling is with respect to the likelihood. The inversion is done after \
+exponentiation when --weight-column-is-log is supplied.')
 
 parser.add_argument('--output-weight-column', default=utils.DEFAULT_WEIGHT_COLUMN, type=str,
-    help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this is consistent with whether or not you specified --do-not-log-output-weight! \
+    help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this \
+is consistent with whether or not you specified --do-not-log-output-weight! \
 DEFAULT='+utils.DEFAULT_WEIGHT_COLUMN)
 parser.add_argument('--do-not-log-output-weights', default=False, action='store_true',
-    help='record the raw weights instead of the log(weight) in the output CVS. **BE CAREFUL!** You should make sure this is consistent with the name specified by --output-weight-column.')
+    help='record the raw weights instead of the log(weight) in the output CVS. **BE CAREFUL!** You should make \
+sure this is consistent with the name specified by --output-weight-column.')
+
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='number of processes for parallelized computation of logkde. \
+DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 
 args = parser.parse_args()
 
-assert args.cumulative_integral_direction in utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS, '--cumulative-integral-direction=%s not understood! must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS))
+assert args.cumulative_integral_direction in utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS, \
+    '--cumulative-integral-direction=%s not understood! must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS))
 
 args.logcolumn_source = [args.source_column] if args.logcolumn_source else []
 args.logcolumn_target = [args.source_target] if args.logcolumn_target else []
@@ -83,8 +93,15 @@ utils.check_columns(tgtcolumns, [args.target_column]) ### make sure we have the 
 #-------------------------------------------------
 
 if args.verbose:
-    print('computing weights from cumulative distribution')
-logcdf = utils.logcdf(tgtdata[:,tgtcolumns.index(args.target_column)], srcdata, weights=weights, direction=args.cumulative_integral_direction)
+    print('computing weights from cumulative distribution at %d samples from %s based on %d samples from %s with %d cores'%\
+        (len(tgtdata), args.target, len(srcdata), args.source, args.num_proc))
+logcdf = utils.logcdf(
+    tgtdata[:,tgtcolumns.index(args.target_column)],
+    srcdata,
+    weights=weights,
+    direction=args.cumulative_integral_direction,
+    num_proc=args.num_proc
+)
 if args.do_not_log_output_weights:
     logcdf = np.exp(logcdf)
 

@@ -220,9 +220,11 @@ def logaddexp(logx):
 # 1D CDF estimation
 #-------------------------------------------------
 
-def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
+def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, num_proc=DEFAULT_NUM_PROC):
     """estimates the log(cdf) at all points in samples based on data and integration in "direction".
     Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
+
+    ### this should be relatively quick (just and ordered summation), so we do it once
     data, cweights = stats.samples2cdf(data, weights=weights)
     if direction=='increasing':
         pass ### we already integrate up from the lower values to higher values
@@ -231,7 +233,35 @@ def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DI
     else:
         raise ValueError('direction=%s not understood!'%direction)
 
-    return np.log(np.interp(samples, data, cweights)) ### return the linear interpolation of the numeric CDF
+    logcdfs = np.empty(len(samples), dtype=float)
+    if num_proc==1: ### do everything on this one core
+        logcdfs[:] = _logcdf_worker(samples, data, cweights)
+
+    else: ### parallelize
+        # partition work amongst the requested number of cores
+        sets = _define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logcdf_worker, args=(samples[truth], data, cweights), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            logcdfs[truth] = conni.recv()
+
+    return logcdfs
+
+def _logcdf_worker(samples, data, cweights, conn=None):
+    logcdfs = np.log(np.interp(samples, data, cweights)) ### return the linear interpolation of the numeric CDF
+    if conn is not None:
+        conn.send(logcdfs)
+    return logcdfs
 
 def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
     """estimates the log(cdf) at all points in samples based on data and integration in "direction"
