@@ -258,7 +258,8 @@ def logcdf(samples, data, prior_extremum, weights=None, direction=DEFAULT_CUMULA
     return logcdfs
 
 def _logcdf_worker(samples, data, cweights, minimum, conn=None):
-    logcdfs = np.log(np.interp(samples, data, cweights) - np.interp(minimum, data, cweights)) ### return the linear interpolation of the numeric CDF
+    ###                   approx to the cumulative integral within the prior bounds                  prior volume
+    logcdfs = np.log(np.interp(samples, data, cweights) - np.interp(minimum, data, cweights)) - np.log(samples - minimum)
     if conn is not None:
         conn.send(logcdfs)
     return logcdfs
