@@ -220,7 +220,7 @@ def logaddexp(logx):
 # 1D CDF estimation
 #-------------------------------------------------
 
-def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, num_proc=DEFAULT_NUM_PROC):
+def logcdf(samples, data, prior_extremum, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, num_proc=DEFAULT_NUM_PROC):
     """estimates the log(cdf) at all points in samples based on data and integration in "direction".
     Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
 
@@ -235,7 +235,7 @@ def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DI
 
     logcdfs = np.empty(len(samples), dtype=float)
     if num_proc==1: ### do everything on this one core
-        logcdfs[:] = _logcdf_worker(samples, data, cweights)
+        logcdfs[:] = _logcdf_worker(samples, data, cweights, prior_extremum)
 
     else: ### parallelize
         # partition work amongst the requested number of cores
@@ -245,7 +245,7 @@ def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DI
         procs = []
         for truth in sets:
             conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_logcdf_worker, args=(samples[truth], data, cweights), kwargs={'conn':conn2})
+            proc = mp.Process(target=_logcdf_worker, args=(samples[truth], data, cweights, prior_extremum), kwargs={'conn':conn2})
             proc.start()
             procs.append((proc, conn1))
             conn2.close()
@@ -257,8 +257,8 @@ def logcdf(samples, data, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DI
 
     return logcdfs
 
-def _logcdf_worker(samples, data, cweights, conn=None):
-    logcdfs = np.log(np.interp(samples, data, cweights)) ### return the linear interpolation of the numeric CDF
+def _logcdf_worker(samples, data, cweights, minimum, conn=None):
+    logcdfs = np.log(np.interp(samples, data, cweights) - np.interp(minimum, data, cweights)) ### return the linear interpolation of the numeric CDF
     if conn is not None:
         conn.send(logcdfs)
     return logcdfs
