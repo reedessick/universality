@@ -34,7 +34,7 @@ km_per_Mpc = 1./Mpc_per_km
 
 class Cosmology(object):
     """a class that implements specific cosmological computations.
-**NOTE**, we work in CGS units throughout, so Ho must be specified in s**-1
+**NOTE**, we work in CGS units throughout, so Ho must be specified in s**-1 and distances are specified in cm
     """
 
     def __init__(self, Ho, OmegaMatter, OmegaRadiation, OmegaLambda, OmegaKappa):

@@ -160,7 +160,7 @@ def ordered_joint_pareto(data, name1=None, name2=None, exp=None, minval=None, ma
     ans[np.logical_not((minval<=data2)*(data2<=data1)*(data1<maxval))] = -np.infty
     return ans
 
-def sample_ordered_join_pareto(exp=None, minval=None, maxval=None, size=DEFAULT_SAMPLE_SIZE, **kwargs):
+def sample_ordered_joint_pareto(exp=None, minval=None, maxval=None, size=DEFAULT_SAMPLE_SIZE, **kwargs):
     """sample from the ordered joint pareto distribution
     """
     assert (exp is not None) and (minval is not None) and (maxval is not None), \
@@ -194,6 +194,8 @@ def sample_ordered_join_pareto(exp=None, minval=None, maxval=None, size=DEFAULT_
 
 def comoving_volume_DL(data, DL=None, minDL=None, maxDL=None, cosmology=cosmo.DEFAULT_COSMOLOGY, **kwargs):
     """evaluate the prior value for luminosity distance given a cosmology and a uniform-in-comoving volume distribution
+
+    **NOTE**, DL should be specified in cm
     """
     assert (minDL is not None) and (maxDL is not None), \
         'must supply minDL and maxDL!'
@@ -213,13 +215,13 @@ def comoving_volume_DL(data, DL=None, minDL=None, maxDL=None, cosmology=cosmo.DE
 
 def sample_comoving_volume_DL(minDL=None, maxDL=None, cosmology=cosmo.DEFAULT_COSMOLOGY, size=DEFAULT_SAMPLE_SIZE, **kwargs):
     """sample from the distribution over luminosity distance given a uniform distribution in comoving volume
+
+    **NOTE**, DL should be specified in cm
     """
     assert (minDL is not None) and (maxDL is not None), \
         'must supply minDL and maxDL!'
     cosmology._extend(max_DL=maxDL)
-    minz = cosmology.DL2z(minDL)
-    maxz = cosmology.DL2z(maxDL)
-    return sample_comoving_volume_z(minz, maxz, cosmology=cosmology, size=size)
+    return cosmology.z2DL(sample_comoving_volume_z(minz=cosmology.DL2z(minDL), maxz=cosmology.DL2z(maxDL), cosmology=cosmology, size=size))
 
 #--- UNIFORM IN COMOVING VOLUME (in terms of redshift)
 
