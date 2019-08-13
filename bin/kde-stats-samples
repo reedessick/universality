@@ -104,7 +104,12 @@ for i, col in enumerate(columns):
 if args.weight_column!=None:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.samples)
-    weights = utils.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+    weights = utils.load_weights(
+        args.samples,
+        [args.weight_column],
+        logweightcolumns=[args.weight_column] if args.weight_column_is_log else [],
+        max_num_samples=args.max_num_samples,
+    )
 
 else:
     N = len(data)
