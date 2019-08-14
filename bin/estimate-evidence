@@ -35,9 +35,13 @@ args = parser.parse_args()
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+args.inpath)
-weights = utils.load_weights(args.inpath, args.weightcolumn, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)[0][:,0]
+weights = utils.load_weights(
+    args.inpath,
+    args.weightcolumn,
+    logweightcolumns=args.weight_column_is_log,
+    max_num_samples=args.max_num_samples,
+)
 N = len(weights)
-sqrtN = N**0.5
 
 if args.verbose:
     print('N    = %5d'%N)
@@ -45,4 +49,4 @@ if args.verbose:
 
 #------------------------
 
-print('  Z = +%.6e +/- %.6e'%(np.mean(weights), np.std(weights)/sqrtN))
+print('  Z = +%.6e +/- %.6e'%(np.mean(weights), np.std(weights)/N**0.5))
