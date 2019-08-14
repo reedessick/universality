@@ -35,7 +35,7 @@ args = parser.parse_args()
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+args.inpath)
-weights = utils.load(args.inpath, args.weightcolumn, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)[0][:,0]
+weights = utils.load_weights(args.inpath, args.weightcolumn, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)[0][:,0]
 N = len(weights)
 sqrtN = N**0.5
 
