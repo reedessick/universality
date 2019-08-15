@@ -26,9 +26,9 @@ vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-sgroup.add_argument('--weight-column', default=None, type=str,
+sgroup.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
-sgroup.add_argument('--weight-column-is-log', default=False, action='store_true',
+sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 cgroup = parser.add_argument_group('column-specific arguments')
@@ -101,13 +101,13 @@ for i, col in enumerate(columns):
     else:
         ranges.append((np.min(data[:,i]), np.max(data[:,i])))
 
-if args.weight_column!=None:
+if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.samples)
     weights = utils.load_weights(
         args.samples,
-        [args.weight_column],
-        logweightcolumns=[args.weight_column] if args.weight_column_is_log else [],
+        args.weight_column,
+        logweightcolumns=args.weight_column_is_log,
         max_num_samples=args.max_num_samples,
     )
 
@@ -127,12 +127,21 @@ if args.prune:
 if args.one_dim_confidence_region_samples:
     args.one_dim_confidence_region_samples.sort()
     for i, (col, argmax) in enumerate(zip(columns, data[weights.argmax()])):
-        print('%s argmax : %.3e (min=%.3e, max=%.3e)'%(col, argmax, np.min(data[:,i]), np.max(data[:,i])))
+        mean = stats.samples2mean(data[:,i], weights=weights)
+        median = stats.samples2median(data[:,i], weights=weights)
+        print('''%s
+  maxL   = %.6e
+  mean   = %.6e
+  median = %.6e
+  min    = %.6e
+  max    = %.6e'''%(col, argmax, mean, median, np.min(data[:,i]), np.max(data[:,i])))
         for level, (low, high) in zip(args.one_dim_confidence_region_samples, stats.samples2crbounds(data[:,i], args.one_dim_confidence_region_samples, weights=weights)):
             if args.one_dim_confidence_region_format4tex:
-                print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+                print('    @%.3f maxL region   : %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+                print('    @%.3f mean region   : %.6f^{+%.6f}_{-%.6f}'%(level, mean, high-mean, mean-low))
+                print('    @%.3f median region : %.6f^{+%.6f}_{-%.6f}'%(level, median, high-median, median-low))
             else:
-                print('    @%.3f kde region: [%.3e, %.3e]'%(level, low, high))
+                print('    @%.3f region: [%.3e, %.3e]'%(level, low, high))
 
 #------------------------
 
@@ -141,10 +150,10 @@ if args.reflect:
 
 #------------------------
 
-if args.verbose:
-    print('computing 1D statistics')
-
 if args.one_dim_confidence_region:
+    if args.verbose:
+        print('computing 1D statistics')
+
     args.one_dim_confidence_region.sort()
     for i, col in enumerate(columns):
         _logkde = utils.logkde(vects[i], data[:,i], variances[i], weights=weights)

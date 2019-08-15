@@ -59,8 +59,8 @@ def samples2cdf(data, weights=None):
     """estimate a CDF (integrating from small values to large values in data) based on weighted samples
     returns data, cweights (data is sorted from smallest to largest values)
     """
-    N = len(data)
     if weights is None:
+        N = len(data)
         weights = np.ones(N, dtype=float)/N
 
     order = data.argsort()
@@ -69,6 +69,15 @@ def samples2cdf(data, weights=None):
     cweights = np.cumsum(weights)/np.sum(weights)
 
     return data, cweights
+
+def samples2median(data, weights=None):
+    data, cweights = samples2cdf(data, weights=weights)
+    return np.interp(0.5, cweights, data) ### find the median via interpolation
+
+def samples2mean(data, weights=None):
+    if weights is None:
+        weights = np.ones_like(data, dtype=float)
+    return np.sum(weights*data)/np.sum(weights)
 
 def samples2crbounds(data, levels, weights=None):
     """
