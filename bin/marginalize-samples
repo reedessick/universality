@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
 import numpy as np
 
 from collections import defaultdict
@@ -29,15 +30,9 @@ parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, 
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-o', '--output-path', default=None, type=str,
-    help='default behavior is to overwrite the input samples, but we require confirmation from the user before the script will do this.')
+    help='print to this file if specified. Otherwise we print to STDOUT.')
 
 args = parser.parse_args()
-
-if args.output_path is None:
-    if raw_input('WARNING: you are about to overwrite your input file (%s).\nAre you sure you want to do this? [Y/n]'%args.samples) != 'Y':
-        import sys
-        sys.exit(1)
-    args.output_path = args.samples
 
 #-------------------------------------------------
 
@@ -57,7 +52,7 @@ if args.weight_column:
 
 else:
     N = len(data)
-    logweights = -np.ones(N, dtype='float')*np.log(N)
+    logweights = np.zeros(N, dtype='float')
 
 # now need to marginalize over samples
 if args.verbose:
@@ -67,7 +62,7 @@ logmargweight = defaultdict(float)
 counts = defaultdict(int)
 for sample, logweight in zip(data, logweights):
     tup = tuple(sample)
-    logmargweight[tup] = utils.sum_log((logmargweight[tup], logweight))
+    logmargweight[tup] = utils.sum_log((logmargweight.get(tup, -np.infty), logweight))
     counts[tup] += 1 
 
 num_columns = len(columns)
@@ -82,11 +77,15 @@ for i, key in enumerate(logmargweight.keys()):
     results[i,num_columns:] = logmargweight[key], counts[key]
 
 # write output CSV file
-if args.verbose:
-    print('writing marginalized results to: '+args.output_path)
+if args.output_path is not None:
+    if args.verbose:
+        print('writing marginalized results to: '+args.output_path)
 
-outdir = os.path.dirname(args.output_path)
-if not os.path.exists(outdir):
-    os.makedirs(outdir)
+    outdir = os.path.dirname(args.output_path)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+else:
+    args.output_path = sys.stdout ### write to STDOUT
 
 np.savetxt(args.output_path, results, header=','.join(columns), comments='', delimiter=',')
