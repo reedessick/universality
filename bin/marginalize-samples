@@ -74,10 +74,12 @@ num_columns = len(columns)
 columns = columns+['logmargweight', 'num_elements'] ### store the columns requested, the marginalized weight, and the number of elements included in the set for this particular tuple
 
 # format the array as needed
+if args.verbose:
+    print('reformatting data into an array...')
 results = np.empty((len(logmargweight.keys()), len(columns)), dtype=float)
 for i, key in enumerate(logmargweight.keys()):
     results[i,:num_columns] = key
-    results[i,num_columns:] = logmargweight[key], count[key]
+    results[i,num_columns:] = logmargweight[key], counts[key]
 
 # write output CSV file
 if args.verbose:
