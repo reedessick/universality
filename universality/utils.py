@@ -87,36 +87,76 @@ def logLike2weights(logLike):
 #-------------------------------------------------
 
 def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
-    data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
-    if data.size==1:
-        data = np.array([data], dtype=data.dtype)
+    data = []
+    with open(inpath, 'r') as obj:
+        cols = obj.readline().strip().split(',')
+        if columns:
+            check_columns(cols, columns)
+        else:
+            columns = cols
 
-    # check that all requested columns are actually in the data
-    if columns:
-        check_columns(data.dtype.fields.keys(), columns)
-    else:
-        columns = data.dtype.fields.keys()
+        inds = [cols.index(col) for col in columns]
 
-    if len(data) > max_num_samples: ### downsample if requested
-         data = data[:max_num_samples]
+        count = 0
+        for line in obj:
+            if count > max_num_samples:
+                break
+            fields = line.strip().split(',')
+            ans = [] ### downselect to what we actually want and cast to float
+            for ind in inds:
+                try: ### try casting everything to a float
+                    ans.append(float(fields[ind]))
+                except ValueError: ### could not cast to a float
+                    ans.append(fields[ind])
+            data.append(ans)
+            count += 1
 
-    # downselect data to what we actually want
-    return \
-        np.transpose([np.log(data[column]) if column in logcolumns else data[column] for column in columns]), \
-        ['log(%s)'%column if column in logcolumns else column for column in columns]
+    data = np.array(data) ### cast as an array
+
+    cols = [] ### figure out column names and map to logs as requested
+    for i, col in enumerate(columns):
+        if col in logcolumns:
+            data[:,i] = np.log(data[:,i])
+            cols.append('log(%s)'%col)
+        else:
+            cols.append(col)
+
+    return data, cols
+
+#    data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
+#    if data.size==1:
+#        data = np.array([data], dtype=data.dtype)
+#
+#    # check that all requested columns are actually in the data
+#    if columns:
+#        check_columns(data.dtype.fields.keys(), columns)
+#    else:
+#        columns = data.dtype.fields.keys()
+#
+#    # downselect data to what we actually want
+#    if len(data) > max_num_samples: ### downsample if requested
+#         data = data[:max_num_samples]
+#
+#    return \
+#        np.transpose([np.log(data[column]) if column in logcolumns else data[column] for column in columns]), \
+#        ['log(%s)'%column if column in logcolumns else column for column in columns]
 
 def load_weights(*args, **kwargs):
     """loads and returns weights from multiple columns via  delegation to load_logweights
     normalizes the weights while it's at it
     """
-    return exp_weights(load_logweights(*args, **kwargs))
+    normalize = kwargs.pop('normalize', True)
+    return exp_weights(load_logweights(*args, **kwargs), normalize=normalize)
 
-def exp_weights(logweights):
+def exp_weights(logweights, normalize=True):
     """exponentiate logweights and normalize them (if desired)
     """
-    logweights -= np.max(logweights)
-    weights = np.exp(logweights)
-    weights /= np.sum(weights)
+    if normalize:
+        logweights -= np.max(logweights)
+        weights = np.exp(logweights)
+        weights /= np.sum(weights)
+    else:
+        weights = np.exp(logweights)
     return weights
 
 def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):

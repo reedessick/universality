@@ -41,7 +41,7 @@ args = parser.parse_args()
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+args.inpath1)
-weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
+weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1, normalize=False)
 N1 = len(weights1)
 
 if args.verbose:
@@ -50,7 +50,7 @@ if args.verbose:
 
 if args.verbose:
     print('reading samples from: '+args.inpath2)
-weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2)
+weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2, normalize=False)
 N2 = len(weights2)
 
 if args.verbose:

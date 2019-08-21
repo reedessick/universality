@@ -40,6 +40,7 @@ weights = utils.load_weights(
     args.weightcolumn,
     logweightcolumns=args.weight_column_is_log,
     max_num_samples=args.max_num_samples,
+    normalize=False,
 )
 N = len(weights)
 
