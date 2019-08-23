@@ -13,6 +13,7 @@ from . import stats
 
 #-------------------------------------------------
 
+G = 6.674e-8        # newton's constant in g^-1 cm^3 s^-2
 c = (299792458*100) # speed of light in (cm/s)
 c2 = c**2
 
