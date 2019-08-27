@@ -48,6 +48,8 @@ sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='appe
 lgroup = parser.add_argument_group('look-up arguments')
 lgroup.add_argument('--eos-column', default='EoS', type=str)
 lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
 lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
     help='a string into which the EOS number can be substituted when building filenames.')
 
@@ -96,7 +98,7 @@ refind = loadcolumns.index(args.reference)
 path_template = os.path.join(args.eos_dir, args.eos_basename)
 
 for i, eos in enumerate(data):
-    path = path_template%eos
+    path = path_template%{'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
     if args.Verbose:
         print('    '+path)
     d, c = utils.load(path, loadcolumns)
