@@ -76,10 +76,10 @@ N = len(data)
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath)
-    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+    logweights = utils.load_logweights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
 else:
-    weights = np.ones(N, dtype=float)/N
+    logweights = np.log(np.ones(N, dtype=float)/N)
 
 #------------------------
 
@@ -88,7 +88,7 @@ if args.verbose:
 
 if args.weight_column is not None:
     ans = np.empty((N, Nref*Ncol+1), dtype=float)
-    ans[:,-1] = weights
+    ans[:,-1] = logweights
 
 else:
     ans = np.empty((N, Nref*Ncol), dtype=float)
@@ -111,7 +111,7 @@ outcols = []
 for column in args.columns:
     outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
 if args.weight_column is not None:
-    outcols.append(args.weight_column)
+    outcols.append('logweight')
 
 #------------------------
 
