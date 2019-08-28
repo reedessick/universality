@@ -35,6 +35,15 @@ parser.add_argument('--weight-column-is-log', default=[], type=str, action='appe
 parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
 
+parser.add_argument('-r', '--column-range', nargs=3, default=[], action='append', type=str,
+    help='specify the ranges used in corner.corner (eg.: "--column-range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+parser.add_argument('--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+parser.add_argument('--prune', default=False, action='store_true',
+    help='throw away samples that live outside the specified ranges')
+
 parser.add_argument('--output-weight-column', default=utils.DEFAULT_WEIGHT_COLUMN, type=str,
     help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this is consistent with whether or not you specified --do-not-log-output-weight! \
 DEFAULT='+utils.DEFAULT_WEIGHT_COLUMN)
@@ -52,6 +61,12 @@ DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 args = parser.parse_args()
 Ncol = len(args.columns)
 
+### parse ranges
+rangesdict = dict()
+for column, _min, _max in args.column_range:
+    assert column in args.columns, 'specifying --column-range for unknown column: '+column
+    rangesdict[column] = (float(_min), float(_max))
+
 #-------------------------------------------------
 
 ### read in source samples
@@ -68,6 +83,21 @@ if args.weight_column:
 else:
     N = len(srcdata)
     weights = np.ones(N, dtype=float)/N
+
+### figure out ranges based on data
+ranges = []
+for i, col in enumerate(columns):
+    if rangesdict.has_key(col):
+        m, M = rangesdict[col]
+        ranges.append(((m-srcmeans[i])/srcstds[i], (M-srcmeans[i])/srcstds[i]))
+    else:
+        ranges.append(None)
+
+if args.prune:
+    srcdata, weights = utils.prune(srcdata, ranges, weights=weights)
+
+if args.reflect:
+    srcdata, weights = utils.reflect(srcdata, ranges, weights=weights)
 
 #------------------------
 

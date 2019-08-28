@@ -330,8 +330,12 @@ def prune(data, bounds, weights=None):
     """
     Nsamp, Ndim = data.shape
     truth = np.ones(Nsamp, dtype=bool)
-    for i, (m, M) in enumerate(bounds):
-        truth *= (m<=data[:,i])*(data[:,i]<=M)
+    for i, bound in enumerate(bounds):
+        if bound is None:
+            continue
+        else:
+            m, M = bound
+            truth *= (m<=data[:,i])*(data[:,i]<=M)
 
     if weights is not None:
         data = data[truth]
@@ -352,6 +356,9 @@ def reflect(data, bounds, weights=None):
 
     d = data[...]
     for i in xrange(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
+        if bounds[i] is None:
+            continue
+
         # figure out how big the new array will be and create it
         Nsamp = len(d)
         twoNsamp = 2*Nsamp
