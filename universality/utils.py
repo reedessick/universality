@@ -100,7 +100,7 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
 
         count = 0
         for line in obj:
-            if count > max_num_samples:
+            if count >= max_num_samples:
                 break
             fields = line.strip().split(',')
             ans = [] ### downselect to what we actually want and cast to float
