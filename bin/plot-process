@@ -403,6 +403,9 @@ for ind, (label, path) in enumerate(args.samples):
             y_test.append( _y ) ### add to the total list
             w_test.append( weight )
 
+    if len(y_test)==0:
+        raise RuntimeError('could not find any files matching "%s"'%eos_temp)
+
     y_test = np.array(y_test) ### cast to an array
     w_test = np.array(w_test)
 
