@@ -512,7 +512,11 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
     Ndata = len(data)
 
     grad_logkdes = np.empty(Nsamp, dtype='float')
-    twov = -0.5/variances
+
+    v = variances[0]
+    assert np.all(variances==v), 'we only support a single variance at this time, even though it must be repeated Ndim times within "variances"'
+    twov = -0.5/v
+
     z = np.empty(Ndata, dtype=float)
     for i in xrange(Nsamp):
         sample = samples[i]
@@ -520,9 +524,8 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
 
         ### do this backflip to preserve accuracy
         m = np.max(z)
-        z = weights*np.exp(z-m)
-        y = np.sum(z)
-        x = np.sum(z*(-z/variances).transpose())
+        y = np.sum(weights*np.exp(z-m))
+        x = np.sum(weights*np.exp(z-m)*(-z/v))
 
         if y==0:
            if np.all(x==0):
