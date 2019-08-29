@@ -99,6 +99,8 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
         inds = [cols.index(col) for col in columns]
 
         count = 0
+#        strmap = dict() ### the commented lines are an attempt to keep the data array as a float but support mappings to strings
+#        strind = 0      ### this would require a big overhaul to the entire repo, though, so we're not wedded to the idea just yet
         for line in obj:
             if count >= max_num_samples:
                 break
@@ -109,6 +111,10 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
                     ans.append(float(fields[ind]))
                 except ValueError: ### could not cast to a float
                     ans.append(fields[ind])
+#                    if fields[ind] not in strmap:
+#                        strmap[fields[ind]] = strind
+#                        strind += 1
+#                    ans.append(strmap[fields[ind]])
             data.append(ans)
             count += 1
 
@@ -122,7 +128,7 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
         else:
             cols.append(col)
 
-    return data, cols
+    return data, cols #, dict((strind, col) for col, strind in strmap.items())
 
 #    data = np.genfromtxt(inpath, names=True, delimiter=',') ### assumes standard CSV format
 #    if data.size==1:
