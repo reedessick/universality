@@ -73,6 +73,8 @@ for column, _min, _max in args.column_range:
 if args.verbose:
     print('reading source samples from: '+args.source)
 srcdata, columns = utils.load(args.source, args.columns, logcolumns=args.logcolumn)
+if not len(srcdata):
+    raise RuntimeError('no samples present in %s!'%args.source)
 srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=args.verbose) ### whiten data
 
 if args.weight_column:
@@ -107,22 +109,29 @@ if args.verbose:
 tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
 utils.check_columns(tgtcolumns, args.columns) ### make sure we have the columns we need to
 
-tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
-for i, column in enumerate(columns): ### whiten the target data with the same transformation used for source data
-    tgtsamples[:,i] = (tgtdata[:,tgtcolumns.index(column)] - srcmeans[i])/srcstds[i]
+if len(tgtdata): ### we need to weigh things
 
-#-------------------------------------------------
+    tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
+    for i, column in enumerate(columns): ### whiten the target data with the same transformation used for source data
+        tgtsamples[:,i] = (tgtdata[:,tgtcolumns.index(column)] - srcmeans[i])/srcstds[i]
 
-if args.verbose:
-    print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%\
-        (len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
-logkde = utils.logkde(
-    tgtsamples,
-    srcdata,
-    np.ones(Ncol, dtype=float)*args.bandwidth**2,
-    weights=weights,
-    num_proc=args.num_proc
-)
+    #---------------------------------------------
+
+    if args.verbose:
+        print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%\
+            (len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
+    logkde = utils.logkde(
+        tgtsamples,
+        srcdata,
+        np.ones(Ncol, dtype=float)*args.bandwidth**2,
+        weights=weights,
+        num_proc=args.num_proc
+    )
+else:
+    if args.verbose:
+        print('no target samples in %s; nothing to do...'%args.target)
+    logkde = np.empty(0, dtype=float) ### make a place-holder so the rest of the logic holds
+
 if args.do_not_log_output_weights:
     if args.verbose:
         print('exponentiating weights')
