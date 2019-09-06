@@ -33,7 +33,8 @@ N = len(d)
 
 if args.verbose:
     print('generating shuffled order for %d elements'%N)
+np.random.shuffle(d) ### modifies ths in-place
 
 if args.verbose:
     print('writing: '+args.target)
-np.savetxt(args.target, np.random.shuffle(d), header=','.join(c), comments='', delimiter=',')
+np.savetxt(args.target, d, header=','.join(c), comments='', delimiter=',')
