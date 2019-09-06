@@ -37,16 +37,11 @@ rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('-s', '--samples', required=True, nargs=2, default=[], type=str, action='append',
     help='e.g.: "--samples label path/to/samples.csv"')
 
-parser.add_argument('ycolumn', type=str)
-parser.add_argument('xcolumn', type=str)
+rgroup.add_argument('ycolumn', type=str)
+rgroup.add_argument('xcolumn', type=str)
 
-parser.add_argument('xmin', type=float)
-parser.add_argument('xmax', type=float)
-
-parser.add_argument('--reference', default=[], nargs=2, type=str, action='append',
-    help='e.g.: "--reference name path". path to a reference CSV that will be plotted on top of the process plot. Can be repeated to specify multiple reference curves. \
-The columns must be the same as those supplied in the input arguments. \
-DEFAULT=[]')
+rgroup.add_argument('xmin', type=float)
+rgroup.add_argument('xmax', type=float)
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -96,6 +91,12 @@ DEFAULT=[]')
 
 # plotting options
 pgroup = parser.add_argument_group('plotting options')
+
+pgroup.add_argument('--reference', default=[], nargs=2, type=str, action='append',
+    help='e.g.: "--reference name path". path to a reference CSV that will be plotted on top of the process plot. Can be repeated to specify multiple reference curves. \
+The columns must be the same as those supplied in the input arguments. \
+DEFAULT=[]')
+
 pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
     help='e.g. "--color label c"')
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
@@ -264,7 +265,6 @@ Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
     Nquantiles *= 2 ### we need twice as many as are in the list
 
-
 # annotation options
 signposts = defaultdict(list)
 for column, value in args.signpost:
@@ -336,7 +336,7 @@ if args.legend and args.include_neff:
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
-    data, _ = utils.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
+    data, cols = utils.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
 
     if weight_columns[label][0]:
         if args.verbose:
@@ -347,9 +347,17 @@ for ind, (label, path) in enumerate(args.samples):
         N = len(data)
         weights = np.ones(N, dtype='float')/N
 
-    ### prune samples to get rid of vanishing weights
-    data, weights = utils.prune(data, [(-np.infty, +np.infty)], weights=weights)
+    ### marginalize to avoid reading in the same EOS more than once
+    if args.verbose:
+        print('marginalizing samples to avoid repeated work reading the same EoS multiple times')
+    data, cols = utils.marginalize(data, np.log(weights), cols)
+    weights = utils.exp_weights(data[:,cols.index('logmargweight')])
     data = data[:,0]
+
+    ### prune samples to get rid of vanishing weights
+    truth = weights > 0
+    data = data[truth]
+    weights = weights[truth]
     N = len(data)
 
     if args.legend and args.include_neff:
@@ -377,7 +385,7 @@ for ind, (label, path) in enumerate(args.samples):
     eos_temp = eos_temps[label]
     eos_mod = eos_num_per_dir[label]
 
-    for i, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
+    for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
         for eos_path in glob.glob(eos_temp%{'moddraw':eos//eos_mod, 'draw':eos}):
             if args.Verbose:
                 print('    '+eos_path)

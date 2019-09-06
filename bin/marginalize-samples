@@ -57,34 +57,7 @@ else:
 # now need to marginalize over samples
 if args.verbose:
     print('marginalizing over weights to determine effective weights for unique combinations of (%s)'%(', '.join(args.columns)))
-
-logmargweight = defaultdict(float)
-logmargweight2 = defaultdict(float)
-counts = defaultdict(int)
-for sample, logweight in zip(data, logweights):
-    tup = tuple(sample)
-    logmargweight[tup] = utils.sum_log((logmargweight.get(tup, -np.infty), logweight))
-    logmargweight2[tup] = utils.sum_log((logmargweight2.get(tup, -np.infty), 2*logweight)) ### track the variance
-    counts[tup] += 1 
-
-num_columns = len(columns)
-columns = columns+['logmargweight', 'logvarmargweight', 'num_elements'] ### store the columns requested, the marginalized weight, and the number of elements included in the set for this particular tuple
-
-# format the array as needed
-if args.verbose:
-    print('reformatting data into an array...')
-results = np.empty((len(logmargweight.keys()), len(columns)), dtype=float)
-for i, key in enumerate(logmargweight.keys()):
-    results[i,:num_columns] = key
-
-    ### compute the log of the variance of the maginalized weight
-    cnt = counts[key]
-    lmw = logmargweight[key]
-    lmw2 = logmargweight2[key]
-
-    logvar = lmw2 + np.log(1. - np.exp(2*lmw - lmw2 - np.log(cnt)))
-
-    results[i,num_columns:] = lmw, logvar, cnt
+results, columns = utils.marginalize(data, logweights, columns)
 
 # write output CSV file
 if args.output_path is not None:

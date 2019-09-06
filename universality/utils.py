@@ -185,6 +185,37 @@ def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumn
     # multiply weights across all samples, which is the same as adding the logs
     return np.sum(data, axis=1)
 
+def marginalize(data, logweights, columns):
+    """marginalize to get equivalent weights over unique sets of columns
+    """
+    logmargweight = defaultdict(float)
+    logmargweight2 = defaultdict(float)
+    counts = defaultdict(int)
+    for sample, logweight in zip(data, logweights):
+        tup = tuple(sample)
+        logmargweight[tup] = sum_log((logmargweight.get(tup, -np.infty), logweight))
+        logmargweight2[tup] = sum_log((logmargweight2.get(tup, -np.infty), 2*logweight)) ### track the variance
+        counts[tup] += 1
+
+    num_columns = len(columns)
+    ### store the columns requested, the marginalized weight, and the number of elements included in the set for this particular tuple
+    columns = columns+['logmargweight', 'logvarmargweight', 'num_elements']
+
+    results = np.empty((len(logmargweight.keys()), len(columns)), dtype=float)
+    for i, key in enumerate(logmargweight.keys()):
+        results[i,:num_columns] = key
+
+        ### compute the log of the variance of the maginalized weight
+        cnt = counts[key]
+        lmw = logmargweight[key]
+        lmw2 = logmargweight2[key]
+
+        logvar = lmw2 + np.log(1. - np.exp(2*lmw - lmw2 - np.log(cnt)))
+
+        results[i,num_columns:] = lmw, logvar, cnt
+
+    return results, columns
+
 def sum_log(logweights):
     """returns the log of the sum of the weights, retaining high precision
     """
