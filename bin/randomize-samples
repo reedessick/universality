@@ -1,0 +1,39 @@
+#!/usr/bin/python
+
+"""read in a CSV file and scramble the order of the lines
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('source', type=str)
+parser.add_argument('target', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading: '+args.source)
+d, c = utils.load(args.source)
+N = len(d)
+
+if args.verbose:
+    print('generating shuffled order for %d elements'%N)
+
+if args.verbose:
+    print('writing: '+args.target)
+np.savetxt(args.target, np.random.shuffle(d), header=','.join(c), comments='', delimiter=',')
