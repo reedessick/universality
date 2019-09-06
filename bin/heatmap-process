@@ -85,19 +85,19 @@ pgroup.add_argument('--reference', default=[], nargs=2, type=str, action='append
 The columns must be the same as those supplied in the input arguments. \
 DEFAULT=[]')
 
-pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
-    help='e.g. "--color label c"')
+pgroup.add_argument('--color-map', nargs=2, action='append', default=[], type=str,
+    help='e.g. "--color-map label c"')
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
 pgroup.add_argument('--annotation-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--annotation-color name b"')
 
-pgroup.add_argument('--annotation-marker', nargs=2, type=str, defualt=[], action='append',
+pgroup.add_argument('--annotation-marker', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--annotation-marker name o"')
-pgroup.add_argument('--annotation-ha', nargs=2, type=str, defualt=[], action='append',
+pgroup.add_argument('--annotation-ha', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--annotation-marker name left"')
-pgroup.add_argument('--annotation-va', nargs=2, type=str, defualt=[], action='append',
+pgroup.add_argument('--annotation-va', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--annotation-marker name top"')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
@@ -180,10 +180,10 @@ for column, label in args.column_label:
     labels[column] = label
 
 # plotting options
-colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
-for label, color in args.color:
-    assert label in names, 'specifying --color for uknown sample set: '+label
-    colors[label] = color
+colormaps = dict((label, plot.DEFAULT_COLORMAP) for label in names)
+for label, colormap in args.color_map:
+    assert label in names, 'specifying --color-map for uknown sample set: '+label
+    colormaps[label] = colormap
 
 reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in reference_names)
 for label, color in args.reference_color:
@@ -280,10 +280,15 @@ for label, path in args.samples:
             if args.Verbose:
                 print('    '+eos_path)
             d, _ = utils.load(eos_path, columns)
+            x = d[:,0]
+            y = d[:,1]
+            raise NotImplementedError('upsample the data set'
 
-            raise NotImplementedError('upsample the data set and increment the raster')
+            raise NotImplementedError('increment count')
 
+    # convert to colors and update overall raster
     raise NotImplementedError('convert counts to colors')
+
     raise NotImplementedError('add colors to raster')
 
 ### load in reference curves
@@ -292,7 +297,7 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append((label, utils.load(path, [args.xcolumn, args.ycolumn])[0])) ### just grab the data, not the column names
+        reference.append((label, utils.load(path, columns])[0])) ### just grab the data, not the column names
 
 #-------------------------------------------------
 

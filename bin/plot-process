@@ -446,7 +446,7 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append((label, utils.load(path, [args.xcolumn, args.ycolumn])[0])) ### just grab the data, not the column names
+        reference.append((label, utils.load(path, columns)[0])) ### just grab the data, not the column names
 
 ### set up reference curves
 if args.residuals or args.ratios:
