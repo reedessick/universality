@@ -90,7 +90,7 @@ for label, _ in args.samples_linestyle:
 linestyles = dict(args.samples_linestyle)
 linestyles = [linestyles.get(label, plot.DEFAULT_LINESTYLE) for label, _ in args.samples]
 
-if not os.path.exists(args.output_dir):
+if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
 if args.tag:

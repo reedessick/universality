@@ -90,7 +90,7 @@ ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 Neos = len(args.eospaths)
 
-if not os.path.exists(args.output_dir):
+if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
 if args.tag:

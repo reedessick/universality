@@ -92,7 +92,7 @@ if args.output_path is not None:
         print('writing marginalized results to: '+args.output_path)
 
     outdir = os.path.dirname(args.output_path)
-    if not os.path.exists(outdir):
+    if outdir and (not os.path.exists(outdir)):
         os.makedirs(outdir)
 
 else:

@@ -60,7 +60,7 @@ Ncol = len(args.columns)
 Nref = len(args.reference_value)
 args.reference_value.sort()
 
-if not os.path.exists(os.path.dirname(args.outpath)):
+if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
 
 args.verbose |= args.Verbose

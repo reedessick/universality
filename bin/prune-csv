@@ -23,7 +23,7 @@ bounds = defaultdict(list)
 for field, m, M in args.include:
     bounds[field].append((float(m), float(M)))
 
-if not os.path.exists(os.path.dirname(args.output_csv)):
+if os.path.dirname(args.output_csv) and (not os.path.exists(os.path.dirname(args.output_csv))):
     os.makedirs(os.path.dirname(args.output_csv))
 
 #-------------------------------------------------

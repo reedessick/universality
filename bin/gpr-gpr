@@ -132,7 +132,7 @@ if args.stitch:
     if args.stitch_num_points is None:
         args.stitch_num_points = args.num_points
 
-if not os.path.exists(args.output_dir):
+if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
 if args.tag:

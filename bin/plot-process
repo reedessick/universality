@@ -301,7 +301,7 @@ for column, value in args.signpost:
 if args.tag:
     args.tag = "_"+args.tag
 
-if not os.path.exists(args.output_dir):
+if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
 if not args.figtype:
