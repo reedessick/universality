@@ -48,10 +48,15 @@ rgroup.add_argument('ymax', type=float)
 
 # workflow argumnets
 wgroup = parser.add_argument_group('workflow arguments')
-wgroup.add_argument('--num-points', default=101, type=int,
-    help='the number of interpolation points used when plotting (resample each curve to this number of points before discretizing to raster)')
+#wgroup.add_argument('--num-points', default=101, type=int,
+#    help='the number of interpolation points used when plotting (resample each curve to this number of points before discretizing to raster)')
 wgroup.add_argument('--num-x-pixels', default=DEFAULT_NUM_PIXELS, type=int)
 wgroup.add_argument('--num-y-pixels', default=DEFAULT_NUM_PIXELS, type=int)
+
+wgroup.add_argument('--log-pdf', default=False, action='store_true',
+    help='color by the log of the cumulative weight, not the cumulative weight')
+wgroup.add_argument('--min-log10-pdf', default=-2, type=float,
+    help='set the range for the minimum log-pdf relatively to the maximum value')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
@@ -143,6 +148,8 @@ names = [label for label, path in args.samples]
 reference_names = [label for label, path in args.reference]
 
 Nsamples = len(names)
+
+min_log_pdf = np.log(10**args.min_log10_pdf)
 
 # samples arguments
 max_num_samples = dict((label, np.infty) for label in names)
@@ -320,15 +327,104 @@ for label, path in args.samples:
                 d[:,0] = np.log(d[:,0])
             if logy:
                 d[:,1] = np.log(d[:,1])
-            X, Y = utils.upsample(d[:,0], d[:,1], args.num_points)
+
+#            X, Y = utils.upsample(d[:,0], d[:,1], args.num_points)
+            X, Y = np.transpose(d)
+
             truth = (X>=x_register[0])*(X<=x_register[-1])*(Y>=y_register[0])*(Y<=y_register[-1])
             X = X[truth]-x_register[0]
             Y = Y[truth]-y_register[0]
 
             ### only add weight once to each pixel even if the upsampled curve hits that pixel more than once
             count_truth[:] = False
-            for x, y in zip(X, Y):
-                count_truth[y//dy, x//dx] = True
+
+            ### direct upsampling
+#            for x, y in zip(X, Y):
+#                count_truth[y//dy, x//dx] = True
+
+            ### attempt to be faster by computing the line's progress directly instead of sampling
+
+            start_ind = 0
+            start_X = X[start_ind]
+            start_Y = Y[start_ind]
+            start_X_ind = start_X // dx
+            start_Y_ind = start_Y // dy
+
+            while start_ind < len(X)-1:
+                count_truth[start_Y_ind, start_X_ind] = True
+
+                stop_ind = start_ind + 1
+                stop_X = X[stop_ind]
+                stop_Y = Y[stop_ind]
+                stop_X_ind = stop_X // dx
+                stop_Y_ind = stop_Y // dy
+                count_truth[stop_Y_ind, stop_X_ind] = True
+
+                slope = (stop_Y-start_Y)/(stop_X-start_X)
+                right = stop_X > start_X
+                up = stop_Y > start_Y
+
+                while not ((start_X_ind==stop_X_ind) and (start_Y_ind==stop_Y_ind)):
+
+                    if right: ### we move to the right
+                        new_X = (start_X_ind+1)*dx
+                        new_Y = (new_X - start_X) * slope + start_Y
+                        if up: ### we move up
+                            if new_Y < (start_Y_ind+1)*dy: ### we exit to the right-side
+                                start_X = new_X
+                                start_Y = new_Y
+                                start_X_ind += 1
+
+                            else: ### we exit to the top
+                                new_Y = (start_Y_ind+1)*dy
+                                start_X = (new_Y - start_Y) / slope + start_X
+                                start_Y = new_Y
+                                start_Y_ind += 1
+
+                        else:
+                            if new_Y > (start_Y_ind-1)*dy: ### we exit to the right-side
+                                start_X = new_X
+                                start_Y = new_Y
+                                start_X_ind += 1
+
+                            else: ### we exit to the bottom
+                                new_Y = (start_Y_ind-1)*dy
+                                start_X = (new_Y - start_Y) / slope + start_X
+                                start_Y = new_Y
+                                start_Y_ind -= 1
+
+                    else: ### we move to the left
+                        new_X = (start_X_ind+1)*dx
+                        new_Y = (new_X - start_X) * slope + start_Y
+                        if up: ### we move up
+                            if new_Y < (start_Y_ind+1)*dy: ### we exit to the left-side
+                                start_X = new_X
+                                start_Y = new_Y
+                                start_X_ind += 1
+
+                            else: ### we exit to the top
+                                new_Y = (start_Y_ind+1)*dy
+                                start_X = (new_Y - start_Y) / slope + start_X
+                                start_Y = new_Y
+                                start_Y_ind += 1
+
+                        else:
+                            if new_Y > (start_Y_ind-1)*dy: ### we exit to the right-side
+                                start_X = new_X
+                                start_Y = new_Y
+                                start_X_ind += 1
+
+                            else: ### we exit to the bottom
+                                new_Y = (start_Y_ind-1)*dy
+                                start_X = (new_Y - start_Y) / slope + start_X
+                                start_Y = new_Y
+                                start_Y_ind -= 1
+
+                    count_truth[start_Y_ind, start_X_ind] = True
+
+                start_ind = stop_ind
+                start_X = stop_X
+                start_Y = stop_Y
 
             if np.any(count_truth):
                 count[count_truth] += weight ### actually increment the count
@@ -336,6 +432,11 @@ for label, path in args.samples:
     # normalize count so it runs between 0, 1
     if np.max(count) > 0:
         count /= np.max(count)
+
+    if args.log_pdf:
+        count = np.log(count)
+        count[count < min_log_pdf] = min_log_pdf
+        count = (count - min_log_pdf)/np.abs(min_log_pdf)
 
     # convert to colors and update overall raster
     raster[:,:,:3] += plot.cm.get_cmap(colormaps[label])(count)[:,:,:3]*alpha
