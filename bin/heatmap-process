@@ -46,6 +46,11 @@ rgroup.add_argument('xmax', type=float)
 rgroup.add_argument('ymin', type=float)
 rgroup.add_argument('ymax', type=float)
 
+rgroup.add_argument('--y-multiplier', default=1, type=float,
+    help='multiply all y-values by this before plotting. y-limits are applied after multiplying.')
+rgroup.add_argument('--x-multiplier', default=1, type=float,
+    help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
+
 # workflow argumnets
 wgroup = parser.add_argument_group('workflow arguments')
 #wgroup.add_argument('--num-points', default=101, type=int,
@@ -114,6 +119,9 @@ pgroup.add_argument('--annotation-va', nargs=2, type=str, default=[], action='ap
 
 pgroup.add_argument('--interpolation', default='bilinear', type=str,
     help='the interpolation algorithm used within imshow')
+
+pgroup.add_argument('--contour-quantile', default=[], type=float, action='append',
+    help='specify the quantiles we want for each set of samples. Should be repeated to specify multiple quantiles.')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -313,6 +321,9 @@ for label, path in args.samples:
                 print('    '+eos_path)
             d, _ = utils.load(eos_path, columns)
 
+            d[:,0] *= args.x_multiplier
+            d[:,1] *= args.y_multiplier
+
             truth = (d[:,0]>=args.xmin)*(d[:,0]<=args.xmax)*(d[:,1]>=args.ymin)*(d[:,1]<=args.ymax)
             if not np.sum(truth):
                 continue ### nothing to plot anyway
@@ -448,6 +459,9 @@ for label, path in args.samples:
     if np.max(count) > 0:
         count /= np.max(count)
 
+    if args.quantile:
+        raise NotImplementedError('add contours to plot!')
+
     if args.log_pdf:
         count = np.log(count)
         count[count < min_log_pdf] = min_log_pdf
@@ -465,7 +479,10 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append((label, utils.load(path, columns)[0])) ### just grab the data, not the column names
+        d, _ = utils.load(path, columns)
+        d[:,0] *= args.x_multiplier
+        d[:,1] *= args.y_multiplier
+        reference.append((label, d)) ### just grab the data, not the column names
 
 #-------------------------------------------------
 

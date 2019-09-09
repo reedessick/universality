@@ -44,6 +44,11 @@ rgroup.add_argument('xcolumn', type=str)
 rgroup.add_argument('xmin', type=float)
 rgroup.add_argument('xmax', type=float)
 
+rgroup.add_argument('--y-multiplier', default=1, type=float,
+    help='multiply all y-values by this before plotting. y-limits are applied after multiplying.')
+rgroup.add_argument('--x-multiplier', default=1, type=float,
+    help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -392,6 +397,9 @@ for ind, (label, path) in enumerate(args.samples):
                 print('    '+eos_path)
             d, _ = utils.load(eos_path, columns)
 
+            d[:,0] *= args.x_multiplier
+            d[:,1] *= args.y_multiplier
+
 #        if central_contours[label] is not None:
 #            bns_path = bns_temp%eos
 #            if args.Verbose:
@@ -447,7 +455,10 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append((label, utils.load(path, columns)[0])) ### just grab the data, not the column names
+        d, _ = utils.load(path, columns)
+        d[:,0] *= args.x_multiplier
+        d[:,1] *= args.y_multiplier
+        reference.append((label, d)) ### just grab the data, not the column names
 
 ### set up reference curves
 if args.residuals or args.ratios:
