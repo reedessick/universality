@@ -20,7 +20,8 @@ from universality import utils
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('source', type=str)
-parser.add_argument('target', type=str)
+parser.add_argument('target_if_true', type=str)
+parser.add_argument('target_if_false', type=str)
 parser.add_argument('conditional', type=str,
     help='eg: "data[:,cols.index[\"numbranches\"]]==1"')
 
@@ -28,8 +29,10 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
-if os.path.dirname(args.target) and not os.path.exists(os.path.dirname(args.target)):
-    os.makedirs(os.path.dirname(args.target))
+for target in [args.target_if_true, args.target_if_false]:
+    outdir = os.path.dirname(target)
+    if outdir and not os.path.exists(outdir):
+        os.makedirs(outdir)
 
 #-------------------------------------------------
 
@@ -42,6 +45,10 @@ if args.verbose:
 truth = eval(args.conditional)
 
 if args.verbose:
-    print('retained %d / %d samples'%(np.sum(truth), len(truth)))
-    print('writing: '+args.target)
-np.savetxt(args.target, data[truth], comment='', delimiter=',', header=','.join(cols))
+    print('identified %d / %d samples'%(np.sum(truth), len(truth)))
+    print('writing: '+args.target_if_true)
+np.savetxt(args.target_if_true, data[truth], comments='', delimiter=',', header=','.join(cols))
+
+if args.verbose:
+    print('writing: '+args.target_if_false)
+np.savetxt(args.target_if_false, data[np.logical_not(truth)], comments='', delimiter=',', header=','.join(cols))
