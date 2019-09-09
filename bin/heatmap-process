@@ -246,14 +246,16 @@ ax = fig.add_axes(plot.AXES_POSITION)
 raster = np.zeros((args.num_y_pixels, args.num_x_pixels, 4), dtype=float) ### assume RGB-alpha color notation
 
 if logx:
-    x_register = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_x_pixels+1)
+    x_register = np.linspace(np.log(args.xmin), np.log(args.xmax), args.num_x_pixels+1)
 else:
     x_register = np.linspace(args.xmin, args.xmax, args.num_x_pixels+1)
+dx = x_register[1]-x_register[0]
 
 if logy:
-    y_register = np.logspace(np.log10(args.ymin), np.log10(args.ymax), args.num_y_pixels+1)
+    y_register = np.linspace(np.log(args.ymin), np.log(args.ymax), args.num_y_pixels+1)
 else:
     y_register = np.linspace(args.ymin, args.ymax, args.num_y_pixels+1)
+dy = y_register[1]-y_register[0]
 
 ### set up the raster for these pixels
 count = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=float)
@@ -319,17 +321,14 @@ for label, path in args.samples:
             if logy:
                 d[:,1] = np.log(d[:,1])
             X, Y = utils.upsample(d[:,0], d[:,1], args.num_points)
-            if logx:
-                X = np.exp(X)
-            if logy:
-                Y = np.exp(Y)
-
-#            ax.plot(X, Y, marker='o', linestyle='none', markeredgecolor='k', markerfacecolor='none', alpha=0.1)
+            truth = (X>=x_register[0])*(X<=x_register[-1])*(Y>=y_register[0])*(Y<=y_register[-1])
+            X = X[truth]-x_register[0]
+            Y = Y[truth]-y_register[0]
 
             ### only add weight once to each pixel even if the upsampled curve hits that pixel more than once
             count_truth[:] = False
             for x, y in zip(X, Y):
-                count_truth[:] = np.logical_or(count_truth, np.outer((y >= y_register[:-1])*(y < y_register[1:]), (x >= x_register[:-1])*(x < x_register[1:])))
+                count_truth[y//dy, x//dx] = True
 
             if np.any(count_truth):
                 count[count_truth] += weight ### actually increment the count
@@ -360,7 +359,7 @@ if args.verbose:
 ax.imshow(
     raster,
     origin='lower',
-    extent=(x_register[0], x_register[-1], y_register[0], y_register[-1]),
+    extent=(args.xmin, args.xmax, args.ymin, args.ymax),
     aspect='auto',
     interpolation=args.interpolation,
 )
