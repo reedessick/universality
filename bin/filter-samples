@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+"""a script to select a subset of samples based on a conditional.
+We load in the whole source file and store the array as "data" and the columns as "cols". Conditionals should be specified in terms of that.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('source', type=str)
+parser.add_argument('target', type=str)
+parser.add_argument('conditional', type=str,
+    help='eg: "data[:,cols.index[\"numbranches\"]]==1"')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+if os.path.dirname(args.target) and not os.path.exists(os.path.dirname(args.target)):
+    os.makedirs(os.path.dirname(args.target))
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading: '+args.source)
+data, cols = utils.load(args.source)
+
+if args.verbose:
+    print('identifying subset of samples')
+truth = eval(args.conditional)
+
+if args.verbose:
+    print('retained %d / %d samples'%(np.sum(truth), len(truth)))
+    print('writing: '+args.target)
+np.savetxt(args.target, data[truth], comment='', delimiter=',', header=','.join(cols))
