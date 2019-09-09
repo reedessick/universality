@@ -219,7 +219,11 @@ def marginalize(data, logweights, columns):
 def sum_log(logweights):
     """returns the log of the sum of the weights, retaining high precision
     """
+    if np.any(logweights==np.infty):
+        return np.infty
     m = np.max(logweights)
+    if m==-np.infty:
+        return -np.infty
     return np.log(np.sum(np.exp(logweights-m))) + m
 
 def check_columns(present, required):
@@ -275,7 +279,38 @@ def iqr_whiten(data, verbose=False, low=0.16, high=0.84):
 
     return data, medians, iqrs
 
+def upsample(x, y, n):
+    """compute the path length along the curve and return an equivalent curve with "n" points
+    this is done to avoid possible issues with np.interp if the curve is not monotonic or 1-to-1
+    """
+    X = np.linspace(np.min(x), np.max(x), n)
+    return X, np.interp(X, x, y)
+
+#    dx = x[1:]-x[:-1]
+#    dy = y[1:]-y[:-1]
+#    ds = (dx**2 + dy**2)**0.5
+#    cs = np.cumsum(ds)
+#    s = np.linspace(0, 1, n)*cs[-1] ### the total path-length associated with each point
+#
+#    bot = np.floor(np.interp(np.linspace(0, cs[-1], n), cs, np.arange(len(x)-1))) ### the lower index bounding the linear segment containing each new point
+#
+#    ### fill in the resulting array
+#    X, Y = np.empty((2,n), dtype=float)
+#    X[0] = x[0] ### end points are the same
+#    Y[0] = y[0]
+#    X[-1] = x[-1]
+#    Y[-1] = y[-1]
+#
+#    ### fill in the intermediate values
+#    for i, b in enumerate(bot):
+#        X[i] = x[b-1] + ((s[i]-s[b])/ds[b])*dx[b]
+#        Y[i] = y[b-1] + ((s[i]-s[b])/ds[b])*dy[b]
+#
+#    return X, Y
+
 def downsample(data, n):
+    """return a random subset of the data
+    """
     N = len(data)
     assert n>0 and n<=N, 'cannot downsample size=%d to size=%d'%(N, n)
 

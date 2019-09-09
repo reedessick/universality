@@ -21,12 +21,13 @@ from universality import stats
 #-------------------------------------------------
 
 DEFAULT_EOS_COLUMN = 'EoS'
-DEFAULT_EOS_DIR = DEFAULT_BNS_DIR = '.'
+#DEFAULT_EOS_DIR = DEFAULT_BNS_DIR = '.'
+DEFAULT_EOS_DIR = '.'
 DEFAULT_EOS_NUM_PER_DIR = 1000
 DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
-DEFAULT_BNS_BASENAME = 'bns-%d.csv'
+#DEFAULT_BNS_BASENAME = 'bns-%d.csv'
 
-DEFAULT_PREFACTOR = 1.
+#DEFAULT_PREFACTOR = 1.
 
 #-------------------------------------------------
 

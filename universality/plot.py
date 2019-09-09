@@ -10,6 +10,7 @@ from scipy.special import erfinv
 
 import matplotlib
 matplotlib.use("Agg")
+from matplotlib import cm
 from matplotlib import pyplot as plt
 plt.rcParams['font.family'] = 'serif'
 if matplotlib.__version__ < '1.3.0':

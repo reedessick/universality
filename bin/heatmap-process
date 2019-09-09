@@ -9,6 +9,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import os
 import glob
 
+from collections import defaultdict
+
 import numpy as np
 
 from argparse import ArgumentParser
@@ -22,6 +24,11 @@ from universality import plot
 DEFAULT_NUM_PIXELS = 1024
 DEFAULT_HA = 'left'
 DEFAULT_VA = 'top'
+
+DEFAULT_EOS_COLUMN = 'EoS'
+DEFAULT_EOS_DIR = '.'
+DEFAULT_EOS_NUM_PER_DIR = 1000
+DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
 
 #-------------------------------------------------
 
@@ -99,6 +106,9 @@ pgroup.add_argument('--annotation-ha', nargs=2, type=str, default=[], action='ap
     help='e.g.: "--annotation-marker name left"')
 pgroup.add_argument('--annotation-va', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--annotation-marker name top"')
+
+pgroup.add_argument('--interpolation', default='bilinear', type=str,
+    help='the interpolation algorithm used within imshow')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -196,7 +206,7 @@ for column, value in args.signpost:
     assert column in columns, 'specifying --signpost for unknown column: '+column
     signposts[column].append(float(value))
 
-annotations = dict((name, (float(x), float(y), plot.DEFAULT_TRUTH_COLOR, plot.DEFAULT_MARKER, DEFAULT_HA, DEFAULT_VA)) for name, x, y in args.annotations)
+annotations = dict((name, (float(x), float(y), plot.DEFAULT_TRUTH_COLOR, plot.DEFAULT_MARKER, DEFAULT_HA, DEFAULT_VA)) for name, x, y in args.annotation)
 for name, color in args.annotation_color:
     assert name in annotations, 'specifying --annotation-color for unknown annotation: '+name
     x, y, _, m, ha, va = annotations[name]
@@ -209,7 +219,7 @@ for name, horizontal in args.annotation_ha:
     assert name in annotations, 'specifying --annotation-ha for unkown annotation: '+name
     x, y, c, m, _, va = annotations[name]
     annotations[name] = x, y, c, m, horizontal, va
-for name, vertical in args.annotations_va:
+for name, vertical in args.annotation_va:
     assert name in annotations
     x, y, c, m, ha, _ = annotations[name]
     annotations[name] = x, y, c, m, ha, va
@@ -218,32 +228,43 @@ for name, vertical in args.annotations_va:
 if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
-if args.output_dir and (not os.path.exists(args.output_dir)):
-    os.makedirs(args.output_dir)
+if args.tag:
+    args.tag = "_"+args.tag
 
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
+logx = args.xcolumn in args.logcolumn
+logy = args.ycolumn in args.logcolumn
+
 #-------------------------------------------------
 
-### set up the indexing arrays
-raster = np.zeros((args.num_x_pixels, args.num_y_pixels, 4), dtype=float) ### assume RGB-alpha color notation
+fig = plot.plt.figure(figsize=(args.figwidth, args.figheight))
+ax = fig.add_axes(plot.AXES_POSITION)
 
-if args.xcolumn in args.logcolumn:
-    x_register = np.linspace(np.log10(args.xmin), np.log10(args.xmax), args.num_x_pixels+1)
+### set up the indexing arrays
+raster = np.zeros((args.num_y_pixels, args.num_x_pixels, 4), dtype=float) ### assume RGB-alpha color notation
+
+if logx:
+    x_register = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_x_pixels+1)
 else:
     x_register = np.linspace(args.xmin, args.xmax, args.num_x_pixels+1)
 
-if args.ycolumn in args.logcolumn:
+if logy:
     y_register = np.logspace(np.log10(args.ymin), np.log10(args.ymax), args.num_y_pixels+1)
 else:
     y_register = np.linspace(args.ymin, args.ymax, args.num_y_pixels+1)
 
+### set up the raster for these pixels
+count = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=float)
+count_truth = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=bool)
+
+alpha = 1./len(args.samples) ### the number of samples we have
+
 ### iterate over samples, generating a raster for each set
 for label, path in args.samples:
 
-    ### set up the raster for these pixels
-    count = np.zeros((args.num_x_pixels, args.num_y_pixels), dtype=float)
+    count[:] = 0. ### zero this out
 
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
@@ -275,21 +296,53 @@ for label, path in args.samples:
     eos_temp = eos_temps[label]
     eos_mod = eos_num_per_dir[label]
 
+    if args.verbose:
+        print('iterating over unique values of: '+eos_columns[label])
     for eos, weight in zip(data, weights):
         for eos_path in glob.glob(eos_temp%{'moddraw':eos//eos_mod, 'draw':eos}):
             if args.Verbose:
                 print('    '+eos_path)
             d, _ = utils.load(eos_path, columns)
-            x = d[:,0]
-            y = d[:,1]
-            raise NotImplementedError('upsample the data set'
 
-            raise NotImplementedError('increment count')
+            truth = (d[:,0]>=args.xmin)*(d[:,0]<=args.xmax)*(d[:,1]>=args.ymin)*(d[:,1]<=args.ymax)
+            if not np.sum(truth):
+                continue ### nothing to plot anyway
+
+            ### throw away stuff that won't be plotted anyway
+            ### makes sure we upsample to a reasonable number of points within the plotting window
+            inds = np.arange(len(d))
+            data = data[inds[truth][0]-1:inds[truth][-1]+1]
+
+            ### upsample data and find the pixels it intersects
+            if logx:
+                d[:,0] = np.log(d[:,0])
+            if logy:
+                d[:,1] = np.log(d[:,1])
+            X, Y = utils.upsample(d[:,0], d[:,1], args.num_points)
+            if logx:
+                X = np.exp(X)
+            if logy:
+                Y = np.exp(Y)
+
+#            ax.plot(X, Y, marker='o', linestyle='none', markeredgecolor='k', markerfacecolor='none', alpha=0.1)
+
+            ### only add weight once to each pixel even if the upsampled curve hits that pixel more than once
+            count_truth[:] = False
+            for x, y in zip(X, Y):
+                count_truth[:] = np.logical_or(count_truth, np.outer((y >= y_register[:-1])*(y < y_register[1:]), (x >= x_register[:-1])*(x < x_register[1:])))
+
+            if np.any(count_truth):
+                count[count_truth] += weight ### actually increment the count
+
+    # normalize count so it runs between 0, 1
+    if np.max(count) > 0:
+        count /= np.max(count)
 
     # convert to colors and update overall raster
-    raise NotImplementedError('convert counts to colors')
+    raster[:,:,:3] += plot.cm.get_cmap(colormaps[label])(count)[:,:,:3]*alpha
 
-    raise NotImplementedError('add colors to raster')
+raster[:,:,3] = 1.0 ### set the alpha value for the raster
+                    ### we rely on having managed the relative alpha values within the previous loop
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -297,17 +350,20 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        reference.append((label, utils.load(path, columns])[0])) ### just grab the data, not the column names
+        reference.append((label, utils.load(path, columns)[0])) ### just grab the data, not the column names
 
 #-------------------------------------------------
 
 if args.verbose:
     print('plotting')
 
-fig = plot.plt.figure(figsize=(args.figwidth, args.figheight))
-ax = fig.add_axes(plot.AXES_POSITION)
-
-raise NotImplementedError('imshow the raster')
+ax.imshow(
+    raster,
+    origin='lower',
+    extent=(x_register[0], x_register[-1], y_register[0], y_register[-1]),
+    aspect='auto',
+    interpolation=args.interpolation,
+)
 
 # add reference curves
 for ref_label, curve in reference:
@@ -322,10 +378,9 @@ for name, (x, y, c, m, ha, va) in annotations.items():
     ax.text(x, y, name, color=c, ha=ha, va=va)
 
 # scaling, etc
-if args.xcolumn in args.logcolumn:
+if logx:
     ax.set_xscale('log')
-
-if args.ycolumn in args.logcolumn:
+if logy:
     ax.set_yscale('log')
 
 ax.grid(args.grid, which='both')
