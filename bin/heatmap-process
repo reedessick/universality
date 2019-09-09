@@ -332,6 +332,9 @@ for label, path in args.samples:
             X, Y = np.transpose(d)
 
             truth = (X>=x_register[0])*(X<=x_register[-1])*(Y>=y_register[0])*(Y<=y_register[-1])
+            if not np.any(truth): ### nothing to plot
+                continue 
+
             X = X[truth]-x_register[0]
             Y = Y[truth]-y_register[0]
 
