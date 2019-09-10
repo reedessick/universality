@@ -311,7 +311,7 @@ alpha = 1./len(args.samples) ### the number of samples we have
 ### iterate over samples, generating a raster for each set
 for label, path in args.samples:
 
-    count = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=float)
+    count = np.zeros((args.num_y_pixels, args.num_x_pixels), dtype=float)
 
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
