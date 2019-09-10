@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 ### non-standard libraries
 from universality import utils
 from universality import plot
+from universality import stats
 
 #-------------------------------------------------
 
@@ -120,8 +121,12 @@ pgroup.add_argument('--annotation-va', nargs=2, type=str, default=[], action='ap
 pgroup.add_argument('--interpolation', default='bilinear', type=str,
     help='the interpolation algorithm used within imshow')
 
-pgroup.add_argument('--contour-quantile', default=[], type=float, action='append',
+pgroup.add_argument('--contour-quantile', default=[], nargs=2, type=str, action='append',
     help='specify the quantiles we want for each set of samples. Should be repeated to specify multiple quantiles.')
+pgroup.add_argument('--contour-color', default=[], nargs=2, type=str, action='append')
+pgroup.add_argument('--contour-alpha', default=[], nargs=2, type=str, action='append')
+pgroup.add_argument('--contour-linestyle', default=[], nargs=2, type=str, action='append')
+pgroup.add_argument('--contour-linewidth', default=[], nargs=2, type=str, action='append')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -215,6 +220,31 @@ for label, color in args.reference_color:
     assert label in reference_names, 'specifying --reference-color for unknown reference set: '+label
     reference_colors[label] = color
 
+contour_quantile = defaultdict(list)
+for label, quantile in args.contour_quantile:
+    assert label in names, 'specifying --contour-quantile for uknown sample set: '+label
+    contour_quantile[label].append(float(quantile))
+
+contour_color = dict()
+for label, color in args.contour_color:
+    assert label in names, 'specifying --contour-color for uknown sample set: '+label
+    contour_color[label] = color
+
+contour_alpha = dict((label, plot.DEFAULT_ALPHA) for label in names)
+for label, alpha in args.contour_alpha:
+    assert label in names, 'specifying --contour-alpha for unkown sample set: '+label
+    contour_alpha[label] = float(alpha)
+
+contour_linestyle = dict((label, plot.DEFAULT_LINESTYLE) for label in names)
+for label, linestyle in args.contour_linestyle:
+    assert label in names, 'specifying --contour-linestyle for unkown sample set: '+label
+    contour_linestyle[label] = linestyle
+
+contour_linewidth = dict((label, plot.DEFAULT_LINEWIDTH) for label in names)
+for label, linewidth in args.contour_linewidth:
+    assert label in names, 'specifying --contour-linewidth for unknown sample set: '+label
+    contour_linewidth[label] = float(linewidth)
+
 # annotation options
 signposts = defaultdict(list)
 for column, value in args.signpost:
@@ -273,7 +303,7 @@ else:
 dy = y_register[1]-y_register[0]
 
 ### set up the raster for these pixels
-count = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=float)
+counts = []
 count_truth = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=bool)
 
 alpha = 1./len(args.samples) ### the number of samples we have
@@ -281,7 +311,7 @@ alpha = 1./len(args.samples) ### the number of samples we have
 ### iterate over samples, generating a raster for each set
 for label, path in args.samples:
 
-    count[:] = 0. ### zero this out
+    count = np.empty((args.num_y_pixels, args.num_x_pixels), dtype=float)
 
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
@@ -459,8 +489,8 @@ for label, path in args.samples:
     if np.max(count) > 0:
         count /= np.max(count)
 
-    if args.quantile:
-        raise NotImplementedError('add contours to plot!')
+    if args.contour_quantile:
+        counts.append((label, count))
 
     if args.log_pdf:
         count = np.log(count)
@@ -496,6 +526,28 @@ ax.imshow(
     aspect='auto',
     interpolation=args.interpolation,
 )
+
+### add contours
+x_mid = 0.5*(x_register[1:]+x_register[:-1])
+y_mid = 0.5*(y_register[1:]+y_register[:-1])
+if logx:
+    x_mid = np.exp(x_mid)
+if logy:
+    y_mid = np.exp(y_mid)
+
+for label, count in counts:
+    if label in contour_quantile:
+        thrs = sorted(np.exp(stats.logkde2levels(np.log(count), contour_quantile[label])), reverse=True)
+        ax.contour(
+            x_mid,
+            y_mid,
+            count,
+            levels=thrs,
+            colors=contour_color.get(label, plot.cm.get_cmap(colormaps[label])(thrs)),
+            alpha=contour_alpha[label],
+            linewidths=contour_linewidth[label],
+            linestyles=contour_linestyle[label],
+        )
 
 # add reference curves
 for ref_label, curve in reference:
