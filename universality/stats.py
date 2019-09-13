@@ -15,7 +15,10 @@ def quantile(x, quantiles, weights=None):
         order = x.argsort()
         x = x[order]
         csum = np.cumsum(weights[order])
-        return np.array([x[[csum<=q]][-1] for q in quantiles])
+        csum /= csum[-1]
+
+        return np.interp(quantiles, csum, x)
+#        return np.array([x[[csum<=q]][-1] for q in quantiles])
 
 def nkde(weights):
     """the number of samples that determine the scaling of the variance of our KDE estimates"""
