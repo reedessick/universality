@@ -6,6 +6,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import numpy as np
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -16,11 +18,13 @@ from universality import utils
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('source', type=str)
-parser.add_argument("weight-column", nargs='+', type=str, action='append')
+parser.add_argument("weight_column", nargs='+', type=str)
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 parser.add_argument('--column-range', default=[], nargs=3, type=str, action='append',
     help='if supplied, prune the samples based on this column range. Can be repeated.')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
