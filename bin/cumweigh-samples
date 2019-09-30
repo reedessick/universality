@@ -73,7 +73,6 @@ args.logcolumn_target = [args.source_target] if args.logcolumn_target else []
 if args.verbose:
     print('reading source samples from: '+args.source)
 srcdata, columns = utils.load(args.source, [args.source_column], logcolumns=args.logcolumn_source)
-srcdata = srcdata.flatten() ### make this a 1-D array
 
 if args.weight_column:
     if args.verbose:
@@ -88,10 +87,12 @@ else:
 if args.verbose:
     print('pruning source samples so they lie within [%.3f, %.3f)'%tuple(args.prior_bounds))
 N = len(srcdata)
-srcdata, weights = utils.prune(data, [args.prior_bounds], weights=weights)
+srcdata, weights = utils.prune(srcdata, [args.prior_bounds], weights=weights)
 weights /= np.sum(weights)
 if args.verbose:
     print('retained %d / %d samples'%(len(srcdata), N))
+
+srcdata = srcdata.flatten() ### make this a 1-D array
 
 #------------------------
 
@@ -120,7 +121,7 @@ if args.do_not_log_output_weights:
 #------------------------------------------------
 
 if args.verbose:
-    print('writing results with weight-column=%s into: %s'(args.output_weight_column, args.output))
+    print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
 
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(args.output, 'w') as file_obj:

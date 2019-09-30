@@ -382,6 +382,7 @@ def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE
     logcdfs = np.log(np.interp(local_samples, data, cweights) - np.interp(bounds[0], data, cweights))
 
     ### add the prior volume correction
+    ### NOTE: we assume flat priors implicitly! really, this should be an integral over the (non-trivial) prior distribution
     if direction=='increasing':
         logcdfs -= np.log(local_samples - bounds[0])
     elif direction=='decreasing':
