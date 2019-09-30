@@ -24,8 +24,8 @@ parser.add_argument('source_column', type=str,
     help='the column name within source_samples.csv')
 parser.add_argument('target_column', type=str,
     help='the column name in target_samples.csv up to which we integrate the source sample\'s cumulative distribution to obtain the weight')
-parser.add_argument('prior_extremum', type=float,
-    help='the prior bound used to complete the integral. The precise meaning (whether a minimum or maximum bound) depends on --cumulative-integral-dirction')
+parser.add_argument('prior_bounds', nargs=2, type=float,
+    help='the prior bound used to complete the integral.')
 
 parser.add_argument('--cumulative-integral-direction', default=utils.DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, type=str,
     help='must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS)))
@@ -84,6 +84,15 @@ else:
     N = len(srcdata)
     weights = np.ones(N, dtype=float)/N
 
+### prune source by prior bounds
+if args.verbose:
+    print('pruning source samples so they lie within [%.3f, %.3f)'%tuple(args.prior_bounds))
+N = len(srcdata)
+srcdata, weights = utils.prune(data, [args.prior_bounds], weights=weights)
+weights /= np.sum(weights)
+if args.verbose:
+    print('retained %d / %d samples'%(len(srcdata), N))
+
 #------------------------
 
 ### read in target samples
@@ -100,7 +109,7 @@ if args.verbose:
 logcdf = utils.logcdf(
     tgtdata[:,tgtcolumns.index(args.target_column)],
     srcdata,
-    args.prior_extremum,
+    args.prior_bounds,
     weights=weights,
     direction=args.cumulative_integral_direction,
     num_proc=args.num_proc
