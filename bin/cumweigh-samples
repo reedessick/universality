@@ -24,8 +24,6 @@ parser.add_argument('source_column', type=str,
     help='the column name within source_samples.csv')
 parser.add_argument('target_column', type=str,
     help='the column name in target_samples.csv up to which we integrate the source sample\'s cumulative distribution to obtain the weight')
-parser.add_argument('prior_extremum', type=float,
-    help='the prior bound used to complete the integral. The precise meaning (whether a minimum or maximum bound) depends on --cumulative-integral-dirction')
 
 parser.add_argument('--cumulative-integral-direction', default=utils.DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, type=str,
     help='must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS)))
@@ -100,7 +98,6 @@ if args.verbose:
 logcdf = utils.logcdf(
     tgtdata[:,tgtcolumns.index(args.target_column)],
     srcdata,
-    args.prior_extremum,
     weights=weights,
     direction=args.cumulative_integral_direction,
     num_proc=args.num_proc
@@ -111,7 +108,7 @@ if args.do_not_log_output_weights:
 #------------------------------------------------
 
 if args.verbose:
-    print('writing results with weight-column=%s into: %s'(args.output_weight_column, args.output))
+    print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
 
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(args.output, 'w') as file_obj:
