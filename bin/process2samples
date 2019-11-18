@@ -95,7 +95,7 @@ else:
 
 loadcolumns = [args.reference]+args.columns
 refind = loadcolumns.index(args.reference)
-path_template = os.path.join(args.eos_dir, args.eos_basename)
+path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
 for i, eos in enumerate(data):
     path = path_template%{'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
