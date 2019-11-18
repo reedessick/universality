@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = "generate samples from a set of weighted EOS (a process)"
+__doc__ = "generate samples from a set of EOS (a process)"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -26,11 +26,14 @@ rgroup.add_argument('outpath', type=str)
 rgroup.add_argument('reference', type=str,
     help='the reference column')
 rgroup.add_argument('columns', nargs='+', type=str,
-    help='columns to plot')
+    help='columns to extract')
 
 rgroup.add_argument('-r', '--reference-value', required=True, default=[], type=float, action='append',
     help='the reference values at which we extract values from the EOS parameters. \
 DEFAULT=[]')
+
+rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
+    help='copy over the values from this column')
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -40,9 +43,6 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-sgroup.add_argument('--weight-column', default=[], type=str, action='append',
-    help='if provided, thie numerical values from this column will be used as weights')
-sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -58,6 +58,7 @@ args = parser.parse_args()
 ### finish parsing
 Ncol = len(args.columns)
 Nref = len(args.reference_value)
+Nkeep = len(args.copy_column)
 args.reference_value.sort()
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
@@ -69,29 +70,18 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+keep = data[:,1:] ### the stuff we want to transfer over to the final file
 data = data[:,0]
 N = len(data)
-
-if args.weight_column:
-    if args.verbose:
-        print('reading in non-trivial weights from: '+args.inpath)
-    logweights = utils.load_logweights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
-
-else:
-    logweights = np.log(np.ones(N, dtype=float)/N)
 
 #------------------------
 
 if args.verbose:
     print('extacting data at reference values')
 
-if args.weight_column is not None:
-    ans = np.empty((N, Nref*Ncol+1), dtype=float)
-    ans[:,-1] = logweights
-
-else:
-    ans = np.empty((N, Nref*Ncol), dtype=float)
+ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
+ans[:,:Nkeep] = keep ### fill in existing data
 
 loadcolumns = [args.reference]+args.columns
 refind = loadcolumns.index(args.reference)
@@ -104,14 +94,12 @@ for i, eos in enumerate(data):
     d, c = utils.load(path, loadcolumns)
 
     for j, column in enumerate(c[1:]):
-        ans[i,j*Nref:(j+1)*Nref] = np.interp(args.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
+        ans[i,Nkeep+j*Nref:Nkeep+(j+1)*Nref] = np.interp(args.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
 
 col_template = '%s(%s=%s)'
-outcols = []
+outcols = [col for col in args.copy_column]
 for column in args.columns:
     outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
-if args.weight_column is not None:
-    outcols.append('logweight')
 
 #------------------------
 
