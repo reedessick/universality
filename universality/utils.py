@@ -447,7 +447,7 @@ def reflect(data, bounds, weights=None):
     for i in xrange(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
         if bounds[i] is None:
             continue
-
+        
         # figure out how big the new array will be and create it
         Nsamp = len(d)
         twoNsamp = 2*Nsamp
@@ -484,7 +484,7 @@ def logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     shape = samples.shape
     if len(shape) not in [1, 2]:
-        raise ValueError, 'bad shape for samples'
+        raise ValueError('bad shape for samples')
 
     if len(shape)==1:
         Nsamp = shape[0]
@@ -558,7 +558,7 @@ def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PRO
     shape = samples.shape
     grad_logkdes = np.empty(shape, dtype=float)
     if len(shape) not in [1, 2]:
-        raise ValueError, 'bad shape for samples'
+        raise ValueError('bad shape for samples')
 
     if len(shape)==1:
         Nsamp = shape[0]
@@ -620,7 +620,7 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
            if np.all(x==0):
                 grad_logkdes[i] = 0 ### this is the appropriate limit here
            else:
-                raise Warning, 'something bad happened with your estimate of the gradient in logleave1outLikelihood'
+                raise Warning('something bad happened with your estimate of the gradient in logleave1outLikelihood')
         else:
             grad_logkdes[i] = twov + x/y
 

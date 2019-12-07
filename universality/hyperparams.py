@@ -185,9 +185,9 @@ def _logLike_worker(f_obs, x_obs, SIGMA, L, SIGMA_NOISE, degree, temperature=DEF
 def logLike_grid(
         f_obs,
         x_obs,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
         num_sigma=gp.DEFAULT_NUM,
         num_l=gp.DEFAULT_NUM,
         num_sigma_obs=gp.DEFAULT_NUM,
@@ -202,6 +202,10 @@ def logLike_grid(
     compute logLike on a grid and return "samples" with associated logLike values corresponding to each grid point
     We space points logarithmically for sigma and sigma_obs, linearly for l
     '''
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+
     ### compute grid
     sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
     l = param_grid(min_l, max_l, size=num_l, prior=l_prior)
@@ -248,9 +252,9 @@ def logLike_grid(
 def logLike_mc(
         f_obs,
         x_obs,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
         num_samples=gp.DEFAULT_NUM,
         sigma_prior='log',
         sigma_obs_prior='log',
@@ -262,6 +266,10 @@ def logLike_mc(
     '''
     draw samples from priors and return associated logLikes
     '''
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+
     ### draw hyperparameters from hyperpriors
     SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
     L = param_mc(min_l, max_l, size=num_samples, prior=l_prior)
@@ -300,9 +308,9 @@ def logLike_mc(
 def logLike_mcmc(
         f_obs,
         x_obs,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
         num_samples=gp.DEFAULT_NUM,
         num_walkers=DEFAULT_NUM_WALKERS,
         sigma_prior='log',
@@ -315,6 +323,10 @@ def logLike_mcmc(
     draw samples from the target distribution defined by logLike using emcee
     return samples with associated values of logLike
     '''
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+
     if emcee is None:
         raise ImportError('could not import emcee')
 
@@ -323,21 +335,21 @@ def logLike_mcmc(
     elif sigma_prior=='lin':
         ln_sigma_prior = lambda sigma: 0 if min_sigma<sigma<max_sigma else -np.infty
     else: 
-        raise ValueError, 'unkown sigma_prior='+sigma_prior
+        raise ValueError('unkown sigma_prior='+sigma_prior)
 
     if l_prior=='log':
         ln_l_prior = lambda l: 1./l if min_l<l<max_l else -np.infty
     elif l_prior=='lin':
         ln_l_prior = lambda l: 0 if min_l<l<max_l else -np.infty
     else:
-        raise ValueError, 'unkown l_prior='+l_prior
+        raise ValueError('unkown l_prior='+l_prior)
 
     if sigma_obs_prior=='log':
         ln_sigma_obs_prior = lambda sigma_obs: 1./sigma_obs if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
     elif sigma_obs_prior=='lin':
         ln_sigma_obs_prior = lambda sigma_obs: 0 if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
     else:
-        raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
+        raise ValueError('unkown sigma_obs_prior='+sigma_obs_prior)
 
     beta = 1./temperature
     foo = lambda args: gp.logLike(f_obs, x_obs, sigma2=args[0]**2, l2=args[1]**2, sigma2_obs=args[2]**2, degree=1)*beta \
@@ -368,9 +380,9 @@ def logLike_mcmc(
 def logLike_maxL(
         f_obs,
         x_obs,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
         method=DEFAULT_METHOD,
         tol=DEFAULT_TOL,
         degree=1,
@@ -379,6 +391,10 @@ def logLike_maxL(
     find the maximum logLikelihood as a function of hyperparamters.
     return a single "sample" with associated logLike
     '''
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+
     if optimize is None:
         raise ImportError('could not import scipy.optimize')
 
@@ -548,10 +564,10 @@ def _cvlogprob(keep_bools, x_obs, f_obs, covs, covs_model, invcov, S2, m2, degre
 def cvlogLike_grid(
         models,
         stitch,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
-        (min_model_multiplier, max_model_multiplier),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
+        min_model_multiplierANDmax_model_multiplier,
         num_sigma=gp.DEFAULT_NUM,
         num_l=gp.DEFAULT_NUM,
         num_sigma_obs=gp.DEFAULT_NUM,
@@ -567,6 +583,11 @@ def cvlogLike_grid(
         diagonal_model_covariance=False,
         verbose=False,
     ):
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+    min_model_multiplier, max_model_multiplier = min_model_multiplierANDmax_model_multiplier
+
     ### compute grid
     sigma = param_grid(min_sigma, max_sigma, size=num_sigma, prior=sigma_prior)
     l = param_grid(min_l, max_l, size=num_l, prior=l_prior)
@@ -615,10 +636,10 @@ def cvlogLike_grid(
 def cvlogLike_mc(
         models,
         stitch,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
-        (min_model_multiplier, max_model_multiplier),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
+        min_model_multiplierANDmax_model_multiplier,
         num_samples=gp.DEFAULT_NUM,
         sigma_prior='log',
         sigma_obs_prior='log',
@@ -631,6 +652,12 @@ def cvlogLike_mc(
         diagonal_model_covariance=False,
         verbose=False,
     ):
+
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+    min_model_multiplier, max_model_multiplier = min_model_multiplierANDmax_model_multiplier
+
     ### draw hyperparameters from hyperpriors
     SIGMA = param_mc(min_sigma, max_sigma, size=num_samples, prior=sigma_prior)
     L = param_mc(min_l, max_l, size=num_samples, prior=l_prior)
@@ -671,10 +698,10 @@ def cvlogLike_mc(
 def cvlogLike_mcmc(
         models,
         stitch,
-        (min_sigma, max_sigma),
-        (min_l, max_l),
-        (min_sigma_obs, max_sigma_obs),
-        (min_model_multiplier, max_model_multiplier),
+        min_sigmaANDmax_sigma,
+        min_lANDmax_l,
+        min_sigma_obsANDmax_sigma_obs,
+        min_model_multiplierANDmax_model_multiplier,
         num_samples=gp.DEFAULT_NUM,
         num_walkers=DEFAULT_NUM_WALKERS,
         sigma_prior='log',
@@ -686,6 +713,12 @@ def cvlogLike_mcmc(
         slow=False,
         diagonal_model_covariance=False,
     ):
+
+    min_sigma, max_sigma = min_sigmaANDmax_sigma
+    min_l, max_l = min_lANDmax_l
+    min_sigma_obs, max_sigma_obs = min_sigma_obsANDmax_sigma_obs
+    min_model_multiplier, max_model_multiplier = min_model_multiplierANDmax_model_multiplier
+
     if emcee is None:
         raise ImportError('could not import emcee')
 
@@ -694,28 +727,28 @@ def cvlogLike_mcmc(
     elif sigma_prior=='lin':
         ln_sigma_prior = lambda sigma: 0 if min_sigma<sigma<max_sigma else -np.infty
     else:
-        raise ValueError, 'unkown sigma_prior='+sigma_prior
+        raise ValueError('unkown sigma_prior='+sigma_prior)
 
     if l_prior=='log':
         ln_l_prior = lambda l: 1./l if min_l<l<max_l else -np.infty
     elif l_prior=='lin':
         ln_l_prior = lambda l: 0 if min_l<l<max_l else -np.infty
     else:
-        raise ValueError, 'unkown l_prior='+l_prior
+        raise ValueError('unkown l_prior='+l_prior)
 
     if sigma_obs_prior=='log':
         ln_sigma_obs_prior = lambda sigma_obs: 1./sigma_obs if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
     elif sigma_obs_prior=='lin':
         ln_sigma_obs_prior = lambda sigma_obs: 0 if min_sigma_obs<sigma_obs<max_sigma_obs else -np.infty
     else:
-        raise ValueError, 'unkown sigma_obs_prior='+sigma_obs_prior
+        raise ValueError('unkown sigma_obs_prior='+sigma_obs_prior)
 
     if model_multiplier_prior=='log':
         ln_model_multiplier_prior = lambda m: 1./m if min_model_multiplier<m<max_model_multiplier else -np.infty
     elif model_multiplier_prior=='lin':
         ln_model_multiplier_prior = lambda m: 0 if min_model_multiplier<m<max_model_multiplier else -np.infty
     else:
-        raise ValueError, 'unknown model_multiplier_prior='+model_multiplier_prior
+        raise ValueError('unknown model_multiplier_prior='+model_multiplier_prior)
 
     beta = 1./temperature
     foo = lambda args: _cvlogLike_worker(
