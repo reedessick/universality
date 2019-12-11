@@ -88,6 +88,9 @@ def logLike2weights(logLike):
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------
 
+def column2logcolumn(name):
+    return 'log(%s)'%name
+
 def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = []
     with open(inpath, 'r') as obj:
@@ -125,7 +128,7 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
     for i, col in enumerate(columns):
         if col in logcolumns:
             data[:,i] = np.log(data[:,i])
-            cols.append('log(%s)'%col)
+            cols.append(column2logcolumn(col))
         else:
             cols.append(col)
 
@@ -227,7 +230,8 @@ def sum_log(logweights):
         return -np.infty
     return np.log(np.sum(np.exp(logweights-m))) + m
 
-def check_columns(present, required):
+def check_columns(present, required, logcolumns=[]):
+    required = [column2logcolumn(column) if column in logcolumns else column for column in required]
     for column in required:
         assert column in present, 'required column=%s is missing!'%column
 

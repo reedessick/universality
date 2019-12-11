@@ -107,7 +107,7 @@ if args.reflect:
 if args.verbose:
     print("reading in target samples from: "+args.target)
 tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
-utils.check_columns(tgtcolumns, args.columns) ### make sure we have the columns we need to
+utils.check_columns(tgtcolumns, args.columns, logcolumns=args.logcolumn) ### make sure we have the columns we need to
 
 if len(tgtdata): ### we need to weigh things
 
