@@ -140,6 +140,13 @@ if args.do_not_log_output_weights:
 if args.verbose:
     print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
 
+### undo logcolumn formatting if needed
+for column in args.logcolumn:
+    i = tgtcolumns.index(utils.column2logcolumn(column))
+    tgtdata[:,i] = np.exp(tgtdata[:,i])
+    tgtcolumns[i] = column
+
+### now actually write stuff to disk
 template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
 with open(args.output, 'w') as file_obj:
     print >> file_obj, ','.join(tgtcolumns+[args.output_weight_column])
