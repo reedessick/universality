@@ -223,7 +223,6 @@ for ind, (label, path) in enumerate(args.samples):
         data, means, stds = utils.whiten(data, verbose=args.verbose)
         ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
         truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
-        ref = [np.array([(r[:,i]-m)/s for i, (m, s) in enumerate(zip(means, stds))]) for r in refs]
 
     if weight_columns[label][0]:
         if args.verbose:
@@ -277,6 +276,9 @@ for i, (label, path) in enumerate(args.reference):
     if args.verbose:
         print('reading reference curve from: '+path)
     data, _ = utils.load(path, args.columns, logcolumns=args.logcolumn)
+    if args.whiten:
+        for i, (m, s) in enumerate(zip(means, stds)):
+            data[i,:] = (data[:,i]-m)/s
 
     if args.verbose:
        print('plotting')
