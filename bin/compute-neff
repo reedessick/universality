@@ -54,7 +54,7 @@ if args.prune:
 print(HEAD)
 for inpath in args.samples:
     if not os.path.exists(inpath):
-        if opts.verbose:
+        if args.verbose:
             print(WARNING%inpath)
         continue ### just skip crap that doesn't exist...
 
