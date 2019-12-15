@@ -42,6 +42,10 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
 sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('-w', '--weight-column', default=[], type=str, action='append',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+sgroup.add_argument('-W', '--weight-column-is-log', default=[], type=str, action='append',
+    help='the column for samples for which this is true')
 
 # workflow argumnets
 wgroup = parser.add_argument_group('workflow arguments')
@@ -64,15 +68,10 @@ lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
 args = parser.parse_args()
 
 ### finish parsing
-Ncol = len(args.columns)
-
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
 
 args.verbose |= args.Verbose
-
-if args.quantile_type not in ['sym', 'hpd']:
-    raise ValueError('could not understand --quantile-type="%s", please specify either "sym" or "hpd".'%args.quantile_type)
 
 if not args.quantile:
     args.quantile = np.linspace(0, 1., 101)
@@ -84,8 +83,7 @@ Nquantiles = len(args.quantile)
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
-data = data[:,0]
+data, cols = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
 
 if args.weight_column:
     if args.verbose:
@@ -121,7 +119,7 @@ if args.verbose:
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans = np.empty((Nquantiles, 1+num_points), dtype=float
+ans = np.empty((Nquantiles, 1+args.num_points), dtype=float)
 ans[:,0] = args.quantile
 ans[:,1:], _ = utils.process2quantiles(
     data,
