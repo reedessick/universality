@@ -19,29 +19,58 @@ from universality import stats
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('inpath1', type=str)
-parser.add_argument('weight1_column', type=str, nargs='+')
-parser.add_argument('inpath2', type=str)
-parser.add_argument('weight2_column', type=str, nargs='+')
+parser.add_argument('-s', '--samples', nargs=2, default=[], type=str, action='append')
+parser.add_argument('--weight-column', nargs=2, default=[], type=str, action='append')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
-parser.add_argument('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight1-column-is-log', default=[], type=str, action='append',
-    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
-
-parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
-parser.add_argument('--weight2-column-is-log', default=[], type=str, action='append',
+parser.add_argument('--max-num-samples', nargs=2, default=[], type=str)
+parser.add_argument('--weight-column-is-log', nargs=2, default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
 args = parser.parse_args()
+
+### finish parsing
+assert len(args.samples)==2, 'please supply exactly 2 --samples'
+label1, inpath1 = args.samples[0]
+label2, inpath2 = args.samples[1]
+
+weight1_columns = []
+weight2_columns = []
+for label, col in args.weight_column:
+    if label == label1:
+        weight1_columns.append(col)
+    elif label == label2:
+        weight2_columns.append(col)
+    else:
+        raise ValueError('specifying --weight-column for unknown samples set %s'%label)
+
+logweight1_columns = []
+logweight2_columns = []
+for label, col in args.weight_column_is_log:
+    if label == label1:
+        logweight1_columns.append(col)
+    elif label == label2:
+        logweight2_columns.append(col)
+    else:
+        raise ValueError('specifying --weight-column-is-log for unknown samples set %s'%label)
+
+max_num_samples1 = utils.DEFAULT_MAX_NUM_SAMPLES
+max_num_samples2 = utils.DEFAULT_MAX_NUM_SAMPLES
+for label, num in args.max_num_samples:
+    if label == label1:
+        max_num_samples1 = int(num)
+    elif label == label2:
+        max_num_samples2 = int(num)
+    else:
+        raise ValueError('specifying --max-num-samples for unknown samples set %s'%label)
 
 #-------------------------------------------------
 
 ### read in source samples
 if args.verbose:
-    print('reading samples from: '+args.inpath1)
-weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1, normalize=False)
+    print('reading samples from: '+inpath1)
+weights1 = utils.load_weights(inpath1, weight1_columns, logweightcolumns=logweight1_columns, max_num_samples=max_num_samples1, normalize=False)
 N1 = len(weights1)
 
 if args.verbose:
@@ -49,8 +78,8 @@ if args.verbose:
     print('N1eff = %9.3f'%stats.neff(weights1/np.sum(weights1)))
 
 if args.verbose:
-    print('reading samples from: '+args.inpath2)
-weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2, normalize=False)
+    print('reading samples from: '+inpath2)
+weights2 = utils.load_weights(inpath2, weight2_columns, logweightcolumns=logweight2_columns, max_num_samples=max_num_samples2, normalize=False)
 N2 = len(weights2)
 
 if args.verbose:
@@ -67,5 +96,8 @@ V2 = np.var(weights2)/N2
 
 B = Z1/Z2
 V = (1./Z2)**2 * V1 + (Z1/Z2**2) * V2
+print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label1, label2, B, V**0.5))
 
-print('  B = +%.6e +/- %.6e'%(B, V**0.5))
+B = Z2/Z1
+V = (1./Z1)**2 * V2 + (Z2/Z1**2) * V1
+print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label2, label1, B, V**0.5))
