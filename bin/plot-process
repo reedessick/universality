@@ -6,7 +6,6 @@ __author__ = "reed.essick@ligo.org"
 #-------------------------------------------------
 
 import os
-import glob
 import numpy as np
 
 from collections import defaultdict
@@ -21,13 +20,9 @@ from universality import stats
 #-------------------------------------------------
 
 DEFAULT_EOS_COLUMN = 'EoS'
-#DEFAULT_EOS_DIR = DEFAULT_BNS_DIR = '.'
 DEFAULT_EOS_DIR = '.'
 DEFAULT_EOS_NUM_PER_DIR = 1000
 DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
-#DEFAULT_BNS_BASENAME = 'bns-%d.csv'
-
-#DEFAULT_PREFACTOR = 1.
 
 #-------------------------------------------------
 
@@ -74,11 +69,6 @@ lgroup.add_argument('--eos-num-per-dir', nargs=2, default=[], type=str, action='
     help='a label and a string for the number of samples per directory')
 lgroup.add_argument('--eos-basename', nargs=2, default=[], type=str, action='append',
     help='a label and a string into which the EOS number can be substituted when building filenames. NOTE, we glob for filenames, so if you wish to specify a subdirectory you can just provide the appropriate glob string and pick up everything underneath (useful for macroscopic properies of EOS).')
-
-#lgroup.add_argument('--bns-dir', nargs=2, default=[], type=str, action='append',
-#    help='e.g.: "--bns-dir path/to/directory"')
-#lgroup.add_argument('--bns-basename', nargs=2, default=[], type=str, action='append',
-#    help='a label and a string into which the EOS number can be substituted when building filenames.')
 
 # workflow argumnets
 wgroup = parser.add_argument_group('workflow arguments')
@@ -150,26 +140,6 @@ agroup.add_argument('--signpost', nargs=2, default=[], type=str, action='append'
     help='add markers (vertical/horizontal lines) to denote specific values. e.g.: "baryon_density 2.7e14". Can be repeated')
 agroup.add_argument('--signpost-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 
-#agroup.add_argument('--central-contours', nargs=3, type=str, default=[], action='append',
-#    help='add KDE contours for the central parameters corresponding to this column. Specify this option as a pair of column names: a mapping from the column in the bns file to the matching column in the EoS CSV (used to look up all central values from the EOS). e.g.: label rhoc1 baryon_density')
-#agroup.add_argument('--central-contours-prefactor', nargs=2, default=[], type=str, action='append',
-#    help='multiply the value read from bns file by this number before interpolating data from EOS file. Useful for unit conversion.')
-#agroup.add_argument('--central-contours-color', nargs=2, default=[], action='append', type=str,
-#    help='e.g.: "--central-contours-color label k"')
-
-#agroup.add_argument('--central-contours-level', default=[], type=float, action='append',
-#    help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
-
-#agroup.add_argument('--central-contours-num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
-#    help='the number of points for the KDE grid')
-#agroup.add_argument('--central-contours-no-scatter', default=False, action='store_true',
-#    help='turn off the scatter of central values')
-
-#agroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
-#    help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-#If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
-#parser.add_argument('--central-contours-reflect', default=False, action='store_true')
-
 # ouptut options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -198,17 +168,6 @@ for label, column in args.weight_column:
 for label, column in args.weight_column_is_log:
     assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
     weight_columns[label][1].append(column)
-
-# lookup options
-#bns_dirs = dict((label, DEFAULT_BNS_DIR) for label in names)
-#for label, directory in args.bns_dir:
-#    assert label in names, 'specifying --bns-dir for unknown sample set: '+label
-#    bns_dirs[label] = directory
-
-#bns_basenames = dict((label, DEFAULT_BNS_BASENAME) for label in names)
-#for label, basename in args.bns_basename:
-#    assert label in names, 'specifying --bns-basename for unknown sample set: '+label
-#    bns_basenames[label] = basename
 
 eos_dirs = dict((label, DEFAULT_EOS_DIR) for label in names)
 for label, directory in args.eos_dir:
@@ -266,6 +225,8 @@ if args.quantile_type=='sym':
     quantiles = []
     for q in args.quantile:
         quantiles += [q, (1-q)]
+else:
+    quantiles = args.quantile
 
 Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
@@ -276,32 +237,6 @@ signposts = defaultdict(list)
 for column, value in args.signpost:
     assert column in columns, 'specifying --signpost for unknown column: '+column
     signposts[column].append(float(value))
-
-#bandwidthdict = dict()
-#for column, b in args.column_bandwidth:
-#    assert column in columns, 'specifying --column-bandwidth for unknown column: '+column
-#    bandwidthdict[column] = float(b)
-#variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
-
-#if not args.central_contours_level:
-#    args.central_contours_level = plot.DEFAULT_LEVELS
-#else:
-#    args.central_contours_level.sort()
-
-#central_contours = dict((label, None) for label in names)
-#for label, bnscolumn, eoscolumn in args.central_contours:
-#    assert label in names, 'specifying --central-contours for unknown sample set: '+label
-#    central_contours[label] = bnscolumn, eoscolumn
-
-#central_contours_prefactors = dict((label, DEFAULT_PREFACTOR) for label in names)
-#for label, prefactor in args.central_contours_prefactor:
-#    assert label in names, 'specifying --central-contours-prefactor for unknown sample set: '+label
-#    central_contours_prefactors[label] = float(prefactor)
-
-#central_contours_colors = dict((label, plot.DEFAULT_COLOR2) for label in names)
-#for label, color in args.central_contours_color:
-#    assert label in names, 'specifying --central-contours-color for unknown sample set: '+label
-#    central_contours_colors[label] = color
 
 # output options
 if args.tag:
@@ -376,78 +311,23 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('computing confidence intervals from %d samples'%N)
 
-#    if central_contours[label] is not None:
-#        x_cent[label] = np.empty(N, dtype='float')
-#        y_cent[label] = np.empty(N, dtype='float')
-#        w_cent[label] = weights ### remmber this for convenience later
-#        bnscolumn, eoscolumn = central_contours[label]
-#        bns_temp = os.path.join(bns_dirs[label], bns_basenames[label])
+    qs, med = utils.process2quantiles(
+        data,
+        eos_temps[label],
+        eos_num_per_dir[label],
+        args.xcolumn,
+        args.ycolumn,
+        x_test,
+        quantiles,
+        quantile_type=args.quantile_type,
+        x_multiplier=args.x_multiplier,
+        y_multiplier=args.y_multiplier,
+        weights=weights,
+        verbose=args.Verbose,
+    )
 
-#    y_test = np.empty((N, args.num_points), dtype='float')
-    y_test = [] ### keep this as a list because we don't know how many stable branches there are
-    w_test = []
-    truth = np.empty(args.num_points, dtype=bool) ### used to extract values
-
-    eos_temp = eos_temps[label]
-    eos_mod = eos_num_per_dir[label]
-
-    for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
-        for eos_path in glob.glob(eos_temp%{'moddraw':eos//eos_mod, 'draw':eos}):
-            if args.Verbose:
-                print('    '+eos_path)
-            d, _ = utils.load(eos_path, columns)
-
-            d[:,0] *= args.x_multiplier
-            d[:,1] *= args.y_multiplier
-
-#        if central_contours[label] is not None:
-#            bns_path = bns_temp%eos
-#            if args.Verbose:
-#                print('    '+bns_path)
-#            with open(bns_path, 'r') as obj: ### hacky, but solves the problem at hand...
-#                cols = obj.readline().strip().split(',')
-#                cent = float(obj.readline().strip().split(',')[cols.index(bnscolumn)])*central_contours_prefactors[label]
-#
-#            x_cent[label][i] = np.interp(cent, d[:,2], d[:,0]) ### interpolate to find the relevant values for our plot
-#            y_cent[label][i] = np.interp(cent, d[:,2], d[:,1])
-
-            _y = np.empty(args.num_points, dtype=float)
-            _y[:] = np.nan ### signal that nothing was available at this x-value
-
-            truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
-            _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
-
-            y_test.append( _y ) ### add to the total list
-            w_test.append( weight )
-
-    if len(y_test)==0:
-        raise RuntimeError('could not find any files matching "%s"'%eos_temp)
-
-    y_test = np.array(y_test) ### cast to an array
-    w_test = np.array(w_test)
-
-    ### compute the quantiles
-    for i in xrange(args.num_points):
-
-        _y = y_test[:,i]
-        truth = _y==_y
-        _y = _y[truth] ### only keep things that are not nan
-        _w = w_test[truth]
-
-        if args.quantile_type=="sym":
-            y[ind,:,i] = stats.quantile(_y, quantiles, weights=_w)     ### compute quantiles
-
-        elif args.quantile_type=="hpd":
-
-            ### FIXME: the following returns bounds on a contiguous hpd interval, which is not necessarily what we want...
-
-            bounds = stats.samples2crbounds(_y, quantiles, weights=_w) ### get the bounds
-            y[ind,:,i] = np.array(bounds).flatten()
- 
-        else:
-            raise ValueError('did not understand --quantile-type=%s'%args.quantile_type)
-
-        y_median[ind,i] = stats.quantile(_y, [0.5], weights=_w)[0] ### compute median
+    y[ind,:,:] = qs
+    y_median[ind,:] = med
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -568,75 +448,6 @@ if args.residuals or args.ratios:
         ax_res.set_ylim(ymin=args.res_ymin)
     if args.res_ymax is not None:
         ax_res.set_ylim(ymax=args.res_ymax)
-
-### add central contours
-#for label in names:
-#    if central_contours[label] is None:
-#        continue
-#
-#    m, M = utils.data2range(x_cent[label])
-#    if args.xcolumn in args.logcolumn:
-#        xbounds = (max(np.log10(args.xmin), m), min(np.log10(args.xmax), M))
-#    else:
-#        xbounds = (max(args.xmin, m), min(args.xmax, M))
-#
-#    ymin, ymax = ax.get_ylim()
-#    m, M = utils.data2range(y_cent[label])
-#    if args.ycolumn in args.logcolumn:
-#        ybounds = (max(np.log10(ymin), m), min(np.log10(ymax), M))
-#    else:
-#        ybounds = (max(ymin, m), min(ymax, M))
-#
-#    data_cent = np.array(zip(x_cent[label], y_cent[label]))
-#    bounds = [xbounds, ybounds]
-#    data_cent, weights_cent = utils.prune(data_cent, bounds, weights=w_cent[label])
-#    if args.central_contours_reflect:
-#        data_cent, weights_cent = utils.reflect(data_cent, bounds, weights=weights_cent)
-#    x = data_cent[:,0]
-#    y = data_cent[:,1]
-#
-#    xvect = np.linspace(xbounds[0], xbounds[1], args.central_contours_num_points)
-#    dxvect = xvect[1]-xvect[0]
-#    yvect = np.linspace(ybounds[0], ybounds[1], args.central_contours_num_points)
-#    dyvect = yvect[1]-yvect[0]
-#
-#    if args.Verbose:
-#        print("computing central kde for "+label)
-#    kde = utils.logkde(
-#        utils.vects2flatgrid(xvect, yvect),
-#        data_cent,
-#        variances,
-#        weights=weights_cent,
-#    )
-#    kde = np.exp(kde-np.max(kde)).reshape((args.central_contours_num_points, args.central_contours_num_points))
-#    kde /= np.sum(kde)*dxvect*dyvect # normalize kde
-#
-#    thrs = np.exp(plot.logkde2levels(np.log(kde), args.central_contours_level))
-#
-#    if args.xcolumn in args.logcolumn:
-#        xvect = 10**xvect
-#        x = 10**x
-#
-#    if args.ycolumn in args.logcolumn:
-#        yvect = 10**yvect
-#        y = 10**y
-#
-#    ax.contour(xvect, yvect, kde.transpose(), colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-#    if not args.central_contours_no_scatter:
-#        scatter_color=plot.weights2color(weights_cent, central_contours_colors[label])
-#        ax.scatter(x, y, marker='o', s=2, color=scatter_color)
-#
-#    if args.residuals or args.ratios:
-#        xvect, yvect = np.meshgrid(xvect, yvect, indexing='ij')
-#        if args.residuals:
-#            ax_res.contour(xvect, yvect-np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-#            if not args.central_contours_no_scatter:
-#                ax_res.scatter(x, y-np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
-#
-#        elif args.ratios:
-#            ax_res.contour(xvect, yvect/np.interp(xvect, x_test, y_reference), kde, colors=central_contours_colors[label], alpha=0.5, levels=thrs)
-#            if not args.central_contours_no_scatter:
-#                ax_res.scatter(x, y/np.interp(x, x_test, y_reference), marker='o', s=2, color=scatter_color)
 
 ### add signposts
 ylim = ax.get_ylim()

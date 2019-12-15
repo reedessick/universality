@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+
+__doc__ = "generate quantiles from a set of EOS (a process)"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('xcolumn', type=str,
+    help='the reference column')
+rgroup.add_argument('ycolumn', type=str,
+    help='columns to extract')
+
+rgroup.add_argument('xmin', type=float)
+rgroup.add_argument('xmax', type=float)
+
+rgroup.add_argument('--quantile', default=[], type=float, action='append',
+    help='generate these quantiles. DEFAULT is each percentile between 0 and 100.')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+# workflow argumnets
+wgroup = parser.add_argument_group('workflow arguments')
+wgroup.add_argument('--num-points', default=101, type=int,
+    help='the number of interpolation points used when plotting')
+wgroup.add_argument('-l', '--logcolumn', default=[], type=str, action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+# lookup arguments
+lgroup = parser.add_argument_group('look-up arguments')
+lgroup.add_argument('--eos-column', default='EoS', type=str)
+lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
+lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames.')
+
+args = parser.parse_args()
+
+### finish parsing
+Ncol = len(args.columns)
+
+if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
+    os.makedirs(os.path.dirname(args.outpath))
+
+args.verbose |= args.Verbose
+
+if args.quantile_type not in ['sym', 'hpd']:
+    raise ValueError('could not understand --quantile-type="%s", please specify either "sym" or "hpd".'%args.quantile_type)
+
+if not args.quantile:
+    args.quantile = np.linspace(0, 1., 101)
+else:
+    args.quantile.sort()
+Nquantiles = len(args.quantile)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+data = data[:,0]
+
+if args.weight_column:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.inpath)
+    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+
+else:
+    N = len(data)
+    weights = np.ones(N, dtype=float)/N
+
+### marginalize to avoid reading in the same EOS more than once
+if args.verbose:
+    print('marginalizing samples to avoid repeated work reading the same EoS multiple times')
+data, cols = utils.marginalize(data, np.log(weights), cols)
+weights = utils.exp_weights(data[:,cols.index('logmargweight')])
+data = data[:,0]
+
+### prune samples to get rid of vanishing weights
+truth = weights > 0
+data = data[truth]
+weights = weights[truth]
+N = len(data)
+
+#------------------------
+
+if args.xcolumn in args.logcolumn:
+    x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
+else:
+    x_test = np.linspace(args.xmin, args.xmax, args.num_points)
+
+if args.verbose:
+    print('extacting data and computing quantiles')
+
+path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+
+ans = np.empty((Nquantiles, 1+num_points), dtype=float
+ans[:,0] = args.quantile
+ans[:,1:], _ = utils.process2quantiles(
+    data,
+    path_template,
+    args.eos_num_per_dir,
+    args.xcolumn,
+    args.ycolumn,
+    x_test,
+    args.quantile,
+    quantile_type='sym',
+    weights=weights,
+    verbose=args.Verbose,
+)
+
+col_template = args.ycolumn+'('+args.xcolumn+'=%s)'
+outcols = ['quantile'] + [col_template%val for val in x_test]
+
+#------------------------
+
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+np.savetxt(args.outpath, ans, comments='', delimiter=',', header=','.join(outcols))

@@ -83,18 +83,17 @@ if args.verbose:
 ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
 ans[:,:Nkeep] = keep ### fill in existing data
 
-loadcolumns = [args.reference]+args.columns
-refind = loadcolumns.index(args.reference)
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-for i, eos in enumerate(data):
-    path = path_template%{'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
-    if args.Verbose:
-        print('    '+path)
-    d, c = utils.load(path, loadcolumns)
-
-    for j, column in enumerate(c[1:]):
-        ans[i,Nkeep+j*Nref:Nkeep+(j+1)*Nref] = np.interp(args.reference_value, d[:,refind], d[:,loadcolumns.index(column)])
+ans[:,Nkeep:] = utils.process2samples(
+    data,
+    path_template,
+    args.eos_num_per_dir,
+    xcolumn,
+    ycolumns,
+    args.reference_value,
+    verbose=args.Verbose,
+)
 
 col_template = '%s(%s=%s)'
 outcols = [col for col in args.copy_column]
