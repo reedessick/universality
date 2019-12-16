@@ -54,6 +54,7 @@ parser.add_argument('--weight-column-is-log', default=[], type=str, action='appe
 parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
 
+parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
 
@@ -141,92 +142,93 @@ for b in args.bandwidth:
 #------------------------
 ### generate plots/visualizations representing results
 
-if args.verbose:
-    print('plotting')
-
-#--- likelihood vs bandwidth
-if args.verbose:
-    print('bandwidth vs logLikelihood')
-
-fig = plot.plt.figure()
-ax_logL = plot.plt.subplot(2,1,1)
-ax_glogL = plot.plt.subplot(2,1,2)
-
-#norm = Nsamp**-0.5 ### normalization for how I expect the std to scale
-                   ### we compute it based on single-event validation sets, and we have Nsamp of those
-# plot results for each bandwidth
-for b in args.bandwidth:
-   d = metrics[b]
-   mlogL = d['mean_logL']
-   slogL = d['stdv_logL']#*norm
-   mglogL = d['mean_dlogLdlogb']
-   sglogL = d['stdv_dlogLdlogb']#*norm
-
-   color = ax_logL.semilogx([b]*2, [mlogL-slogL, mlogL+slogL], alpha=0.75)[0].get_color()
-   ax_logL.semilogx(b, mlogL, marker='o', color=color)
-
-   ax_glogL.semilogx([b]*2, [mglogL-sglogL, mglogL+sglogL], alpha=0.75, color=color)
-   ax_glogL.semilogx([b], mglogL, marker='o', color=color)
-
-# decorate
-xlim = args.bandwidth[0]/1.1, args.bandwidth[-1]*1.1
-for ax in [ax_logL, ax_glogL]:
-    ax.set_xlim(xlim)
-    ax.grid(True, which='both')
-
-#ymin, ymax = ax_logL.get_ylim()
-#ax_logL.set_ylim(ymin=ymin-0.5, ymax=ymax+0.5)
-
-#ymin, ymax = ax_glogL.get_ylim()
-#ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
-
-plot.plt.setp(ax_logL.get_xticklabels(), visible=False)
-ax_glogL.set_xlabel('$\log b$')
-
-ax_logL.set_ylabel('$\log L$')
-ax_glogL.set_ylabel(r'$\left.d \log L\right/d \log b$')
-
-# save
-figname = os.path.join(args.output_dir, 'investigate_bandwidth-logLike%s.png'%args.tag)
-if args.verbose:
-    print('saving: '+figname)
-fig.savefig(figname)
-plot.close(fig)
-
-#--- visualization of resulting KDEs...
-if args.verbose:
-    print('visualization of KDE for each bandwidth')
-
-vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in xrange(Ncol)])
-bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
-
-N = len(data)
-Nbins = max(10, int(N**0.5)/2)
-v = np.empty(Ncol, dtype='float')
-
-shape = (args.num_points, args.num_points) # used to reshape 2D sampling kdes
-
-for b in args.bandwidth:
-    v[:] = b
-
-    # actually generate figure
+if args.plot:
     if args.verbose:
-        print('  plotting')
-    fig = plot.kde_corner(
-        data,
-        bandwidths=v,
-        range=bounds,
-        weights=weights,
-        hist1D=True,
-        verbose=args.Verbose,
-    )
+        print('plotting')
 
-    # further decorate
-    fig.suptitle('$b=%.3e$'%b)
+    #--- likelihood vs bandwidth
+    if args.verbose:
+        print('bandwidth vs logLikelihood')
+
+    fig = plot.plt.figure()
+    ax_logL = plot.plt.subplot(2,1,1)
+    ax_glogL = plot.plt.subplot(2,1,2)
+
+    #norm = Nsamp**-0.5 ### normalization for how I expect the std to scale
+                       ### we compute it based on single-event validation sets, and we have Nsamp of those
+    # plot results for each bandwidth
+    for b in args.bandwidth:
+       d = metrics[b]
+       mlogL = d['mean_logL']
+       slogL = d['stdv_logL']#*norm
+       mglogL = d['mean_dlogLdlogb']
+       sglogL = d['stdv_dlogLdlogb']#*norm
+    
+       color = ax_logL.semilogx([b]*2, [mlogL-slogL, mlogL+slogL], alpha=0.75)[0].get_color()
+       ax_logL.semilogx(b, mlogL, marker='o', color=color)
+    
+       ax_glogL.semilogx([b]*2, [mglogL-sglogL, mglogL+sglogL], alpha=0.75, color=color)
+       ax_glogL.semilogx([b], mglogL, marker='o', color=color)
+
+    # decorate
+    xlim = args.bandwidth[0]/1.1, args.bandwidth[-1]*1.1
+    for ax in [ax_logL, ax_glogL]:
+        ax.set_xlim(xlim)
+        ax.grid(True, which='both')
+
+    #ymin, ymax = ax_logL.get_ylim()
+    #ax_logL.set_ylim(ymin=ymin-0.5, ymax=ymax+0.5)
+
+    #ymin, ymax = ax_glogL.get_ylim()
+    #ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
+
+    plot.plt.setp(ax_logL.get_xticklabels(), visible=False)
+    ax_glogL.set_xlabel('$\log b$')
+
+    ax_logL.set_ylabel('$\log L$')
+    ax_glogL.set_ylabel(r'$\left.d \log L\right/d \log b$')
 
     # save
-    figname = os.path.join(args.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, args.tag))
+    figname = os.path.join(args.output_dir, 'investigate_bandwidth-logLike%s.png'%args.tag)
     if args.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
     plot.close(fig)
+
+    #--- visualization of resulting KDEs...
+    if args.verbose:
+        print('visualization of KDE for each bandwidth')
+
+    vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in xrange(Ncol)])
+    bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
+
+    N = len(data)
+    Nbins = max(10, int(N**0.5)/2)
+    v = np.empty(Ncol, dtype='float')
+    
+    shape = (args.num_points, args.num_points) # used to reshape 2D sampling kdes
+    
+    for b in args.bandwidth:
+        v[:] = b
+    
+        # actually generate figure
+        if args.verbose:
+            print('  plotting')
+        fig = plot.kde_corner(
+            data,
+            bandwidths=v,
+            range=bounds,
+            weights=weights,
+            hist1D=True,
+            verbose=args.Verbose,
+        )
+    
+        # further decorate
+        fig.suptitle('$b=%.3e$'%b)
+    
+        # save
+        figname = os.path.join(args.output_dir, 'investigate_bandwidth-kde-%.3e%s.png'%(b, args.tag))
+        if args.verbose:
+            print('saving: '+figname)
+        fig.savefig(figname)
+        plot.close(fig)
