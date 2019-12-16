@@ -877,23 +877,24 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
         truth[sets[i]] = False
 
         ### compute logLikelihood
-        logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc))
+        ### take the joint kde (sum of logs) and weight it by the joint weights of all points within that set (product of weights)
+        logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc)) - np.log(np.sum(weights[truth]))
 
         ### compute gradient of logLikelihood
 #        grad_logL[i,:] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc), axis=0)
 
-    ### add in constant terms to logL
-    logL -= np.log(Nsets-1) ### take the average as needed
-
     ### compute statistics
-    mlogL = np.mean(weights*logL) # scalar
-    vlogL = np.var(weights*logL)  # scalar
+    set_weights = np.array([np.prod(weights[sets[i]]) for i in xrange(Nsets)], dtype=float) ### compute the cumulative weights for each set
+    set_weights /= np.sum(set_weights)
+
+    mlogL = np.sum(set_weights*logL) # scalar
+    vlogL = (np.sum(set_weights*logL**2) - mlogL**2) / Nsets # scalar
 
 #    mglogL = np.mean(weights*grad_logL.transpose(), axis=1)  # vector: (Ndim,)
 #    vglogL = np.cov(weights*grad_logL.transpose(), rowvar=1) # matrix: (Ndim, Ndim)
 
 #    return mlogL, vlogL, mglogL, vglogL
-    return mlogL, vlogL, None, None
+    return mlogL, vlogL, 0, 0
 
 #-------------------------------------------------
 
