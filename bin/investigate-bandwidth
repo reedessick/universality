@@ -183,7 +183,7 @@ if args.plot:
     #ax_glogL.set_ylim(ymin=ymin-0.1, ymax=ymax+0.1)
 
     plot.plt.setp(ax_logL.get_xticklabels(), visible=False)
-    ax_glogL.set_xlabel('$\log b$')
+    ax_glogL.set_xlabel('$b$')
 
     ax_logL.set_ylabel('$\log L$')
     ax_glogL.set_ylabel(r'$\left.d \log L\right/d \log b$')
