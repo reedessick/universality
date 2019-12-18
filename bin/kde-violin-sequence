@@ -31,11 +31,19 @@ parser.add_argument('--column-truth', default=None, type=float)
 
 parser.add_argument('--level', default=[], action='append', type=float,
     help='confidence levels for highest-probability-density credible regions')
+parser.add_argument('--level-linestyle', default='dashed', type=str)
+parser.add_argument('--filled', default=False, action='store_true')
+parser.add_argument('--alpha', default=0.25, type=float,
+    help='used to when filling between confidence levels')
+parser.add_argument('--no-violin', default=False, action='store_true')
 
 parser.add_argument('-s', '--samples', nargs=2, type=str, default=[], action='append')
 parser.add_argument('--x-value', nargs=2, default=[], type=str, action='append',
     help='specify the x-value at which to center the data for this samples set. \
 If this is specified for any sample set, it must be specified for all sample sets.')
+parser.add_argument('--dx', nargs=2, default=[], type=str, action='append',
+    help='the width to plot the violin plot or credible interval markers for this sapmle set')
+
 parser.add_argument('--x-label', default='', type=str)
 
 parser.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append')
@@ -102,13 +110,23 @@ for label, color in args.color:
     colors[label] = color
 
 if args.x_value:
-    x_values = dict((label, float(val)) for label, val in args.x_value)
+    x_values = dict()
+    for label, val in args.x_value:
+        assert label in names, 'specifying --x-value for unknown sample set: '+label
+        x_values[label] = float(val)
     for label in names:
-        assert label in x_values, 'must specify --x-value for samples=%s'%label
+        assert label in x_values, 'must specify --x-value for samples: '+label
     dx = 0.5*np.min(np.diff(sorted(x_values.values())))
 else:
     x_values = dict((label, ind) for ind, label in enumerate(names))
     dx = 0.5
+
+dxs = dict((label, dx) for label in names)
+for label, val in args.dx:
+    assert label in names, 'specifying --dx for unknown sample set: '+label
+    dxs[label] = float(val)
+
+assert (not args.no_violin) or args.level, 'must either plot violins or have at least one confidence level specified!'
 
 #-------------------------------------------------
 
@@ -145,26 +163,30 @@ for ind, (label, path) in enumerate(args.samples):
     if args.reflect:
         data, weights = utils.reflect(data, [(m, M)], weights=weights)
 
-    samples = np.linspace(m, M, args.num_points)
-    kde = utils.logkde(
-        samples,
-        data,
-        variance,
-        weights=weights,
-        num_proc=args.num_proc,
-    )
-    kde = np.exp(kde - np.max(kde))
-    kde *= dx ### normalize to be half the spacing between things
-
     x_value = x_values[label]
+    dx = dxs[label]
 
-    ax.plot(x_value*ones + kde, args.multiplier*samples, color=colors[label]) ### make a violin plot
-    ax.plot(x_value*ones - kde, args.multiplier*samples, color=colors[label])
+    if not args.no_violin:
+        samples = np.linspace(m, M, args.num_points)
+        kde = utils.logkde(
+            samples,
+            data,
+            variance,
+            weights=weights,
+            num_proc=args.num_proc,
+        )
+        kde = np.exp(kde - np.max(kde))
+        kde *= dx ### normalize to be half the spacing between things
+
+        ax.plot(x_value*ones + kde, args.multiplier*samples, color=colors[label]) ### make a violin plot
+        ax.plot(x_value*ones - kde, args.multiplier*samples, color=colors[label])
 
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
+            if args.filled:
+                ax.fill_between([x_value-dx, x_value+dx], [vals[0]]*2, [vals[1]]*2, color=colors[label], alpha=args.alpha)
             for val in vals:
-                ax.plot([x_value-dx, x_values[label]+dx], [val]*2, color=colors[label], linestyle='dashed')
+                ax.plot([x_value-dx, x_value+dx], [val]*2, color=colors[label], linestyle=args.level_linestyle)
 
     xmin = min(xmin, x_value-dx)
     xmax = max(xmax, x_value+dx)
