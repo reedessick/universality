@@ -33,6 +33,11 @@ parser.add_argument('--level', default=[], action='append', type=float,
     help='confidence levels for highest-probability-density credible regions')
 
 parser.add_argument('-s', '--samples', nargs=2, type=str, default=[], action='append')
+parser.add_argument('--x-value', nargs=2, default=[], type=str, action='append',
+    help='specify the x-value at which to center the data for this samples set. \
+If this is specified for any sample set, it must be specified for all sample sets.')
+parser.add_argument('--x-label', default='', type=str)
+
 parser.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append')
 parser.add_argument('--weight-column', nargs=2, type=str, default=[], action='append')
 parser.add_argument('--weight-column-is-log', nargs=2, type=str, default=[], action='append')
@@ -49,10 +54,15 @@ parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('--grid', default=False, action='store_true')
+parser.add_argument('--rotate-xticklabels', default=0, type=float,
+    help='the number of degrees by which to rotate the xticklabels')
+
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
 parser.add_argument('--figtype', default=[], type=str, action='append')
 parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+parser.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+parser.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
 args = parser.parse_args()
 
@@ -91,14 +101,25 @@ for label, color in args.color:
     assert label in names, 'specifying --color for uknown sample set: '+label
     colors[label] = color
 
+if args.x_value:
+    x_values = dict((label, float(val)) for label, val in args.x_value)
+    for label in names:
+        assert label in x_values, 'must specify --x-value for samples=%s'%label
+    dx = 0.5*np.min(np.diff(sorted(x_values.values())))
+else:
+    x_values = dict((label, ind) for ind, label in enumerate(names))
+    dx = 0.5
+
 #-------------------------------------------------
 
-fig = plot.figure()
+fig = plot.figure(figsize=(args.figwidth, args.figheight))
 ax = fig.gca()
 
 variance = args.column_bandwidth**2
 ones = np.ones(args.num_points, dtype=float)
 
+xmin = +np.infty
+xmax = -np.infty
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading in samples for %s from: %s'%(label, path))
@@ -133,23 +154,28 @@ for ind, (label, path) in enumerate(args.samples):
         num_proc=args.num_proc,
     )
     kde = np.exp(kde - np.max(kde))
-    kde /= 2. ### normalize to be half the spacing between things
+    kde *= dx ### normalize to be half the spacing between things
 
-    ax.plot(ind*ones+kde, args.multiplier*samples, color=colors[label]) ### make a violin plot
-    ax.plot(ind*ones-kde, args.multiplier*samples, color=colors[label])
+    x_value = x_values[label]
+
+    ax.plot(x_value*ones + kde, args.multiplier*samples, color=colors[label]) ### make a violin plot
+    ax.plot(x_value*ones - kde, args.multiplier*samples, color=colors[label])
 
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
             for val in vals:
-                ax.plot([ind-0.5, ind+0.5], [val]*2, color=colors[label], linestyle='dashed')
+                ax.plot([x_value-dx, x_values[label]+dx], [val]*2, color=colors[label], linestyle='dashed')
+
+    xmin = min(xmin, x_value-dx)
+    xmax = max(xmax, x_value+dx)
 
 ### decorate
 
-ax.set_xticks(range(len(args.samples)))
-ax.set_xticklabels(names)
+ax.set_xticks([x_values[label] for label in names])
+ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 ax.set_ylabel(args.column_label)
 
-xlim = (-0.75, len(args.samples)-0.25)
+xlim = (xmin, xmax)
 if args.column_truth is not None:
     ax.plot(xlim, [args.column_truth]*2, color=args.truth_color)
 ax.set_xlim(xlim)
@@ -157,6 +183,9 @@ ax.set_xlim(xlim)
 if args.grid:
     ax.grid(True, which='both')
 
+if args.x_label:
+    ax.set_xlabel(args.x_label)
+    ax.xaxis.set_label_position('top')
 
 ### save
 plot.save('kde-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
