@@ -78,6 +78,8 @@ wgroup.add_argument('--reflect', default=False, action='store_true',
 wgroup.add_argument('--prune', default=False, action='store_true',
     help='throw away samples that live outside the specified ranges')
 
+wgroup.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
+
 # plotting options
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
@@ -263,6 +265,7 @@ for ind, (label, path) in enumerate(args.samples):
         figheight=args.figheight,
         fig=fig,
         grid=args.grid,
+        num_proc=args.num_proc,
     )
 
     if args.legend:

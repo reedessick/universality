@@ -136,6 +136,7 @@ def kde_corner(
         figwidth=DEFAULT_FIGWIDTH,
         figheight=DEFAULT_FIGHEIGHT,
         alpha=DEFAULT_ALPHA,
+        num_proc=utils.DEFAULT_NUM_PROC,
     ):
     """
     should be mostly equivalent to corner.corner, except we build our own KDEs and the like
@@ -225,6 +226,7 @@ def kde_corner(
                         d,
                         variances[col],
                         weights=w,
+                        num_proc=num_proc,
                     )
                     kde = np.exp(kde - np.max(kde))
 
@@ -269,6 +271,7 @@ def kde_corner(
                         d,
                         variances[truth],
                         weights=w,
+                        num_proc=num_proc,
                     )
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
