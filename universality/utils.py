@@ -670,7 +670,6 @@ def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PRO
     returns the gradient of the logLikelihood based on (data, variances, weights) at each sample (shape=Nsamp, Ndim)
     """
     shape = samples.shape
-    grad_logkdes = np.empty(shape, dtype=float)
     if len(shape) not in [1, 2]:
         raise ValueError('bad shape for samples')
 
@@ -683,12 +682,14 @@ def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PRO
     else:
         Nsamp, Ndim = samples.shape
 
+    grad_logkdes = np.empty(Nsamp, dtype=float)
+
     Ndata = len(data)
     if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
         weights = np.ones(Ndata, dtype='float')/Ndata
 
     if num_proc==1:
-        grad_logkdes[:,:] = _grad_logkde_worker(samples, data, variances, weights)
+        grad_logkdes[:] = _grad_logkde_worker(samples, data, variances, weights)
 
     else:
         # divide the work
@@ -736,7 +737,7 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
            else:
                 raise Warning('something bad happened with your estimate of the gradient in logleave1outLikelihood')
         else:
-            grad_logkdes[i] = twov + x/y
+            grad_logkdes[i] = Ndim*twov + x/y
 
     if conn is not None:
         conn.send(grad_logkdes)
@@ -853,19 +854,20 @@ def logleave1outLikelihood(data, variances, weights=None, num_proc=DEFAULT_NUM_P
 def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     implements a leave-k-out cross validation estimate of the logLikelihood
+    returns mean(logL), var(logL), mean(dlogL/dv), var(dlogL/dv)
     """
     Nsamples, Ndim = data.shape
 
     if weights==None:
         weights = np.ones(Nsamples, dtype='float')/Nsamples
 
-    sets = [[] for _ in range(int(np.ceil(Nsamples/k)))]
+    sets = [[] for _ in range(max(int(np.ceil(Nsamples/k)),2))]
     Nsets = len(sets)
     for i in xrange(Nsamples):
         sets[i%Nsets].append(i)
 
     logL = np.empty(Nsets, dtype='float')
-#    grad_logL = np.empty((Nsets, Ndim), dtype='float')
+    grad_logL = np.empty(Nsets, dtype='float')
 
     twov = -0.5/variances
     truth = np.ones(Nsamples, dtype=bool)
@@ -881,20 +883,20 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
         logL[i] = np.sum(logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc)) - np.log(np.sum(weights[truth]))
 
         ### compute gradient of logLikelihood
-#        grad_logL[i,:] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc), axis=0)
+        grad_logL[i] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc))
 
     ### compute statistics
-    set_weights = np.array([np.prod(weights[sets[i]]) for i in xrange(Nsets)], dtype=float) ### compute the cumulative weights for each set
+    set_weights = np.array([np.sum(np.log(weights[sets[i]])) for i in xrange(Nsets)], dtype=float) ### compute the cumulative weights for each set
+    set_weights = np.exp(set_weights-np.max(set_weights))
     set_weights /= np.sum(set_weights)
 
     mlogL = np.sum(set_weights*logL) # scalar
     vlogL = (np.sum(set_weights*logL**2) - mlogL**2) / Nsets # scalar
 
-#    mglogL = np.mean(weights*grad_logL.transpose(), axis=1)  # vector: (Ndim,)
-#    vglogL = np.cov(weights*grad_logL.transpose(), rowvar=1) # matrix: (Ndim, Ndim)
+    mglogL = np.sum(set_weights*grad_logL)  # scalar
+    vglogL = (np.sum(set_weights*grad_logL**2) - mglogL**2) / Nsets ### scaler
 
-#    return mlogL, vlogL, mglogL, vglogL
-    return mlogL, vlogL, 0, 0
+    return mlogL, vlogL, mglogL, vglogL
 
 #-------------------------------------------------
 
