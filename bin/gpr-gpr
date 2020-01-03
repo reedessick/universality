@@ -49,8 +49,9 @@ ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
     help='evaluate at this number of points. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-ggroup.add_argument('--external-covariance', default=None, type=str,
-    help='if supplied, add this covariance as a white-noise term before conditioning.')
+ggroup.add_argument('--external-process', default=None, type=str,
+    help='if supplied, add this process as a white-noise term before conditioning. \
+We should be able to make it such that the final process has this mean and covariance within the pressures of interest while still smoothly stitching on to the stuff that is conditioned on the other models.')
 
 ggroup.add_argument('--hyperparampath', default=None, type=str,
     help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
