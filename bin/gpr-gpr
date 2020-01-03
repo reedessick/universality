@@ -49,9 +49,9 @@ ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
     help='evaluate at this number of points. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
-ggroup.add_argument('--external-process', default=None, type=str,
+ggroup.add_argument('--external-process', default=[], type=str, action='append',
     help='if supplied, add this process as a white-noise term before conditioning. \
-We should be able to make it such that the final process has this mean and covariance within the pressures of interest while still smoothly stitching on to the stuff that is conditioned on the other models.')
+We should be able to make it such that the final process has this mean and covariance within the pressures of interest while still smoothly stitching on to the stuff that is conditioned on the other models. Can be repeated to specify mulitple external processes')
 
 ggroup.add_argument('--hyperparampath', default=None, type=str,
     help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
@@ -196,7 +196,14 @@ x_evaluate = np.linspace(
 x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
 
 ### add stitching stuff
-if args.stitch: ### set up stitching conditions
+stitch = []
+if args.external_process: ### use externally supplied GP as stitching condition
+    for path in args.external_process:
+        if args.verbose:
+            print('loading in external process for stitching from: '+path)
+        stitch += gp.hdf5load(path)
+
+if args.stitch: ### set up stitching conditions to a fixed value
     if args.verbose:
         print('enforcing stitching to f=%.3e with pressure-scale=%.3e dyn/cm^2 and index=%.3f at %d points within  [%.3e, %.3e] dyn/cm^2'%\
             ((args.stitch_mean, args.stitch_pressure, args.stitch_index, args.stitch_num_points)+tuple(args.stitch_pressure_bounds)))
@@ -207,17 +214,7 @@ if args.stitch: ### set up stitching conditions
     )
     x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
     f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index)
-    stitch = [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
-else:
-    stitch = []
-
-### add external covariance stuff
-if args.external_covariance is not None:
-    model = gp.hdf5load(hdf5path)
-    raise NotImplementedError('need to figure out exactly how we want to set this up to do what we want...')
-    x_external = []
-    f_external = []
-    cov_external = []
+    stitch += [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
 
 #------------------------
 
