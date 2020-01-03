@@ -49,6 +49,9 @@ ggroup.add_argument('-n', '--num-points', default=gp.DEFAULT_NUM, type=int,
     help='evaluate at this number of points. \
 DEFAULT=%d'%gp.DEFAULT_NUM)
 
+ggroup.add_argument('--external-covariance', default=None, type=str,
+    help='if supplied, add this covariance as a white-noise term before conditioning.')
+
 ggroup.add_argument('--hyperparampath', default=None, type=str,
     help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
 If supplied, we ignore values of --sigma, --length-scale, --sigma-obs and build a mixture-model hdf5 file based on the weights contained in the csv.')
@@ -206,6 +209,14 @@ if args.stitch: ### set up stitching conditions
     stitch = [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
 else:
     stitch = []
+
+### add external covariance stuff
+if args.external_covariance is not None:
+    model = gp.hdf5load(hdf5path)
+    raise NotImplementedError('need to figure out exactly how we want to set this up to do what we want...')
+    x_external = []
+    f_external = []
+    cov_external = []
 
 #------------------------
 
