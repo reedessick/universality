@@ -265,7 +265,7 @@ with h5py.File(hdf5path, 'w') as obj:
 
             if args.verbose:
                 if args.stitch:
-                    print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, len(x_obs)-args.stitch_num_points, args.stitch_num_points))
+                    print('regressing %d values from %d+%d noisy observations+sticthing conditions'%(args.num_points, len(x_obs)-Nstitch, Nstitch))
                 else:
                     print('regressing %d values from %d noisy observations'%(args.num_points, len(x_obs)))
             mean, cov, logweight = gp.gpr_altogether(

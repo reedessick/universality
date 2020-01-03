@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+
+"""a simple script that trims the x-limits of a process so you can throw away irrelvant x-values
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import h5py
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import gaussianprocess as gp
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('inpath')
+parser.add_argument('outpath')
+
+parser.add_argument('--x-min', default=-np.infty, type=float)
+parser.add_argument('--x-max', default=+np.infty, type=float)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+### load model
+if args.verbose:
+    print('reading model from: '+args.inpath)
+models = gp.hdf5load(args.inpath)
+
+### write model
+if args.verbose:
+    print('writing pruned process to: '+args.outpath)
+with h5py.File(args.outpath, 'w') as out_obj:
+    for i, process in enumerate(models):
+        x = process['x']
+        truth = (args.x_min <= x)*(x <= args.x_max)
+        N = np.sum(truth)
+
+        if args.verbose:
+            print('%d : retained %d / %d values'%(i, N, len(truth)))
+
+        if N==0: ### don't retain anything
+            continue
+
+        x = x[truth]
+        f = process['f'][truth]
+        cov = process['cov'][np.outer(truth, truth)].reshape((N,N))
+
+        gp.create_process_group(
+            out_obj.create_group(str(i)),
+            process['hyperparams']['poly_degree'],
+            process['hyperparams']['sigma'],
+            process['hyperparams']['length_scale'],
+            process['hyperparams']['sigma_obs'],
+            x,
+            f,
+            cov,
+            xlabel=process['labels']['xlabel'],
+            flabel=process['labels']['flabel'],
+            weight=process['weight'],
+            model_multiplier=process['hyperparams']['model_multiplier'],
+        )
+

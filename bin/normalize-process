@@ -45,7 +45,7 @@ norm = np.sum([_['weight'] for _ in models])
 if args.verbose:
     print('writing normalized process to: '+args.outpath)
 with h5py.File(args.outpath, 'w') as out_obj:
-    for i, model in enumerate(models):
+    for i, process in enumerate(models):
         gp.create_process_group(
             out_obj.create_group(str(i)),
             process['hyperparams']['poly_degree'],
