@@ -108,6 +108,8 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
 #        strmap = dict() ### the commented lines are an attempt to keep the data array as a float but support mappings to strings
 #        strind = 0      ### this would require a big overhaul to the entire repo, though, so we're not wedded to the idea just yet
         for line in obj:
+            if line[0]=='#':
+                continue
             if count >= max_num_samples:
                 break
             fields = line.strip().split(',')

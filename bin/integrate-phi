@@ -55,7 +55,7 @@ if args.verbose:
     print('reading: '+args.phipath)
 data, columns = utils.load(args.phipath)
 
-pressurec2 = np.exp(data[:,columns.index('logpressurec2')])
+pressurec2 = np.exp(data[:,columns.index('log(pressurec2)')])
 denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')])) ### this is the definition of phi=log(de/dp - 1)
 
 #------------------------
