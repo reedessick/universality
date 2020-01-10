@@ -89,8 +89,8 @@ ans[:,Nkeep:] = utils.process2samples(
     data,
     path_template,
     args.eos_num_per_dir,
-    xcolumn,
-    ycolumns,
+    args.reference,
+    args.columns,
     args.reference_value,
     verbose=args.Verbose,
 )
