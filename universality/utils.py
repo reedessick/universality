@@ -346,7 +346,7 @@ def logcdf(samples, data, prior_bounds, weights=None, direction=DEFAULT_CUMULATI
     """estimates the log(cdf) at all points in samples based on data and integration in "direction".
     Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
 
-    ### this should be relatively quick (just and ordered summation), so we do it once
+    ### this should be relatively quick (just an ordered summation), so we do it once
     data, cweights = stats.samples2cdf(data, weights=weights)
     if direction=='increasing':
         pass ### we already integrate up from the lower values to higher values
@@ -386,15 +386,25 @@ def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE
     local_samples = samples[:] ### make a copy so I can modify it in-place
     local_samples[local_samples<bounds[0]] = bounds[0]
     local_samples[local_samples>bounds[1]] = bounds[1]
-    ###                   approx to the cumulative integral within the prior bounds                            prior volume
-    logcdfs = np.log(np.interp(local_samples, data, cweights) - np.interp(bounds[0], data, cweights))
+
+    ###                   approx to the cumulative integral within the prior bounds
+    logcdfs = np.interp(local_samples, data, cweights) - np.interp(bounds[0], data, cweights)
+    truth = logcdfs > 0
+    logcdfs[truth] = np.log(logcdfs[truth])
+    logcdfs[np.logical_not(truth)] = -np.infty
 
     ### add the prior volume correction
     ### NOTE: we assume flat priors implicitly! really, this should be an integral over the (non-trivial) prior distribution
     if direction=='increasing':
-        logcdfs -= np.log(local_samples - bounds[0])
+        truth = bounds[0] < local_samples
+        logcdfs[truth] -= np.log(local_samples[truth] - bounds[0])
+        logcdfs[np.logical_not(truth)] = -np.infty ### these sample shave zero support in the prior, so we assign them zero weight
+
     elif direction=='decreasing':
-        logcdfs -= np.log(bounds[1] - local_samples)
+        truth = bounds[1] > local_samples
+        logcdfs[truth] -= np.log(bounds[1] - local_samples[truth])
+        logcdfs[np.logical_not(truth)] = -np.infty ### this is the same thing as above
+
     else:
         raise ValueError('direction=%s not understood!'%direction)
 
