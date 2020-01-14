@@ -210,5 +210,5 @@ if args.x_label:
     ax.xaxis.set_label_position('top')
 
 ### save
-plot.save('kde-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
+plot.save('kde-violin-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 plot.close(fig)
