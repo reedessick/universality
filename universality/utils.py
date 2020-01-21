@@ -489,7 +489,7 @@ def process2quantiles(
             w_test.append( weight )
 
     if len(y_test)==0:
-        raise RuntimeError('could not find any files matching "%s"'%temp)
+        raise RuntimeError('could not find any files matching "%s"'%tmp)
 
     y_test = np.array(y_test) ### cast to an array
     w_test = np.array(w_test)
