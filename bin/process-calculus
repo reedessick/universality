@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+
+__doc__ = "perform numeric calculus on every file in a process, adding the result as a new column in each file"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import gaussianprocess as gp
+
+#-------------------------------------------------
+
+DEFAULT_COLUMN_NAME = {
+    'differentiate': 'd(%(fcolumn)s)/d(%(xcolumn)s)',
+    'integrate': 'int(%(fcolumn)s)d(%(xcolumn)s)',
+}
+FUNCTIONS = {
+    'differentiate': gp.num_dfdx,
+    'integrate': gp.num_intfdx,
+}
+KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+
+rgroup.add_argument('action', type=str,
+    help='must be one of: %s'%(', '.join(KNOWN_ACTIONS)))
+
+rgroup.add_argument('xcolumn', type=str,
+    help='the abscissa, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+rgroup.add_argument('fcolumn', type=str,
+    help='the ordinate, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+
+rgroup.add_argument('--new-column', type=str, default=None,
+    help='the name of the new column that will be added to each file')
+rgroup.add_argument('--overwrite', default=False, action='store_true',
+    help='if specified, will overwrite new-column if it already exists')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+# lookup arguments
+lgroup = parser.add_argument_group('look-up arguments')
+lgroup.add_argument('--eos-column', default='EoS', type=str)
+lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
+lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames.')
+
+args = parser.parse_args()
+
+### finish parsing
+
+assert args.action in KNOWN_ACTIONS, 'action must be one of: %s'%(', '.join(KNOWN_ACTIONS))
+foo = FUNCTIONS[args.action] ### look up the function handle only once
+
+if args.new_column is None:
+    args.new_column = DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, _ = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+data = data[:,0]
+N = len(data)
+
+#------------------------
+
+if args.verbose:
+    print('iterating over files and adding: '+args.new_column)
+
+path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+
+for i, eos in enumerate(data):
+    path = path_template%{'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
+    if args.Verbose:
+        print('    '+path)
+    d, c = utils.load(path)
+
+    npts, ncol = d.shape
+    if args.overwrite:
+        if args.new_column in c:
+            ans = d
+            ind = c.index(args.new_column)
+            header = ','.join(c)
+
+        else:
+            ans = np.empty((npts, ncol+1), dtype=float)
+            ans[:,:-1] = d
+            ind = -1
+            header = ','.join(c+[args.new_column])
+
+    else:
+        assert args.new_column not in c, "column=%s already exists in %s!"%(args.new_column, path)
+        ans = np.empty((npts, ncol+1), dtype=float)
+        ans[:,:-1] = d
+        ind = -1
+        header = ','.join(c+[args.new_column])
+    
+    ans[:,ind] = foo(d[:,c.index(args.xcolumn)], d[:,c.index(args.fcolumn)]) ### compute the integral or derivative
+    
+    np.savetxt(path, ans, comments='', delimiter=',', header=header) ### save the result to the same file

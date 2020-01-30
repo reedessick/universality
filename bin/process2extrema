@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = "generate samples from a set of EOS (a process)"
+__doc__ = "extremize the values of a column from a set of EOS (a process)"
 __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
@@ -22,14 +22,8 @@ rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('inpath', type=str)
 rgroup.add_argument('outpath', type=str)
 
-rgroup.add_argument('reference', type=str,
-    help='the reference column')
 rgroup.add_argument('columns', nargs='+', type=str,
     help='columns to extract')
-
-rgroup.add_argument('-r', '--reference-value', required=True, default=[], type=float, action='append',
-    help='the reference values at which we extract values from the EOS parameters. \
-DEFAULT=[]')
 
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
@@ -56,9 +50,7 @@ args = parser.parse_args()
 
 ### finish parsing
 Ncol = len(args.columns)
-Nref = len(args.reference_value)
 Nkeep = len(args.copy_column)
-args.reference_value.sort()
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
@@ -77,27 +69,26 @@ N = len(data)
 #------------------------
 
 if args.verbose:
-    print('extacting data at reference values')
+    print('extacting maxima and minima')
 
-ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
+ans = np.empty((N, Nkeep+2*Ncol), dtype=float)
 ans[:,:Nkeep] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = utils.process2samples(
+ans[:,Nkeep:] = utils.process2extrema(
     data,
     path_template,
     args.eos_num_per_dir,
-    args.reference,
     args.columns,
-    args.reference_value,
     verbose=args.Verbose,
 )
 
-col_template = '%s(%s=%s)'
+col_max = 'max(%s)'
+col_min = 'min(%s)'
 outcols = [col for col in args.copy_column]
 for column in args.columns:
-    outcols += [col_template%(column, args.reference, val) for val in args.reference_value]
+    outcols += [col_max%column, col_min%column]
 
 #------------------------
 

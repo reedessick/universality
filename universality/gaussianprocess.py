@@ -122,7 +122,7 @@ def num_dfdx(x_obs, f_obs):
     df = f_obs[1:] - f_obs[:-1]
     dx = x_obs[1:] - x_obs[:-1]
 
-    dfdx = np.empty_like(f_obs, dtype='float')
+    dfdx = np.empty_like(f_obs, dtype=float)
 
     dfdx[0] = df[0]/dx[0]   # handle boundary conditions as special cases
     dfdx[-1] = df[-1]/dx[-1]
@@ -130,6 +130,17 @@ def num_dfdx(x_obs, f_obs):
     dfdx[1:-1] = 0.5*(df[:-1]/dx[:-1] + df[1:]/dx[1:]) ### average in the bulk
 
     return dfdx
+
+def num_intfdx(x_obs, f_obs):
+    '''
+    estimate the definite integral numerically
+    '''
+    F = np.empty_like(f_obs, dtype=float)
+
+    F[0] = 0 ### initial value is a special case
+    F[1:] = 0.5*(f_obs[1:] + f_obs[:-1]) * (x_obs[1:] - x_obs[:-1]) ### trapazoidal approximation
+
+    return F
 
 #-------------------------------------------------
 # covariance kernels

@@ -440,7 +440,30 @@ def process2samples(
         d, c = load(path, loadcolumns)
 
         for j, column in enumerate(c[1:]):
-            ans[i,j*Nref:(j+1)*Nref] = np.interp(x_test, d[:,0], d[:,loadcolumns.index(column)])
+            ans[i,j*Nref:(j+1)*Nref] = np.interp(x_test, d[:,0], d[:,1+j])
+
+    return ans
+
+def process2extrema(
+        data,
+        tmp,
+        mod,
+        columns,
+        verbose=False,
+    ):
+    """manages I/O and extracts max, min for the specified columns
+    """
+
+    ans = np.empty((len(data), 2*len(columns)), dtype=float)
+    for i, eos in enumerate(data):
+        path = tmp%{'moddraw':eos//mod, 'draw':eos}
+        if verbose:
+            print('    '+path)
+        d, _ = load(path, columns)
+
+        for j, column in enumerate(columns):
+            ans[i,2*j] = np.max(d[:,j])
+            ans[i,2*j+1] = np.min(d[:,j])
 
     return ans
 
