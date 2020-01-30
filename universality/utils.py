@@ -449,17 +449,29 @@ def process2extrema(
         tmp,
         mod,
         columns,
+        ranges,
         verbose=False,
     ):
     """manages I/O and extracts max, min for the specified columns
     """
+    ref = ranges.keys()
+    loadcolumns = columns + ref
+    ranges = dict((loadcolumns.index(column), val) for column, val in ranges.items())
 
     ans = np.empty((len(data), 2*len(columns)), dtype=float)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
             print('    '+path)
-        d, _ = load(path, columns)
+        d, _ = load(path, loadcolumns)
+
+        truth = np.ones(len(d), dtype=bool)
+        for j, (m, M) in ranges.items():
+            truth *= (m<=d[:,j])*(d[:,j]<=M)
+
+        if not np.any(truth):
+            raise RuntimeError('could not find any samples within all specified ranges!')
+        d = d[truth]
 
         for j, column in enumerate(columns):
             ans[i,2*j] = np.max(d[:,j])

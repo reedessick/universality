@@ -28,6 +28,10 @@ rgroup.add_argument('columns', nargs='+', type=str,
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
 
+rgroup.add_argument('--column-range', nargs=3, type=str, default=[], action='append',
+    help='restrict the extremization to within this range for this column. \
+e.g.: "--column-range baryon_density 2.8e14 2.8e15". Can be repeated to specify multiple ranges')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -55,6 +59,8 @@ Nkeep = len(args.copy_column)
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
 
+ranges = dict((column, (float(m), float(M))) for column, m, M in args.column_range)
+
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
@@ -81,6 +87,7 @@ ans[:,Nkeep:] = utils.process2extrema(
     path_template,
     args.eos_num_per_dir,
     args.columns,
+    ranges,
     verbose=args.Verbose,
 )
 
