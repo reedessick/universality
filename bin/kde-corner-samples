@@ -286,7 +286,8 @@ for ind, (label, path) in enumerate(args.samples):
         legend = label
         if args.include_neff:
             legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(stats.neff(weights), stats.nkde(weights))
-        fig.text(0.60, 0.90-ind*0.05, legend, color=colors[label], ha='left', va='top')
+        dy = 0.025/10 * args.figheight ### this seems to be a good scaling.
+        fig.text(0.90, 0.90-ind*dy, legend, color=colors[label], ha='right', va='top')
 
 ### plot reference curves
 for i, (label, path) in enumerate(args.reference):
