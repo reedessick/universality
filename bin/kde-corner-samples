@@ -67,6 +67,11 @@ cgroup.add_argument('-b', '--column-bandwidth', nargs=2, default=[], type=str, a
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
 If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
 
+cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action='append',
+    help='multiply the column by this number before computing statistics. This is applied when data is first read in \
+(but after taking the natural log if --logcolumn is specified), meaning bandwidths and ranges should be specified in \
+terms of the column times the multiplier. If no multiplier is specified for a column, that column is left unchanged.')
+
 # workflow options
 wgroup = parser.add_argument_group('workflow options')
 wgroup.add_argument('--whiten', default=False, action='store_true',
@@ -166,6 +171,11 @@ for column, b in args.column_bandwidth:
     bandwidthdict[column] = float(b)
 bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns]
 
+multiplierdict = dict()
+for column, m in args.column_multiplier:
+    assert column in args.columns, 'specifying --column-multiplier for uknown column: '+column
+    multiplierdict[column] = float(m)
+
 labeldict = dict()
 for column, label in args.column_label:
     assert column in args.columns, 'specifying --column-label for unknown column: '+column
@@ -212,6 +222,10 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from: %s'%(label, path))
     data, columns = utils.load(path, args.columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+
+    for i, column in enumerate(args.columns): ### apply multiplicative factor based on the original column names
+        if column in multiplierdict:
+            data[:,i] *= multiplierdict[column]
 
     ranges = []
     for i, col in enumerate(args.columns):

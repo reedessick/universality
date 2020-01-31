@@ -588,9 +588,7 @@ def prune(data, bounds, weights=None):
             truth *= (m<=data[:,i])*(data[:,i]<=M)
 
     if weights is not None:
-        data = data[truth]
-        weights = weights[truth]
-        truth = weights > 0 ### only keep samples that actually matter
+        truth *= weights > 0 ### only return weights that actually matter
         return data[truth], weights[truth]
     else:
         return data[truth]
