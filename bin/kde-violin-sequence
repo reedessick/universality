@@ -45,6 +45,7 @@ parser.add_argument('--dx', nargs=2, default=[], type=str, action='append',
     help='the width to plot the violin plot or credible interval markers for this sapmle set')
 
 parser.add_argument('--x-label', default='', type=str)
+parser.add_argument('--no-xticklabels', default=False, action='store_true')
 
 parser.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append')
 parser.add_argument('--weight-column', nargs=2, type=str, default=[], action='append')
@@ -142,6 +143,7 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading in samples for %s from: %s'%(label, path))
     data, _ = utils.load(path, [args.column], logcolumns=logcolumns, max_num_samples=max_num_samples[label])
+    data *= args.multiplier ### apply this before pruning and all that jazz...
 
     if weight_columns[label][0]:
         if args.verbose:
@@ -178,8 +180,8 @@ for ind, (label, path) in enumerate(args.samples):
         kde = np.exp(kde - np.max(kde))
         kde *= dx ### normalize to be half the spacing between things
 
-        ax.plot(x_value*ones + kde, args.multiplier*samples, color=colors[label]) ### make a violin plot
-        ax.plot(x_value*ones - kde, args.multiplier*samples, color=colors[label])
+        ax.plot(x_value*ones + kde, samples, color=colors[label]) ### make a violin plot
+        ax.plot(x_value*ones - kde, samples, color=colors[label])
 
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
@@ -208,6 +210,12 @@ if args.grid:
 if args.x_label:
     ax.set_xlabel(args.x_label)
     ax.xaxis.set_label_position('top')
+
+if args.column_range:
+    ax.set_ylim(args.column_range)
+
+if args.no_xticklabels:
+    plot.plt.setp(ax.get_xticklabels(), visible=False)
 
 ### save
 plot.save('kde-violin-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
