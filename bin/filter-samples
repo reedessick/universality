@@ -23,7 +23,7 @@ parser.add_argument('source', type=str)
 parser.add_argument('target_if_true', type=str)
 parser.add_argument('target_if_false', type=str)
 parser.add_argument('conditional', type=str,
-    help='eg: "data[:,cols.index[\"numbranches\"]]==1"')
+    help='eg: "data[:,cols.index(\"numbranches\")]==1"')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
