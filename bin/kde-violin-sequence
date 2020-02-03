@@ -36,6 +36,7 @@ parser.add_argument('--filled', default=False, action='store_true')
 parser.add_argument('--alpha', default=0.25, type=float,
     help='used to when filling between confidence levels')
 parser.add_argument('--no-violin', default=False, action='store_true')
+parser.add_argument('--only-cr-width', default=False, action='store_true')
 
 parser.add_argument('-s', '--samples', nargs=2, type=str, default=[], action='append')
 parser.add_argument('--x-value', nargs=2, default=[], type=str, action='append',
@@ -128,6 +129,9 @@ for label, val in args.dx:
     dxs[label] = float(val)
 
 assert (not args.no_violin) or args.level, 'must either plot violins or have at least one confidence level specified!'
+if args.only_cr_width:
+    assert len(args.level)==1, 'must specify only a single --level with --only-cr-width'
+    args.no_violin = True
 
 #-------------------------------------------------
 
@@ -185,10 +189,15 @@ for ind, (label, path) in enumerate(args.samples):
 
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
+            ymin, ymax = vals
+            if args.only_cr_width:
+                ymax = ymax-ymin
+                ymin = 0
+
             if args.filled:
-                ax.fill_between([x_value-dx, x_value+dx], [vals[0]]*2, [vals[1]]*2, color=colors[label], alpha=args.alpha)
-            for val in vals:
-                ax.plot([x_value-dx, x_value+dx], [val]*2, color=colors[label], linestyle=args.level_linestyle)
+                ax.fill_between([x_value-dx, x_value+dx], [ymin]*2, [ymax]*2, color=colors[label], alpha=args.alpha)
+            ax.plot([x_value-dx, x_value+dx], [ymin]*2, color=colors[label], linestyle=args.level_linestyle)
+            ax.plot([x_value-dx, x_value+dx], [ymax]*2, color=colors[label], linestyle=args.level_linestyle)
 
     xmin = min(xmin, x_value-dx)
     xmax = max(xmax, x_value+dx)
@@ -197,7 +206,11 @@ for ind, (label, path) in enumerate(args.samples):
 
 ax.set_xticks([x_values[label] for label in names])
 ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
-ax.set_ylabel(args.column_label)
+
+if args.only_cr_width:
+    ax.set_ylabel('%s %d%s HPD Credible Region Size'%(args.column_label, 100*args.level, '%'))
+else:
+    ax.set_ylabel(args.column_label)
 
 xlim = (xmin, xmax)
 if args.column_truth is not None:
