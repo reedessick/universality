@@ -208,8 +208,11 @@ ax.set_xticks([x_values[label] for label in names])
 ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 
 if args.only_cr_width:
-    ax.set_ylabel('%s %d%s HPD Credible Region Size'%(args.column_label, 100*args.level, '%'))
+    ax.set_ylim(ymin=0)
+    ax.set_ylabel('%s %d%s HPD Credible Region Size'%(args.column_label, 100*args.level[0], '\%')) ### we already checked that there is only a single level
 else:
+    if args.column_range:
+        ax.set_ylim(args.column_range)
     ax.set_ylabel(args.column_label)
 
 xlim = (xmin, xmax)
@@ -223,9 +226,6 @@ if args.grid:
 if args.x_label:
     ax.set_xlabel(args.x_label)
     ax.xaxis.set_label_position('top')
-
-if args.column_range:
-    ax.set_ylim(args.column_range)
 
 if args.no_xticklabels:
     plot.plt.setp(ax.get_xticklabels(), visible=False)
