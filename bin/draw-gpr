@@ -18,11 +18,11 @@ from universality import utils
 from universality import gaussianprocess as gp
 from universality import plot
 from universality import stats
+from universality.condor import DEFAULT_NUM_PER_DIRECTORY
 
 #-------------------------------------------------
 
 DEFAULT_NUM_DRAWS = 1
-DEFAULT_NUM_PER_DIRECTORY = 1000
 
 #-------------------------------------------------
 
