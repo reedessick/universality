@@ -1,0 +1,149 @@
+#!/usr/bin/env python
+
+"""copy columns from multiple sample CSV into a target CSV
+"""
+__author__ = "reed.essick@gmail.com"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('reference_column', type=str,
+    help='the column that is used to match rows in samples and target. This must be present in both files. \
+It must also have only a single row in source for each value of this column.')
+parser.add_argument('output', type=str,
+    help='if this file already exists, we require reference_column to exist in that file and then map all the --samples into those rows. \
+Otherwise, we create a new file that only containes the columns from the samples')
+
+parser.add_argument('-s', '--samples', nargs='+', type=str, default=[], action='append',
+    help='eg: "--samples path column1 column2 ...". If no columns are supplied, we copy all of them')
+parser.add_argument('--column-map', nargs=3, type=str,
+    help='map the column names from one of --samples into a new name in the output file. Useful if several of the --samples have the same column names. \
+eg: "--column-map path old_column new_column"')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+assert samples, 'must supply at least one --samples'
+for samples in args.samples:
+    assert len(samples)>=2, 'must supply the path and at least one column for each --samples provided'
+
+args.verbose |= args.Verbose
+
+samples = dict((samples[0], samples[1:]) for samples in args.samples)
+
+column_maps = dict((source, dict()) for source in samples.keys())
+for path, old, new in args.column_map:
+    assert path in column_map, 'specifying --column-map for unkown sample set: '+path
+    column_map[path][old] = new
+
+#-------------------------------------------------
+
+### read in source data
+data = []
+columns = []
+refinds = []
+
+references = None
+
+for source, columns in samples.items():
+
+    if args.verbose:
+        print('reading data from source: '+source)
+    if len(columns):
+        d, c = utils.load(source, [args.reference_column]+columns)
+        refind = 0
+    else:
+        d, c = utils.load(source)
+        assert args.reference_column in c, 'reference_column=%s not found in %s'%(args.reference_column, source)
+        refind = c.index(args.reference_column)
+
+    assert len(d)==len(set(d[:,refind])), 'reference_column=%s can not have repeated values in different rows'
+
+    data.append(d)
+
+    column_map = column_maps[source]
+    columns.append([column_map.get(col, col) for col in c])
+
+    refinds.append(refind)
+
+    if args.Verbose:
+        print('found %d reference values'%len(d))
+
+    if references is None:
+        references = sorted(d[:,refind])
+    else:
+        references = [val for val in references if np.any(d[:,refind]==val)] ### only keep the reference values that are common between all --samples
+
+    if args.Verbose:
+        print('retained %d reference values common to all sample sets provided'%len(reference))
+
+Ncol = sum(len(c) for c in columns)
+
+#-------------------------------------------------
+
+### read in target/output
+if os.path.exists(args.output):
+    if args.verbose:
+        print('loading existing columns from: '+args.output)
+    d, c = utils.load(args.output)
+    assert args.reference_column in c, 'reference_column=%s not present in %s'%(args.reference_column, args.output)
+    refind = c.index(args.reference_column)
+
+    ### check to make sure that we have a reference from all --samples for each val present here
+    for val in set(d[:,refind]):
+        assert val in references, 'there are reference values within %s that do not have corresponding values in at least one --samples'%args.output
+
+    ### set up holder for final result
+    N = len(c)
+    result = np.empty((len(d), N+Ncol), dtype=float)
+    result[:,:N] = d[...]
+
+    header = c
+
+else:
+    refind = 0
+
+    ### set up holder for final result
+    N = 1
+    result = np.empty((len(references), 1+Ncol), dtype=float)
+    result[:,0] = references
+
+    header = [args.reference_column]
+
+#-------------------------------------------------
+
+### fill in result with data from each file
+if args.verbose:
+    print('mapping data into final array')
+for d, c, r in zip(data, columns, refinds):
+    indmap = dict((val, i) for i, val in enumerate(d[:,r])) ### map to look-up columns
+
+    Ncol = len(c)
+    d = d[:,[_ for _ in range(Ncol) if _ != r]] ### keep only the columns that are not the reference column
+    c.remove(args.reference_column)
+
+    header += c
+
+    for ind, val in enumerate(result[:,refind]): ### FIXME: may be able to do this faster with array assignment
+       result[ind,N:N+Ncol] = d[indmap[val],:]
+
+    N += Ncol ### increment
+
+#------------------------
+
+if args.verbose:
+    print('writing collated results into: '+args.output)
+np.savetxt(args.output, result, delimiter=',', comments='', header=','.join(header))
