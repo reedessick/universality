@@ -37,8 +37,6 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 args = parser.parse_args()
 
 assert args.samples, 'must supply at least one --samples'
-for samples in args.samples:
-    assert len(samples)>=2, 'must supply the path and at least one column for each --samples provided'
 
 args.verbose |= args.Verbose
 
