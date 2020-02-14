@@ -16,17 +16,44 @@ from universality import priors
 
 #-------------------------------------------------
 
+def draw(mmin, mmax, size=utils.DEFAULT_NUM_DRAWS):
+    """logic for generating mass samples
+    """
+    m = priors.sample_uniform(minval=mmin, maxval=mmax, size=Nsmp)
+    logprior = priors.uniform(m, minval=mmin, maxval=mmax)
+    return 
+
+def lookup(m, paths, m_column=DEFAULT_MACRO_M_COLUMN, r_column=DEFAULT_MACRO_R_COLUMN):
+    """logic for looking up macro parameters
+    """
+    curves []
+    for path in paths:
+        d, _ = utils.load(path, [m_column, r_column])
+        curves.append( (np.min(d[:,0]), np.max(d[:,0]), d) )
+    inds = np.arange(len(curves))
+    r = []
+    b = []
+    for M in m:
+        
+        random.choice([d for mmin, mmax, d in curves if (mmin<=M) and (M<=mmax)])
+
+    raise NotImplementedError
+
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('uids', nargs='+', type=int,
     help='the unique identifier numbers (EoS) for which we generate prior draws and write the result into outpath')
 parser.add_argument('outpath', type=str)
 
-parser.add_argument('--prior', nargs='+', type=str, default=[], action='append',
-    help='the priors we sample from to generate base variates')
+parser.add_argument('--m-range', nargs=2, type=float, required=True)
 
-parser.add_argument('--ordinate', nargs=2, type=str, default=[], action='append',
-    help='the ordinates that we compute via look-ups based on the variates drawn from the priors (eg, macroscopic properties like R and Lambda).')
+parser.add_argument('--m-column', default='m', type=str)
+parser.add_argument('--r-column', default='R', type=str)
+
+parser.add_argument('--macro-m-column', default='M', type=str)
+parser.add_argument('--macro-r-column', default='R', type=str)
 
 parser.add_argument('-n', '--num-draws-per-eos', type=int, default=utils.DEFAULT_NUM_DRAWS)
 
@@ -40,57 +67,49 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
-### finish parsing
 args.verbose |= args.Verbose
 
-raise NotImplementedError('''
-finish parsing
-    priors
-    ordinates
-
-set up the output data structure (Nsmp, Ncol)
-''')
+mmin, mmax = args.m_range
 
 #-------------------------------------------------
 
 ### set up data structures
-Nsmp = len(args.uids)
-columns = [args.uid_column] ### FIXME: need to include variates and ordinates!
+Nuid = len(args.uids)
+Nsmp = Nuid*args.num_draws_per_eos
+
+columns = [args.uid_column, args.m_column, 'logprior', 'branch', args.r_column]
 Ncol = len(columns)
 
-data = np.empty((Nsmp*args.num_draws_per_eos, Ncol), dtype=float)
+data = np.empty((Nsmp, Ncol), dtype=float)
+for ind, uid in enumerate(args.uids):
+    data[ind*args.num_draws_per_eos:(ind+1)*args.num_draws_per_eos] = uid
 
 #------------------------
 
 ### draw variates
 if args.verbose:
-    print('drawing variates')
-raise NotImplementedError('draw variates and fill in data')
+    print('drawing %d*%d=%d variates'%(Nuid, args.num_draws_per_eos, Nsmp))
+
+m, logprior = draw(mmin, mmax, size=Nsmp)
+data[:,1] = m
+data[:,2] = logprior
 
 #------------------------
 
 ### compute ordinates
 if args.verbose:
     print('computing ordinates')
-for ind, uid in enumerate(args.uid):
 
-    raise NotImplementedError('look up ordinates for each set of variates')
-#    for eos_path in glob.glob(tmp%utils.draw2fmt(eos, num_per_directory=args.num_per_directory))
-#        if verbose:
-#            print('    '+eos_path)
-#        d, _ = load(eos_path, columns)
-#
-#        d[:,0] *= x_multiplier
-#        d[:,1] *= y_multiplier
-#
-#        _y = np.empty(num_points, dtype=float)
-#        _y[:] = np.nan ### signal that nothing was available at this x-value
-#
-#        truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
-#        _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
-#
-#        y_test.append( _y ) ### add to the total list
-#        w_test.append( weight )
+tmp = os.path.join(args.directory, 'DRAWmod%d'%args.num_per_directory+'-%(moddraw)06d', args.basenames)
+
+for ind, uid in enumerate(args.uid):
+    start = ind*args.num_draws_per_eos
+    stop = (ind+1)*args.num_draws_per_eos
+
+    paths = glob.glob(tmp%utils.draw2fmt(uid, num_per_directory=args.num_per_directory))
+    branches, r = lookup(data[ind*args.num_draws_per_eos:(ind+1)*args.num_draws_per_eos, 1], args.macro_m_colum, args.macro_r_column, paths)
+    data[start:stop,3] = branches
+    data[start:stop,4] = r
 
 #------------------------
 
