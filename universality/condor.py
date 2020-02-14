@@ -346,18 +346,17 @@ def sub_concatenate_samples(path, **classads):
     """write the sub file for collate-samples into path
     """
     classads = basic_classads(which('concatenate-samples'), path2logdir(path), **classads)
-    classads['arguments'] = ''
-
-    raise NotImplementedError('set up arguments for concatenate-samples jobs')
-
+    classads['arguments'] = '$(inpaths) --outpath $(outpath) $(columns) --verbose'
     write_sub(path, **classads)
 
-def args_concatenate_samples(paths, outdir=DEFAULT_OUTDIR, tag=DEFAULT_TAG):
+def args_concatenate_samples(inpaths, columns, outdir=DEFAULT_OUTDIR, tag=DEFAULT_TAG):
     """format the ARGS string for concatenate-samples nodes in a DAG
     """
     args = dict()
 
-    raise NotImplementedError('set up args for concatenate-samples jobs')
+    args['inpaths'] = ' '.join(inpaths)
+    args['outpath'] = samples_path(prefix='concatenate-samples', directory=outdir, tag=tag)
+    args['columns'] = ' '.join(columns)
 
     return args2str(**args)
 
