@@ -58,9 +58,9 @@ DEFAULT=[]')
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
-lgroup.add_argument('--eos-column', default='EoS', type=str)
-lgroup.add_argument('--eos-dir', default='.', type=str)
-lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+lgroup.add_argument('--eos-column', default=utils.DEFAULT_UID_COLUMN, type=str)
+lgroup.add_argument('--eos-dir', default=utils.DEFAULT_OUTDIR, type=str)
+lgroup.add_argument('--eos-num-per-dir', default=utils.DEFAULT_NUM_PER_DIRECTORY, type=int,
     help='the number of samples per directory')
 lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
     help='a string into which the EOS number can be substituted when building filenames.')

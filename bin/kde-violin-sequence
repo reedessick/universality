@@ -67,8 +67,8 @@ parser.add_argument('--grid', default=False, action='store_true')
 parser.add_argument('--rotate-xticklabels', default=0, type=float,
     help='the number of degrees by which to rotate the xticklabels')
 
-parser.add_argument('-o', '--output-dir', default='.', type=str)
-parser.add_argument('-t', '--tag', default='', type=str)
+parser.add_argument('-o', '--output-dir', default=utils.DEFAULT_OUTDIR, type=str)
+parser.add_argument('-t', '--tag', default=utils.DEFAULT_TAG, type=str)
 parser.add_argument('--figtype', default=[], type=str, action='append')
 parser.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 parser.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)

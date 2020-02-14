@@ -79,8 +79,8 @@ pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
 # ouptut options
 ogroup = parser.add_argument_group('output options')
-ogroup.add_argument('-o', '--output-dir', default='.', type=str)
-ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('-o', '--output-dir', default=utils.DEFAULT_OUTDIR, type=str)
+ogroup.add_argument('-t', '--tag', default=utils.DEFAULT_TAG, type=str)
 ogroup.add_argument('--figtype', default=[], type=str, action='append')
 ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 

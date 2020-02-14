@@ -6,6 +6,8 @@ __author__ = "reed.essick@gmail.com"
 
 #-------------------------------------------------
 
+import numpy as np
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -16,6 +18,8 @@ from universality import priors
 
 parser = ArgumentParser(description=__doc__)
 
+parser.add_argument('uids', nargs='+', type=int,
+    help='the unique identifier numbers (EoS) for which we generate prior draws and write the result into outpath')
 parser.add_argument('outpath', type=str)
 
 parser.add_argument('--prior', nargs='+', type=str, default=[], action='append',
@@ -24,14 +28,73 @@ parser.add_argument('--prior', nargs='+', type=str, default=[], action='append',
 parser.add_argument('--ordinate', nargs=2, type=str, default=[], action='append',
     help='the ordinates that we compute via look-ups based on the variates drawn from the priors (eg, macroscopic properties like R and Lambda).')
 
-parser.add_argument('-n', '--num-draws', type=int, default=utils.DEFAULT_NUM_DRAWS)
+parser.add_argument('-n', '--num-draws-per-eos', type=int, default=utils.DEFAULT_NUM_DRAWS)
+
+parser.add_argument('--uid-column', default=utils.DEFAULT_UID_COLUMN, type=str)
+parser.add_argument('--directory', default=utils.DEFAULT_OUTDIR, type=str)
+parser.add_argument('--basename', default='draw-gpr-%(draw)06d.csv', type=str)
+parser.add_argument('--num-per-directory', default=utils.DEFAULT_NUM_PER_DIRECTORY, type=int)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
-#-------------------------------------------------
+### finish parsing
+args.verbose |= args.Verbose
 
 raise NotImplementedError('''
-need to figure out a way to pass in many different EOS (or UID) simultaneously so that we don't have to call this script separately a gazillion times
+finish parsing
+    priors
+    ordinates
+
+set up the output data structure (Nsmp, Ncol)
 ''')
+
+#-------------------------------------------------
+
+### set up data structures
+Nsmp = len(args.uids)
+columns = [args.uid_column] ### FIXME: need to include variates and ordinates!
+Ncol = len(columns)
+
+data = np.empty((Nsmp*args.num_draws_per_eos, Ncol), dtype=float)
+
+#------------------------
+
+### draw variates
+if args.verbose:
+    print('drawing variates')
+raise NotImplementedError('draw variates and fill in data')
+
+#------------------------
+
+### compute ordinates
+if args.verbose:
+    print('computing ordinates')
+for ind, uid in enumerate(args.uid):
+
+    raise NotImplementedError('look up ordinates for each set of variates')
+#    for eos_path in glob.glob(tmp%utils.draw2fmt(eos, num_per_directory=args.num_per_directory))
+#        if verbose:
+#            print('    '+eos_path)
+#        d, _ = load(eos_path, columns)
+#
+#        d[:,0] *= x_multiplier
+#        d[:,1] *= y_multiplier
+#
+#        _y = np.empty(num_points, dtype=float)
+#        _y[:] = np.nan ### signal that nothing was available at this x-value
+#
+#        truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
+#        _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
+#
+#        y_test.append( _y ) ### add to the total list
+#        w_test.append( weight )
+
+#------------------------
+
+### save the result
+if args.verbose:
+    print('saving samples to: '+args.outpath)
+np.savetxt(args.outpath, data, delimiter=',', comments='', header=','.join(columns))

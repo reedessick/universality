@@ -19,8 +19,8 @@ DEFAULT_UNIVERSE = 'vanilla'
 
 DEFAULT_START = 0
 DEFAULT_NUM_PER_DIRECTORY = utils.DEFAULT_NUM_PER_DIRECTORY
-DEFAULT_OUTDIR = os.getcwd()
-DEFAULT_TAG = ''
+DEFAULT_OUTDIR = utils.DEFAULT_OUTDIR
+DEFAULT_TAG = utils.DEFAULT_TAG
 
 #-------------------------------------------------
 

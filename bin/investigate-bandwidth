@@ -55,8 +55,8 @@ parser.add_argument('--invert-weight-column', default=[], type=str, action='appe
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
 
 parser.add_argument('-p', '--plot', default=False, action='store_true')
-parser.add_argument('-o', '--output-dir', default='.', type=str)
-parser.add_argument('-t', '--tag', default='', type=str)
+parser.add_argument('-o', '--output-dir', default=utils.DEFAULT_OUTDIR, type=str)
+parser.add_argument('-t', '--tag', default=utils.DEFAULT_TAG, type=str)
 
 args = parser.parse_args()
 Ncol = len(args.columns)

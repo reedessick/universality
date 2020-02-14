@@ -19,9 +19,6 @@ from universality import stats
 
 #-------------------------------------------------
 
-DEFAULT_EOS_COLUMN = 'EoS'
-DEFAULT_EOS_DIR = '.'
-DEFAULT_EOS_NUM_PER_DIR = 1000
 DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
 
 #-------------------------------------------------
@@ -142,8 +139,8 @@ agroup.add_argument('--signpost-color', default=plot.DEFAULT_TRUTH_COLOR, type=s
 
 # ouptut options
 ogroup = parser.add_argument_group('output options')
-ogroup.add_argument('-o', '--output-dir', default='.', type=str)
-ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('-o', '--output-dir', default=utils.DEFAULT_OUTDIR, type=str)
+ogroup.add_argument('-t', '--tag', default=utils.DEFAULT_TAG, type=str)
 ogroup.add_argument('--figtype', default=[], type=str, action='append')
 ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 
@@ -169,12 +166,12 @@ for label, column in args.weight_column_is_log:
     assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
     weight_columns[label][1].append(column)
 
-eos_dirs = dict((label, DEFAULT_EOS_DIR) for label in names)
+eos_dirs = dict((label, utils.DEFAULT_DIR) for label in names)
 for label, directory in args.eos_dir:
     assert label in names, 'specifying --eos-dir for unknown sample set: '+label
     eos_dirs[label] = directory
 
-eos_num_per_dir = dict((label, DEFAULT_EOS_NUM_PER_DIR) for label in names)
+eos_num_per_dir = dict((label, utils.DEFAULT_NUM_PER_DIR) for label in names)
 for label, num in args.eos_num_per_dir:
     assert label in names, 'specifying --eos-num-per-dir for unknown sample set: '+label
     eos_num_per_dir[label] = int(num)
@@ -186,7 +183,7 @@ for label, basename in args.eos_basename:
 
 eos_temps = dict((label, os.path.join(eos_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', eos_basenames[label])) for label in names)
 
-eos_columns = dict((label, DEFAULT_EOS_COLUMN) for label in names)
+eos_columns = dict((label, utils.DEFAULT_UID_COLUMN) for label in names)
 for label, column in args.eos_column:
     assert label in names, 'specifying --eos-column for unknown sample set: '+label
     eos_columns[label] = column

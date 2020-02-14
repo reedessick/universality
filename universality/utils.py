@@ -40,6 +40,8 @@ DEFAULT_NUM_PER_DIRECTORY = 1000
 DEFAULT_UID_COLUMN = 'EoS'
 
 DEFAULT_NUM_DRAWS = 1
+DEFAULT_OUTDIR = os.getcwd()
+DEFAULT_TAG = ''
 
 #-------------------------------------------------
 # basic utilities for naming files
@@ -453,7 +455,7 @@ def process2samples(
 
     ans = np.empty((len(data), Nref*len(ycolumns)), dtype=float)
     for i, eos in enumerate(data):
-        path = tmp%{'moddraw':eos//mod, 'draw':eos}
+        path = tmp%draw2fmt(eos, num_per_directory=mod)
         if verbose:
             print('    '+path)
         d, c = load(path, loadcolumns)
@@ -479,7 +481,7 @@ def process2extrema(
 
     ans = np.empty((len(data), 2*len(columns)), dtype=float)
     for i, eos in enumerate(data):
-        path = tmp%{'moddraw':eos//mod, 'draw':eos}
+        path = tmp%draw2fmt(eos, num_per_directory=mod)
         if verbose:
             print('    '+path)
         d, _ = load(path, loadcolumns)
@@ -525,7 +527,7 @@ def process2quantiles(
         weights = np.ones(len(data), dtype=float) / len(data)
 
     for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
-        for eos_path in glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}):
+        for eos_path in glob.glob(tmp%draw2fmt(eos, num_per_directory=mod)):
             if verbose:
                 print('    '+eos_path)
             d, _ = load(eos_path, columns)
