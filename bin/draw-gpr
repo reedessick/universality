@@ -18,11 +18,7 @@ from universality import utils
 from universality import gaussianprocess as gp
 from universality import plot
 from universality import stats
-from universality.condor import DEFAULT_NUM_PER_DIRECTORY
-
-#-------------------------------------------------
-
-DEFAULT_NUM_DRAWS = 1
+from universality import condor
 
 #-------------------------------------------------
 
@@ -60,10 +56,10 @@ wgroup.add_argument('-s', '--start', default=0, type=int,
     help='the index at which we start counting. Specifying this can help avoid conflicts if \
 we parallelize the draws across multiple processes. \
 DEFAULT=0')
-wgroup.add_argument('-n', '--num-draws', default=DEFAULT_NUM_DRAWS, type=int,
-    help='DEFAULT=%d'%DEFAULT_NUM_DRAWS)
-wgroup.add_argument('-N', '--num-per-directory', default=DEFAULT_NUM_PER_DIRECTORY, type=int,
-    help='DEFAULT=%d'%DEFAULT_NUM_PER_DIRECTORY)
+wgroup.add_argument('-n', '--num-draws', default=utils.DEFAULT_NUM_DRAWS, type=int,
+    help='DEFAULT=%d'%utils.DEFAULT_NUM_DRAWS)
+wgroup.add_argument('-N', '--num-per-directory', default=condor.DEFAULT_NUM_PER_DIRECTORY, type=int,
+    help='DEFAULT=%d'%condor.DEFAULT_NUM_PER_DIRECTORY)
 
 wgroup.add_argument('-p', '--plot', default=False, action='store_true')
 
@@ -100,8 +96,8 @@ if args.plot:
     ax.grid(True, which='both')
 
 ### draw a bunch of realizations of the process
-directory = os.path.join(args.output_dir, 'DRAWmod%d'%args.num_per_directory+'-%(moddraw)06d')
-path = os.path.join(directory, 'draw-gpr'+args.tag+'-%(draw)06d.csv') # for generating filenames
+directory = utils.draw2directory(outdir=args.output_dir, num_per_directory=args.num_per_directory)
+path = utils.draw2path(outdir=directory, prefix='draw-gpr', tag=args.tag)
 
 header = HEADER%(model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ### assume the mixture model is sane... 
 
@@ -112,7 +108,7 @@ for i, (ind, color) in enumerate(zip(\
         plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=0.25, minimum=0.)
     )):
     i += args.start ### increment by the starting index
-    fmt = {'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
+    fmt = utils.draw2fmt(i, num_per_directory=args.num_per_directory)
 
     csvdir = directory%fmt
     csvpath = path%fmt

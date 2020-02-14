@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+
+"""generate mass realizations from a prior and look up corresponding macroscopic properties
+"""
+__author__ = "reed.essick@gmail.com"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import priors
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('outpath', type=str)
+
+parser.add_argument('--prior', nargs='+', type=str, default=[], action='append',
+    help='the priors we sample from to generate base variates')
+
+parser.add_argument('--ordinate', nargs=2, type=str, default=[], action='append',
+    help='the ordinates that we compute via look-ups based on the variates drawn from the priors (eg, macroscopic properties like R and Lambda).')
+
+parser.add_argument('-n', '--num-draws', type=int, default=utils.DEFAULT_NUM_DRAWS)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+raise NotImplementedError('''
+need to figure out a way to pass in many different EOS (or UID) simultaneously so that we don't have to call this script separately a gazillion times
+''')

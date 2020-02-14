@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+"""a script to concatenate shared columns from multiple CSV files
+"""
+__author__ = "reed.essick@gmail.com"
+
+#-------------------------------------------------
+
+import sys
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('inpaths', nargs='+', type=str)
+
+parser.add_argument('--outpath', default=None, type=str,
+    help='if not supplied, prints concatenated data to STDOUT')
+
+parser.add_argument('--columns', default=[], type=str, action='append',
+    help='if supplied, will only concatenate data from these columns')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+if args.columns:
+    shared = args.columns
+else:
+    shared = None
+
+data = []
+for path in args.inpath:
+    if args.verbose:
+        print('loading data from: '+path)
+    d, c = utils.load(path, columns=args.columns)
+
+    if shared is None:
+        shared = c
+
+    else:
+        new_shared = [col for col in shared if col in c]
+        if new_shared != shared: ### need to prune previous data
+            inds = [shared.index(col) for col in new_shared]
+            data = [_[:,inds] for _ in data]
+
+        d = d[:,[c.index(col) for col in shared]] ### keep only the shared columns from the current data
+
+    data.append(d)
+
+    if args.verbose:
+        print('found %d new samples and retained %d shared columns'%(len(d), len(shared)))
+
+### now concatenate
+Nsmp = sum(len(_) for _ in data)
+Ncol = len(shared)
+
+if args.verbose:
+    print('found a total of %d samples and %d columns'%(Nsmp, Ncol))
+
+data = np.vstack(data)
+
+### save
+
+if not args.outpath:
+    args.outpath = sys.stdout
+
+elif args.verbose:
+    print('saving concatenated data to: '+args.outpath)
+
+np.savetxt(args.outpath, data, header=','.join(shared), comments='', delimiter=',')

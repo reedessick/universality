@@ -8,6 +8,7 @@ import os
 from distutils.spawn import find_executable
 from getpass import getuser
 
+from . import utils
 from . import eos
 
 #-------------------------------------------------
@@ -17,36 +18,43 @@ DEFAULT_UNIVERSE = 'vanilla'
 #--- workflow defaults
 
 DEFAULT_START = 0
-DEFAULT_NUM_PER_DIRECTORY = 1000
-DEFAULT_OUTDIR = '.'
+DEFAULT_NUM_PER_DIRECTORY = utils.DEFAULT_NUM_PER_DIRECTORY
+DEFAULT_OUTDIR = os.getcwd()
 DEFAULT_TAG = ''
 
 #-------------------------------------------------
 
 ### utilities for parsing config files
 
-def eval_kwargs(**kwargs):
-    """a utility to help when parsing classads from INI files
-    """
-    for key, value in kwargs.items():
-        try:
-            value = eval(value)
-        except (SyntaxError, NameError):
-            value = value.strip().split()
-            try:
-                value = [eval(_) for _ in value]
-            except (SyntaxError, NameError):
-                pass
-            finally:
-                if len(value)==1:
-                    value = value[0]
-        kwargs[key] = value
-    return kwargs
+#def eval_kwargs(**kwargs):
+#    """a utility to help when parsing classads from INI files
+#    """
+#    for key, value in kwargs.items():
+#        try:
+#            value = eval(value)
+#        except (SyntaxError, NameError):
+#            value = value.strip().split()
+#            try:
+#                value = [eval(_) for _ in value]
+#            except (SyntaxError, NameError):
+#                pass
+#            finally:
+#                if len(value)==1:
+#                    value = value[0]
+#        kwargs[key] = value
+#    return kwargs
+#
+#def classads2dict(condor_classads):
+#    """a utility to help when parsing classads from INI files
+#    """
+#    return dict((condor_classads[2*i], str(condor_classads[2*i+1])) for i in xrange(len(condor_classads)/2))
 
-def classads2dict(condor_classads):
-    """a utility to help when parsing classads from INI files
-    """
-    return dict((condor_classads[2*i], str(condor_classads[2*i+1])) for i in xrange(len(condor_classads)/2))
+#-------------------------------------------------
+
+def samples_path(prefix='samples', directory=DEFAULT_OUTDIR, tag=DEFAULT_TAG):
+    if tag:
+        tag = "_"+tag
+    return os.path.join(directory, '%s%s.csv'%(prefix, tag))
 
 #-------------------------------------------------
 
@@ -96,7 +104,7 @@ def basic_classads(exe, logdir, **classads):
 def tag2opt(tag):
     return '--tag '+tag if tag else ''
 
-def argdict2str(**argdict):
+def args2str(**argdict):
     tmp = '%s="%s"'
     return ' '.join(tmp%item for item in argdict.items())
 
@@ -109,9 +117,6 @@ def sub_draw_gpr(path, **classads):
     classads['arguments'] = '$(hdf5path) --start $(start) --num-draws $(num_draws) --num-per-directory $(num_per_directory) --output-dir $(outdir) $(tag) --verbose'
     write_sub(path, **classads)
 
-DEFAULT_START = 0
-DEFAULT_OUTDIR = '.'
-DEFAULT_TAG = ''
 def args_draw_gpr(
         hdf5path,
         start=DEFAULT_START,
@@ -130,7 +135,7 @@ def args_draw_gpr(
     args['outdir'] = os.path.abspath(outdir)
     args['tag'] = tag2opt(tag)
 
-    return argdict2str(**args)
+    return args2str(**args)
 
 #---
 
@@ -156,19 +161,29 @@ def args_integrate_phi(
     """
     args = dict()
 
-    phipaths = [] ### FIXME: set this up based on start, num_per_directory, outdir, and tag
-    outpaths = [] ### FIXME
+    ### predict filenames from draw-gpr
+    tag = '_'+tag if tag else ''
+    directory = utils.draw2directory(outdir=outdir, num_per_directory=num_per_directory)
+    phi = utils.draw2path(outdir=directory, prefix='draw-gpr', tag=tag)
+    eos = utils.draw2path(outdir=directory, prefix='draw-eos', tag=tag)
 
-    raise NotImplementedError
+    phipaths = []
+    outpaths = []
+    for i in range(start, start+num_per_directory):
+        fmt = utils.draw2fmt(i, num_per_directory=num_per_directory)
+        phipath = phi%fmt
+        eospath = eos%fmt
+        phipaths.append(phipath)
+        outpaths.append((phipath, eospath))
 
-    args['phipaths'] = phipaths
-    args['outpaths'] = oupaths
+    args['phipaths'] = ' '.join(phipaths)
+    args['outpaths'] = ' '.join('--outpath %s %s'%tup in zip(phipaths, oupaths))
     args['reference_pressurec2'] = "%.9e"%reference_pressurec2
     args['sigma_logpressurec2'] = "%.9e"%sigma_logpressurec2
     args['stitch_below_reference_pressure'] = '--stitch-below-reference-pressure' if stitch_below_reference_pressure else ''
     args['crust'] = crust
 
-    return argdict2str(**args)
+    return args2str(**args)
 
 #---
 
@@ -182,14 +197,23 @@ def sub_draw_samples(path, **classads):
 
     write_sub(path, **classads)
 
-def args_draw_samples(*args, **kwargs):
+def args_draw_samples(
+        directory=DEFAULT_OUTDIR,
+        tag=DEFAULT_TAG,
+        *args,
+        **kwargs
+    ):
     """format the ARGS string for draw-samples nodes in a DAG
     """
     args = dict()
 
-    raise NotImplementedError('''set up args for draw-samples''')
+    raise NotImplementedError('''set up args for draw-samples
+predict name for samples file (target for weigh-samples) based on outdir, tag
+''')
 
-    return argdict2str(**args)
+    args['outpath'] = samples_path(prefix='draw-samples', directory=directory, tag=tag)
+
+    return args2str(**args)
 
 #---
 
@@ -200,98 +224,60 @@ def sub_weigh_samples(path, **classads):
     classads['arguments'] = '$(source) $(target) $(output) $(columns) $(logcolumns) $(weight_column) $(weight_column_is_log) $(invert_weight_column) $(column_range) $(reflect) $(prune) $(output_weight_column) $(do_not_log_output_weights) $(bandwidth) --verbose'
     write_sub(path, **classads)
 
-def args_weigh_samples(*args, **kwargs):
+def args_weigh_samples(
+        source,
+        target,
+        columns,
+        logcolumns=[],
+        weight_columns=[],
+        weight_column_is_log=[],
+        column_range=dict(),
+        reflect=False,
+        prune=False,
+        output_weight_column=utils.DEFAULT_WEIGHT_COLUMN,
+        do_not_log_output_weights=False,
+        bandwidth=utils.DEFAULT_BANDWIDTH,
+        num_per_directory=DEFAULT_NUM_PER_DIRECTORY,
+        directory=DEFAULT_OUTDIR,
+        tag=DEFAULT_TAG,
+    ):
     """format the ARGS string for weigh-samples nodes in a DAG
     """
     args = dict()
 
-    '''
-    args['source'] = "%s" 
-    target
-    output
-    columns
-    logcolumns
-    weight_column
-    weight_column_is_log
-    invert_weight_column
-    column_range
-    reflect
-    prune
-    output_weight_column
-    do_not_log_output_weights
-    bandwidth
-'''
+    ### I/O routing
+    args['source'] = source
 
-    raise NotImplementedError('''
-usage: weigh-samples [-h] [-v] [--logcolumn LOGCOLUMN]
-                     [--weight-column WEIGHT_COLUMN]
-                     [--weight-column-is-log WEIGHT_COLUMN_IS_LOG]
-                     [--invert-weight-column INVERT_WEIGHT_COLUMN]
-                     [-r COLUMN_RANGE COLUMN_RANGE COLUMN_RANGE] [--reflect]
-                     [--prune] [--output-weight-column OUTPUT_WEIGHT_COLUMN]
-                     [--do-not-log-output-weights] [-b BANDWIDTH]
-                     [--num-proc NUM_PROC]
-                     source target output columns [columns ...]
+    args['target'] = samples_path(prefix='draw-samples', directory=directory, tag=tag)
+    args['output'] = samples_path(prefix='weigh-samples', directory=directory, tag=tag)
 
-a script that computes the associated weights for target_samples.csv based on
-the distribution within source_samples.csv.
+    args['output_weight_column'] = output_weight_column
+    args['do_not_log_output_weights'] = '--do-not-log-output-weights' if do_not_log_output_weights else ''
 
-positional arguments:
-  source
-  target
-  output
-  columns
+    ### KDE model
+    args['bandwidth'] = '%.9e'%bandwidth
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose
-  --logcolumn LOGCOLUMN
-                        convert the values read in for this column to natural
-                        log. Can be repeated to specify multiple columns.
-                        DEFAULT=[]
-  --weight-column WEIGHT_COLUMN
-                        if provided, thie numerical values from this column
-                        will be used as weights in the KDE
-  --weight-column-is-log WEIGHT_COLUMN_IS_LOG
-                        if supplied, interpret the values in weight_column as
-                        log(weight), meaning we exponentiate them before using
-                        them in the KDE
-  --invert-weight-column INVERT_WEIGHT_COLUMN
-                        After extracting the weights from source_samples.csv,
-                        this will compute the KDE using the inverse of those
-                        values; e.g.: weight by the inverse of the prior for a
-                        set of posterior samples so the effective sampling is
-                        with respect to the likelihood. The inversion is done
-                        after exponentiation when --weight-column-is-log is
-                        supplied.
-  -r COLUMN_RANGE COLUMN_RANGE COLUMN_RANGE, --column-range COLUMN_RANGE COLUMN_RANGE COLUMN_RANGE
-                        specify the ranges used in corner.corner (eg.:
-                        "--column-range column minimum maximum"). Can specify
-                        ranges for multiple columns by repeating this option.
-                        DEFAULT will use the minimum and maximum observed
-                        sample points.
-  --reflect             reflect the points about their boundaries within the
-                        KDE
-  --prune               throw away samples that live outside the specified
-                        ranges
-  --output-weight-column OUTPUT_WEIGHT_COLUMN
-                        the name of the new weight-column in the output file.
-                        **BE CAREFUL!** You should make sure this is
-                        consistent with whether or not you specified --do-not-
-                        log-output-weight! DEFAULT=logweight
-  --do-not-log-output-weights
-                        record the raw weights instead of the log(weight) in
-                        the output CVS. **BE CAREFUL!** You should make sure
-                        this is consistent with the name specified by
-                        --output-weight-column.
-  -b BANDWIDTH, --bandwidth BANDWIDTH
-                        the bandwidth (standard deviation) used within the
-                        Gaussian KDE over whitened data. DEFAULT=0.03
-  --num-proc NUM_PROC   number of processes for parallelized computation of
-                        logkde. DEFAULT=15
-''')
+    # which columns to use in KDE model
+    args['columns'] = ' '.join(columns)
+    for col in logcolumns:
+        assert col in columns, 'specifying --logcolumn for unknown column: '+col
+    args['logcolumns'] = ' '.join('--logcolumn '+_ for _ in logcolumns)
 
-    return argdict2str(**args)
+    args['column_range'] = ' '.join('--column-range %s %.9e %.9e'%(col, m, M) for col, (m, M) in column_range.items())
+
+    args['reflect'] = '--reflect' if reflect else ''
+    args['prune'] = '--prune' if prune else ''
+
+    # weights for KDE model
+    args['weight_column'] = ' '.join('--weight-column '+_ for _ in weight_column)
+    for col in weight_column_is_log:
+        assert col in weight_columns, 'specifying --weight-column-is-log for unknown weight-column: '+col
+    args['weight_column_is_log'] = ' '.join('--weight-column-is-log '+_ for _ in weight_column_is_log)
+    for col in invert_weight_column:
+        assert col in weight_columns, 'specifying --invert-weight-column for unknown weight-column: '+col
+    args['invert_weight_column'] = ' '.join('--invert-weight-column '+_ for _ in invert_weight_column)
+
+    return args2str(**args)
 
 #---
 
@@ -302,38 +288,26 @@ def sub_marginalize_samples(path, **classads):
     classads['arguments'] = '$(samples) $(columns) $(weight_column) $(weight_column_is_log) --output-path $(outpath) --verbose'
     write_sub(path, **classads)
 
-def args_marginalize_samples(*args, **kwargs):
+def args_marginalize_samples(
+        columns=[utils.DEFAULT_UID_COLUMN],
+        weight_column=[utils.DEFAULT_WEIGHT_COLUMN],
+        weight_column_is_log=[utils.DEFAULT_WEIGHT_COLUMN],
+        directory=DEFAULT_OUTDIR,
+        tag=DEFAULT_TAG,
+    ):
     """format the ARGS string for marginalize-samples nodes in a DAG
     """
     args = dict()
 
-    raise NotImplementedError('''
-usage: marginalize-samples [-h] [--weight-column WEIGHT_COLUMN]
-                           [--weight-column-is-log WEIGHT_COLUMN_IS_LOG]
-                           [--max-num-samples MAX_NUM_SAMPLES] [-v]
-                           [-o OUTPUT_PATH]
-                           samples columns [columns ...]
+    ### I?O routing
+    args['samples'] = samples_path(prefix='weigh-samples', directory=directory, tag=tag)
+    args['outpath'] = samples_path(prefix='marginalize-samples', directory=directory, tag=tag)
 
-marginalize over all weights associated with combinations of columns, creating
-a new file with marginalized weights within it
+    args['columns'] = ' '.join(columns)
+    args['weight_column'] = ' '.join('--weight-column '+_ for _ in weight_column)
+    args['weight_column_is_log'] = ' '.join('--weight-column-is-log '+_ for _ in weight_column_is_log)
 
-positional arguments:
-  samples
-  columns               columns used to define unique sets. We will
-                        marginalize over anything not specified here
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --weight-column WEIGHT_COLUMN
-  --weight-column-is-log WEIGHT_COLUMN_IS_LOG
-  --max-num-samples MAX_NUM_SAMPLES
-  -v, --verbose
-  -o OUTPUT_PATH, --output-path OUTPUT_PATH
-                        print to this file if specified. Otherwise we print to
-                        STDOUT.
-''')
-
-    return argdict2str(**args)
+    return args2str(**args)
 
 #---
 
@@ -344,45 +318,48 @@ def sub_collate_samples(path, **classads):
     classads['arguments'] = '$(reference_column) $(outpath) $(samples) $(column_map) --Verbose'
     write_sub(path, **classads)
 
-def args_collate_samples(*args, **kwargs):
+def args_collate_samples(
+        samples,
+        column_map=None,
+        reference_column=utils.DEFAULT_UID_COLUMN,
+        outdir=DEFAULT_OUTDIR,
+        tag=DEFAULT_TAG,
+        *args, **kwargs
+    ):
     """format the ARGS string for collate-samples nodes in a DAG
     """
     args = dict()
 
-    raise NotImplementedError('''set up args for collate-samples
-usage: collate-samples [-h] [-s SAMPLES [SAMPLES ...]]
-                       [--column-map COLUMN_MAP COLUMN_MAP COLUMN_MAP] [-v]
-                       [-V]
-                       reference_column output
+    ### I/O routing
+    args['outpath'] = samples_path(prefix='collate-samples', directory=outdir, tag=tag)
 
-copy columns from multiple sample CSV into a target CSV
+    ### collating arguments
+    args['reference_column'] = reference_column
+    args['samples'] = ' '.join('--samples %s %s'%(path, ' '.join(columns)) for path, columns in samples.items())
+    args['column_map'] = ' '.join('--column-map %s %s %s'%(path, old, new) for path, pairs in column_map.items() for old, new in pairs)
 
-positional arguments:
-  reference_column      the column that is used to match rows in samples and
-                        target. This must be present in both files. It must
-                        also have only a single row in source for each value
-                        of this column.
-  output                if this file already exists, we require
-                        reference_column to exist in that file and then map
-                        all the --samples into those rows. Otherwise, we
-                        create a new file that only containes the columns from
-                        the samples
+    return args2str(**args)
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -s SAMPLES [SAMPLES ...], --samples SAMPLES [SAMPLES ...]
-                        eg: "--samples path column1 column2 ...". If no
-                        columns are supplied, we copy all of them
-  --column-map COLUMN_MAP COLUMN_MAP COLUMN_MAP
-                        map the column names from one of --samples into a new
-                        name in the output file. Useful if several of the
-                        --samples have the same column names. eg: "--column-
-                        map path old_column new_column"
-  -v, --verbose
-  -V, --Verbose
-''')
+#---
 
-    return argdict2str(**args)
+def sub_concatenate_samples(path, **classads):
+    """write the sub file for collate-samples into path
+    """
+    classads = basic_classads(which('concatenate-samples'), path2logdir(path), **classads)
+    classads['arguments'] = ''
+
+    raise NotImplementedError('set up arguments for concatenate-samples jobs')
+
+    write_sub(path, **classads)
+
+def args_concatenate_samples(paths, outdir=DEFAULT_OUTDIR, tag=DEFAULT_TAG):
+    """format the ARGS string for concatenate-samples nodes in a DAG
+    """
+    args = dict()
+
+    raise NotImplementedError('set up args for concatenate-samples jobs')
+
+    return args2str(**args)
 
 #-------------------------------------------------
 
@@ -394,11 +371,11 @@ def dag_draw_and_integrate(*args, **kwargs):
     raise NotImplementedError
 
 def dag_weigh_eos(*args, **kwargs):
-    """weigh reailizations of syntehtic EOS via draw-samples, weigh-samples, marginalize-samples, and collate-samples
+    """weigh reailizations of syntehtic EOS via draw-samples, weigh-samples, marginalize-samples, collate-samples, and concatenate-samples
     """
     raise NotImplementedError
 
 def dag_draw_and_weigh_eos(*args, **kwargs):
-    """generate realizations of synthetic EOS via draw-gpr and integrate-phi and then weigh reailizations of syntehtic EOS via draw-samples, weigh-samples, marginalize-samples, and collate-samples
+    """generate realizations of synthetic EOS via draw-gpr and integrate-phi and then weigh reailizations of syntehtic EOS via draw-samples, weigh-samples, marginalize-samples, collate-samples, and concatenate-samples
     """
     raise NotImplementedError

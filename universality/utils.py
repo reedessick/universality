@@ -3,6 +3,7 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import os
 import glob
 
 from collections import defaultdict
@@ -34,6 +35,24 @@ KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS = [
 DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION = 'increasing'
 
 DEFAULT_WEIGHT_COLUMN = 'logweight'
+
+DEFAULT_NUM_PER_DIRECTORY = 1000
+DEFAULT_UID_COLUMN = 'EoS'
+
+DEFAULT_NUM_DRAWS = 1
+
+#-------------------------------------------------
+# basic utilities for naming files
+#-------------------------------------------------
+
+def draw2directory(outdir='.', num_per_directory=DEFAULT_NUM_PER_DIRECTORY):
+    return os.path.join(outdir, 'DRAWmod%d'%num_per_directory+'-%(moddraw)06d')
+
+def draw2path(outdir='.', prefix='draw', tag=''):
+    return os.path.join(outdir, prefix+args.tag+'-%(draw)06d.csv') # for generating filenames
+
+def draw2fmt(draw, num_per_directory=DEFAULT_NUM_PER_DIRECTORY):
+    return {'draw':draw, 'moddraw':draw//num_per_directory}    
 
 #-------------------------------------------------
 # basic utilities for simulating samples
