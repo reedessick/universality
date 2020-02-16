@@ -24,6 +24,8 @@ It must also have only a single row in source for each value of this column.')
 parser.add_argument('output', type=str,
     help='if this file already exists, we require reference_column to exist in that file and then map all the --samples into those rows. \
 Otherwise, we create a new file that only containes the columns from the samples')
+parser.add_argument('--omit-missing', default=False, action='store_true',
+    help='if output already exists, drop any rows that do not have corresponding reference_columns in all of --samples instead of raising an exception.')
 
 parser.add_argument('-s', '--samples', nargs='+', type=str, default=[], action='append',
     help='eg: "--samples path column1 column2 ...". If no columns are supplied, we copy all of them')
@@ -101,8 +103,22 @@ if os.path.exists(args.output):
     refind = c.index(args.reference_column)
 
     ### check to make sure that we have a reference from all --samples for each val present here
-    for val in set(d[:,refind]):
-        assert val in references, 'there are reference values within %s that do not have corresponding values in at least one --samples'%args.output
+    if args.omit_missing:
+        truth = np.ones(len(d), dtype=bool)
+        for ind, val in enumerate(d[:,refind]):
+            if val not in references: ### there is nothing to map!
+                if args.verbose:
+                    print('WARNING! row found without any corresponding reference value in all --samples')
+                truth[ind] = False
+
+        if not np.all(truth): ### at least one row needs to be dropped
+            if args.verbose:
+                print('WARNING! dropped %d / %d rows because their reference value was not present in all --samples'%(np.sum(truth), len(data)))
+            d = d[truth]
+
+    else:
+        for val in set(d[:,refind]):
+            assert val in references, 'there are reference values within %s that do not have corresponding values in all --samples'%args.output
 
     ### set up holder for final result
     N = len(c)
