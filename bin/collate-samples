@@ -107,8 +107,8 @@ if os.path.exists(args.output):
         truth = np.ones(len(d), dtype=bool)
         for ind, val in enumerate(d[:,refind]):
             if val not in references: ### there is nothing to map!
-                if args.verbose:
-                    print('WARNING! row found without any corresponding reference value in all --samples')
+                if args.Verbose:
+                    print('WARNING! row (%d) found without any corresponding reference value (%f) in all --samples'%(ind, eos))
                 truth[ind] = False
 
         if not np.all(truth): ### at least one row needs to be dropped
