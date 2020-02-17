@@ -37,6 +37,7 @@ parser.add_argument('--alpha', default=0.25, type=float,
     help='used to when filling between confidence levels')
 parser.add_argument('--no-violin', default=False, action='store_true')
 parser.add_argument('--only-cr-width', default=False, action='store_true')
+parser.add_argument('--cr-width-subplot', default=False, action='store_true')
 
 parser.add_argument('-s', '--samples', nargs=2, type=str, default=[], action='append')
 parser.add_argument('--x-value', nargs=2, default=[], type=str, action='append',
@@ -136,7 +137,11 @@ if args.only_cr_width:
 #-------------------------------------------------
 
 fig = plot.figure(figsize=(args.figwidth, args.figheight))
-ax = fig.gca()
+if args.cr_width_subplot:
+    ax = fig.add_axes([0.15, 0.35, 0.8, 0.6])
+    subax = fig.add_axes([0.15, 0.10, 0.8, 0.24])
+else:
+    ax = fig.gca()
 
 variance = args.column_bandwidth**2
 ones = np.ones(args.num_points, dtype=float)
@@ -190,6 +195,11 @@ for ind, (label, path) in enumerate(args.samples):
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
             ymin, ymax = vals
+            if args.cr_width_subplot:
+                if args.filled:
+                    subax.fill_between([x_value-dx, x_value+dx], [0, 0], [ymax-ymin]*2, color=colors[label], alpha=args.alpha)
+                subax.plot([x_value-dx, x_value+dx], [ymax-ymin]*2, color=colors[label], linestyle=args.level_linestyle)
+
             if args.only_cr_width:
                 ymax = ymax-ymin
                 ymin = 0
@@ -204,12 +214,20 @@ for ind, (label, path) in enumerate(args.samples):
 
 ### decorate
 
-ax.set_xticks([x_values[label] for label in names])
-ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
+if args.cr_width_subplot:
+    subax.set_xticks([x_values[label] for label in names])
+    subax.set_xticklabels(names, rotation=args.rotate_xticklabels)
+    plot.setp(ax.get_xticklabels(), visible=False)
+
+    subax.set_ylim(ymin=0)
+    subax.set_ylabel('Credible Region Size'%args.column_label)
+else:
+    ax.set_xticks([x_values[label] for label in names])
+    ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 
 if args.only_cr_width:
     ax.set_ylim(ymin=0)
-    ax.set_ylabel('%s %d%s HPD Credible Region Size'%(args.column_label, 100*args.level[0], '\%')) ### we already checked that there is only a single level
+    ax.set_ylabel('%s %d%s Credible Region Size'%(args.column_label, 100*args.level[0], '\%')) ### we already checked that there is only a single level
 else:
     if args.column_range:
         ax.set_ylim(args.column_range)
@@ -219,6 +237,8 @@ xlim = (xmin, xmax)
 if args.column_truth is not None:
     ax.plot(xlim, [args.column_truth]*2, color=args.truth_color)
 ax.set_xlim(xlim)
+if args.cr_width_subplot:
+    subax.set_xlim(xlim)
 
 if args.grid:
     ax.grid(True, which='both')
@@ -228,7 +248,10 @@ if args.x_label:
     ax.xaxis.set_label_position('top')
 
 if args.no_xticklabels:
-    plot.plt.setp(ax.get_xticklabels(), visible=False)
+    if args.cr_width_subplot:
+        plot.setp(subax.get_xticklabels(), visible=False)
+    else:
+        plot.setp(ax.get_xticklabels(), visible=False)
 
 ### save
 plot.save('kde-violin-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
