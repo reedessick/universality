@@ -75,6 +75,9 @@ AXES_POSITION = [
 
 #-------------------------------------------------
 
+def setp(*args, **kwargs):
+    return plt.setp(*args, **kwargs)
+
 def figure(*args, **kwargs):
     return plt.figure(*args, **kwargs)
 
