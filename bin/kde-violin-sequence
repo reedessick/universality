@@ -220,7 +220,7 @@ if args.cr_width_subplot:
     plot.setp(ax.get_xticklabels(), visible=False)
 
     subax.set_ylim(ymin=0)
-    subax.set_ylabel('Credible Region Size'%args.column_label)
+    subax.set_ylabel('Credible Region Size')
 else:
     ax.set_xticks([x_values[label] for label in names])
     ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
