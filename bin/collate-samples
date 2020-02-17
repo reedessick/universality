@@ -108,7 +108,7 @@ if os.path.exists(args.output):
         for ind, val in enumerate(d[:,refind]):
             if val not in references: ### there is nothing to map!
                 if args.Verbose:
-                    print('WARNING! row (%d) found without any corresponding reference value (%f) in all --samples'%(ind, eos))
+                    print('WARNING! row (%d) found without any corresponding reference value (%f) in all --samples'%(ind, val))
                 truth[ind] = False
 
         if not np.all(truth): ### at least one row needs to be dropped
