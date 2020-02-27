@@ -131,6 +131,7 @@ def kde_corner(
         linewidth=DEFAULT_LINEWIDTH,
         linestyle=DEFAULT_LINESTYLE,
         filled=False,
+        filled1D=False,
         scatter=False,
         rotate=True,
         rotate_xticklabels=0,
@@ -235,6 +236,8 @@ def kde_corner(
 
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
+                        if filled1D:
+                            print('WARNING: filled1D only works when rotate==False')
                         ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
@@ -243,6 +246,8 @@ def kde_corner(
                         ax.set_xlim(xmin=0, xmax=xmax)
 
                     else:
+                        if filled1D:
+                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
