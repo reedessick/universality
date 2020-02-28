@@ -300,9 +300,11 @@ def kde_corner(
             elif rotate and row==(Ncol-1):
                 ax.set_ylim(range[row])            
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
+                ax.set_xticks([])
             else:
                 ax.set_xlim(range[col])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
+                ax.set_yticks([])
 
             # add Truth annotations
             if truths[col] is not None:
