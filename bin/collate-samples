@@ -18,7 +18,7 @@ from universality import utils
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('reference_column', type=str,
+parser.add_argument('reference_columns', nargs='+', type=str,
     help='the column that is used to match rows in samples and target. This must be present in both files. \
 It must also have only a single row in source for each value of this column.')
 parser.add_argument('output', type=str,
@@ -49,12 +49,14 @@ for path, old, new in args.column_map:
     assert path in samples, 'specifying --column-map for unkown sample set: '+path
     column_maps[path][old] = new
 
+Nref = len(args.reference_columns)
+
 #-------------------------------------------------
 
 ### read in source data
-data = []
-columns = []
-refinds = []
+data = dict()
+columns = dict()
+refinds = dict()
 
 references = None
 
@@ -63,34 +65,36 @@ for source in samples.keys():
     if args.verbose:
         print('reading data from source: '+source)
     if len(samples[source]):
-        d, c = utils.load(source, [args.reference_column]+samples[source])
-        refind = 0
+        d, c = utils.load(source, args.reference_columns+samples[source])
+        refind = range(Nref)
     else:
         d, c = utils.load(source)
-        assert args.reference_column in c, 'reference_column=%s not found in %s'%(args.reference_column, source)
-        refind = c.index(args.reference_column)
+        for col in args.reference_columns:
+            assert col in c, 'reference_column=%s not found in %s'%(col, source)
+        refind = [c.index(col) for col in args.reference_columns]
 
-    assert len(d)==len(set(d[:,refind])), 'reference_column=%s can not have repeated values in different rows'
+    ref_set = set(tuple(_) for _ in d[:,refind])
+    assert len(d)==len(ref_set), 'reference_columns=%s can not have repeated values in different rows'%(','.join(args.reference_columns))
 
-    data.append(d)
+    data[source] = d
 
     column_map = column_maps[source]
-    columns.append([column_map.get(col, col) for col in c])
+    columns[source] = [column_map.get(col, col) for col in c]
 
-    refinds.append(refind)
+    refinds[source] = refind
 
     if args.Verbose:
         print('found %d reference values'%len(d))
 
     if references is None:
-        references = sorted(d[:,refind])
+        references = ref_set
     else:
-        references = [val for val in references if np.any(d[:,refind]==val)] ### only keep the reference values that are common between all --samples
+        references = [val for val in ref_set if val in references] ### only keep the reference values that are common between all --samples
 
     if args.Verbose:
         print('retained %d reference values common to all sample sets provided'%len(references))
 
-Ncol = sum(len(c) for c in columns) - len(columns) ### the total number of columns that are *not* copies of reference_column
+Ncol = sum(len(c) for c in columns.values()) - len(columns)*args.reference_columns ### the total number of columns that are *not* copies of reference_column
 
 #-------------------------------------------------
 
@@ -99,14 +103,15 @@ if os.path.exists(args.output):
     if args.verbose:
         print('loading existing columns from: '+args.output)
     d, c = utils.load(args.output)
-    assert args.reference_column in c, 'reference_column=%s not present in %s'%(args.reference_column, args.output)
-    refind = c.index(args.reference_column)
+    for col in args.reference_columns:
+        assert col in c, 'reference_column=%s not present in %s'%(col, args.output)
+    result_refind = [c.index(col) for col in args.reference_columns]
 
     ### check to make sure that we have a reference from all --samples for each val present here
     if args.omit_missing:
         truth = np.ones(len(d), dtype=bool)
-        for ind, val in enumerate(d[:,refind]):
-            if val not in references: ### there is nothing to map!
+        for ind, val in enumerate(d[:,result_refind]):
+            if tuple(val) not in references: ### there is nothing to map!
                 if args.Verbose:
                     print('WARNING! row (%d) found without any corresponding reference value (%f) in all --samples'%(ind, val))
                 truth[ind] = False
@@ -117,7 +122,7 @@ if os.path.exists(args.output):
             d = d[truth]
 
     else:
-        for val in set(d[:,refind]):
+        for val in set(tuple(_) for _ in d[:,result_refind]):
             assert val in references, 'there are reference values within %s that do not have corresponding values in all --samples'%args.output
 
     ### set up holder for final result
@@ -128,32 +133,39 @@ if os.path.exists(args.output):
     header = c
 
 else:
-    refind = 0
-
     ### set up holder for final result
-    N = 1
-    result = np.empty((len(references), 1+Ncol), dtype=float)
-    result[:,0] = references
+    N = len(Nref)
+    result_refind = range(N)
 
-    header = [args.reference_column]
+    result = np.empty((len(references), N+Ncol), dtype=float)
+    for ind, val in enumerate(references):
+        result[:,:N] = val
+
+    header = args.reference_columns
 
 #-------------------------------------------------
 
 ### fill in result with data from each file
 if args.verbose:
     print('mapping data into final array')
-for d, c, r in zip(data, columns, refinds):
-    indmap = dict((val, i) for i, val in enumerate(d[:,r])) ### map to look-up columns
+
+for source in samples.keys():
+    d = data[source]
+    c = columns[source]
+    r = refinds[source]
+
+    indmap = dict((tuple(val), i) for i, val in enumerate(d[:,r])) ### map to look-up columns
 
     Ncol = len(c)
-    d = d[:,[_ for _ in range(Ncol) if _ != r]] ### keep only the columns that are not the reference column
-    c.remove(args.reference_column)
-    Ncol -= 1
+    d = d[:,[_ for _ in range(Ncol) if _ not in r]] ### keep only the columns that are not the reference column
+    for col in args.reference_columns:
+        c.remove(col)
+    Ncol -= len(Nref)
 
     header += c
 
-    for ind, val in enumerate(result[:,refind]): ### FIXME: may be able to do this faster with array assignment
-       result[ind,N:N+Ncol] = d[indmap[val],:]
+    for ind, val in enumerate(result[:,result_refind]):
+       result[ind,N:N+Ncol] = d[indmap[tuple(val)],:]
 
     N += Ncol ### increment
 
