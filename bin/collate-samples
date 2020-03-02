@@ -94,7 +94,7 @@ for source in samples.keys():
     if args.Verbose:
         print('retained %d reference values common to all sample sets provided'%len(references))
 
-Ncol = sum(len(c) for c in columns.values()) - len(columns)*args.reference_columns ### the total number of columns that are *not* copies of reference_column
+Ncol = sum(len(c) for c in columns.values()) - len(samples.keys())*len(args.reference_columns) ### the total number of columns that are *not* copies of reference_column
 
 #-------------------------------------------------
 
@@ -134,14 +134,14 @@ if os.path.exists(args.output):
 
 else:
     ### set up holder for final result
-    N = len(Nref)
-    result_refind = range(N)
+    N = Nref
+    result_refind = range(Nref)
 
     result = np.empty((len(references), N+Ncol), dtype=float)
     for ind, val in enumerate(references):
         result[:,:N] = val
 
-    header = args.reference_columns
+    header = args.reference_columns[:]
 
 #-------------------------------------------------
 
@@ -156,11 +156,10 @@ for source in samples.keys():
 
     indmap = dict((tuple(val), i) for i, val in enumerate(d[:,r])) ### map to look-up columns
 
-    Ncol = len(c)
-    d = d[:,[_ for _ in range(Ncol) if _ not in r]] ### keep only the columns that are not the reference column
+    d = d[:,[_ for _ in range(len(c)) if _ not in r]] ### keep only the columns that are not the reference column
     for col in args.reference_columns:
         c.remove(col)
-    Ncol -= len(Nref)
+    Ncol = len(c)
 
     header += c
 
