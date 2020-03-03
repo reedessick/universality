@@ -89,7 +89,7 @@ for source in samples.keys():
     if references is None:
         references = ref_set
     else:
-        references = [val for val in ref_set if val in references] ### only keep the reference values that are common between all --samples
+        references = references.intersection(ref_set) ### only keep the reference values that are common between all --samples
 
     if args.Verbose:
         print('retained %d reference values common to all sample sets provided'%len(references))
@@ -134,12 +134,15 @@ if os.path.exists(args.output):
 
 else:
     ### set up holder for final result
+    if args.verbose:
+        print('establishing set of unique combinations of reference columns')
+
     N = Nref
     result_refind = range(Nref)
 
     result = np.empty((len(references), N+Ncol), dtype=float)
     for ind, val in enumerate(references):
-        result[:,:N] = val
+        result[ind,:N] = val
 
     header = args.reference_columns[:]
 
