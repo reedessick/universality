@@ -16,8 +16,8 @@ from universality import stats
 
 #-------------------------------------------------
 
-HEAD = 'total number |     Neff     |     Nkde     | path'
-ROW = '%12d | %12.3f | %12.3f | %s'
+HEAD = 'total number | I(base 2) | H(base 2) |     Neff     |     Nkde     | path'
+ROW = '%12d | %9.3f | %9.3f | %12.3f | %12.3f | %s'
 WARNING = "WARNING: %s does not exist!"
 
 #-------------------------------------------------
@@ -69,4 +69,4 @@ for inpath in args.samples:
         data, columns = utils.load(inpath, columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
         data, weights = utils.prune(data, ranges, weights=weights)
 
-    print(ROW%(len(weights), stats.neff(weights), stats.nkde(weights), inpath))
+    print(ROW%(len(weights), stats.information(weights, base=2), stats.entropy(weights, base=2), stats.neff(weights), stats.nkde(weights), inpath))

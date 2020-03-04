@@ -27,10 +27,18 @@ def nkde(weights):
 
 def neff(weights):
     """the effective number of samples based on a set of weights"""
+    return np.exp(entropy(weights, base=np.exp(1)))
+
+def entropy(weights, base=2.):
+    """compute the entropy of the distribution"""
     weights = np.array(weights)
     truth = weights > 0
     weights /= np.sum(weights)
-    return np.exp(-np.sum(weights[truth]*np.log(weights[truth])))
+    return -np.sum(weights[truth]*np.log(weights[truth])) / np.log(base)
+
+def information(weights, base=2.):
+    """compute the information in the distribution"""
+    return np.log(len(weights))/np.log(base) - entropy(weights, base=base)
 
 def logkde2levels(logkde, levels):
     logkde = logkde.flatten()
