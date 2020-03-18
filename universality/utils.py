@@ -186,7 +186,7 @@ def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumn
 
         else:
             if column in invweightcolumns:
-                data[:,i] = 1./data[:,1]
+                data[:,i] = 1./data[:,i]
 
             data[:,i] = np.log(data[:,i])
 
