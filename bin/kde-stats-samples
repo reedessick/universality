@@ -30,6 +30,8 @@ sgroup.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+sgroup.add_argument('--invert-weight-column', default=[], type=str, action='append',
+    help='the column for which this is true')
 
 cgroup = parser.add_argument_group('column-specific arguments')
 cgroup.add_argument('--logcolumn', default=[], type=str, action='append',
@@ -121,6 +123,7 @@ if args.weight_column:
         args.samples,
         args.weight_column,
         logweightcolumns=args.weight_column_is_log,
+        invweightcolumns=args.invert_weight_column,
         max_num_samples=args.max_num_samples,
     )
 
