@@ -424,23 +424,49 @@ def process2samples(
         mod,
         xcolumn,
         ycolumns,
-        x_test,
+        static_x_test=None,
+        dynamic_x_test=None,
         verbose=False,
     ):
     """manages I/O and extracts samples at the specified places
+    returns an array that is ordered as follows
+        for each ycolumn: for each static x_test
     """
     loadcolumns = [xcolumn] + ycolumns
-    Nref = len(x_test)
 
-    ans = np.empty((len(data), Nref*len(ycolumns)), dtype=float)
+    if static_x_test is not None:
+        Nref = len(static_x_test)
+    else:
+        Nref = 0
+
+    if dynamic_x_test is not None:
+        assert len(dynamic_x_test)==len(data)
+        Ndyn = np.shape(dynamic_x_test)[1]
+    else:
+        Ndyn = 0
+
+    Ntot = Nref+Ndyn
+    assert Ntot > 0, 'must provide at least one static_x_test or dynamic_x_test'
+
+    ans = np.empty((len(data), (Nref+Ndyn)*len(ycolumns)), dtype=float)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
             print('    '+path)
         d, c = load(path, loadcolumns)
 
-        for j, column in enumerate(c[1:]):
-            ans[i,j*Nref:(j+1)*Nref] = np.interp(x_test, d[:,0], d[:,1+j])
+        if (Nref > 0) and (Ndyn > 0):
+            for j, column in enumerate(c[1:]):
+                ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
+                ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
+
+        elif Nref > 0:
+            for j, column in enumerate(c[1:]):
+                ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
+
+        else: ### Ndyn > 0
+            for j, column in enumerate(c[1:]):
+                ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
 
     return ans
 
@@ -449,16 +475,39 @@ def process2extrema(
         tmp,
         mod,
         columns,
-        ranges,
+        static_ranges=None,
+        dynamic_minima=None,
+        dynamic_maxima=None,
         verbose=False,
     ):
     """manages I/O and extracts max, min for the specified columns
     """
-    ref = ranges.keys()
-    loadcolumns = columns + ref
-    ranges = dict((loadcolumns.index(column), val) for column, val in ranges.items())
+    N = len(data)
+    loadcolumns = columns[:]
 
-    ans = np.empty((len(data), 2*len(columns)), dtype=float)
+    if static_ranges is not None:
+        loadcolumns += [key for key in static_ranges.keys() if key not in loadcolumns] ### avoid duplicates
+        static_ranges = [(loadcolumns.index(column), val) for column, val in static_ranges.items()]
+    else:
+        static_ranges = []
+
+    if dynamic_minima is not None:
+        for val in dynamic_minima.values():
+            assert len(val)==N, 'dynamic minima must have the same length as data'
+        loadcolumns += [key for key in dynamic_minima.keys()+dynamic_minima.values() if key not in loadcolumns]
+        dynamic_minima = [(loadcolumns.index(key), val) for key, val in dynamic_minima.items()]
+    else:
+        dynamic_minima = []
+
+    if dynamic_maxima is not None:
+        for val in dynamic_maxima.values():
+            assert len(val)==N, 'dynamic minima must have the same length as data'
+        loadcolumns += [key for key in dynamic_maxima.keys()+dynamic_maxima.values() if key not in loadcolumns]
+        dynamic_minima = [(loadcolumns.index(key), val) for key, val in dynamic_maxima.items()]
+    else:
+        dynamic_maxima = []
+
+    ans = np.empty((N, 2*len(columns)), dtype=float)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
@@ -466,8 +515,14 @@ def process2extrema(
         d, _ = load(path, loadcolumns)
 
         truth = np.ones(len(d), dtype=bool)
-        for j, (m, M) in ranges.items():
+        for j, (m, M) in static_ranges:
             truth *= (m<=d[:,j])*(d[:,j]<=M)
+
+        for j, minima in dynamic_minima:
+            truth *= d[:,j] >= minima[i]
+
+        for j, maxima in dynamic_maxima:
+            truth *= d[:,j] <= maxima[i]
 
         if not np.any(truth):
             raise RuntimeError('could not find any samples within all specified ranges!')

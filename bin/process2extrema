@@ -32,6 +32,11 @@ rgroup.add_argument('--column-range', nargs=3, type=str, default=[], action='app
     help='restrict the extremization to within this range for this column. \
 e.g.: "--column-range baryon_density 2.8e14 2.8e15". Can be repeated to specify multiple ranges')
 
+rgroup.add_argument('--dynamic-minimum', nargs=2, type=str, default=[], action='append',
+    help='restrict the extremization to above a dynamic value. e.g. "--dynamic-minimum reference_column lookup_column" will restrict the extremization to everywhere that reference_column is larger than the associated value in lookup_column')
+rgroup.add_argument('--dynamic-minimum', nargs=2, type=str, default=[], action='append',
+    help='restrict the extremization to below a dynamic value. e.g. "--dynamic-maximum reference_column lookup_column" will restrict the extremization to everywhere that reference_column is smaller than the associated value in lookup_column')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -67,8 +72,20 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
-keep = data[:,1:] ### the stuff we want to transfer over to the final file
+
+dynamic_columns = [col for _, col in args.dynamic_minimum + args.dynamic_maximum]
+Ndyn = len(dynamic_columns)
+
+data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
+
+N = 1+len(args.copy_column)
+keep = data[:,1:N] ### the stuff we want to transfer over to the final file
+
+dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_minimum)) ### the values defining the dynamic minima
+
+N += len(args.dynamic_minima)
+dynamic_maxima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_maximum)) ### the values defining the dynamic maxima
+
 data = data[:,0]
 N = len(data)
 
@@ -87,7 +104,9 @@ ans[:,Nkeep:] = utils.process2extrema(
     path_template,
     args.eos_num_per_dir,
     args.columns,
-    ranges,
+    static_ranges=ranges,
+    dynamic_minima=dynamic_minima,
+    dynamic_maxima=dynamic_maxima,
     verbose=args.Verbose,
 )
 
