@@ -65,6 +65,11 @@ lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
 lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
     help='a string into which the EOS number can be substituted when building filenames.')
 
+# output arguments
+ogroup = parser.add_argument_group('output arguments')
+ogroup.add_argument('--output-eos-dir', default=None, type=str,
+    help='if specified, we will write the updated files into this directory instead of overwriting them')
+
 args = parser.parse_args()
 
 ### finish parsing
@@ -74,6 +79,9 @@ foo = FUNCTIONS[args.action] ### look up the function handle only once
 
 if args.new_column is None:
     args.new_column = DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
+
+if args.output_eos_dir is None:
+    args.output_eos_dir = args.eos_dir
 
 args.verbose |= args.Verbose
 
@@ -91,9 +99,12 @@ if args.verbose:
     print('iterating over files and adding: '+args.new_column)
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
+new_template = os.path.join(newdir_template, args.eos_basename)
 
 for i, eos in enumerate(data):
-    path = path_template%{'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
+    tmp = {'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
+    path = path_template%tmp
     if args.Verbose:
         print('    '+path)
     d, c = utils.load(path)
@@ -119,5 +130,13 @@ for i, eos in enumerate(data):
         header = ','.join(c+[args.new_column])
     
     ans[:,ind] = foo(d[:,c.index(args.xcolumn)], d[:,c.index(args.fcolumn)]) ### compute the integral or derivative
-    
-    np.savetxt(path, ans, comments='', delimiter=',', header=header) ### save the result to the same file
+
+    new = new_template%tmp
+    if args.Verbose:
+        print('        writing: '+new)
+
+    newdir = newdir_template%tmp
+    if not os.path.exists(newdir):
+        os.makedirs(newdir)
+
+    np.savetxt(new, ans, comments='', delimiter=',', header=header) ### save the result to the same file
