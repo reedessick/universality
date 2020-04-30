@@ -427,6 +427,8 @@ def process2samples(
         static_x_test=None,
         dynamic_x_test=None,
         verbose=False,
+        exact_match=False,
+        rtol=1e-9,
     ):
     """manages I/O and extracts samples at the specified places
     returns an array that is ordered as follows
@@ -455,18 +457,39 @@ def process2samples(
             print('    '+path)
         d, c = load(path, loadcolumns)
 
+        if exact_match:
+            if Nref > 0:
+                truth = np.zeros(len(d), dtype=bool)
+                for x in static_x_test:
+                    truth[np.abs(d[:,0]-x) <= rtol*x] = True
+
+            if Ndyn > 0:
+                dyn_truth = np.zeros(len(d), dtype=bool)
+                for x in dynamic_x_test[i]:
+                    dyn_truth[np.abs(d[:,0]-x) <= rtol*x] = True
+
         if (Nref > 0) and (Ndyn > 0):
             for j, column in enumerate(c[1:]):
-                ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
-                ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
+                if exact_match:
+                    ans[i,j*Ntot:j*Ntot+Nref] = d[:,1+j][truth]
+                    ans[i,j*Ntot+Nref:(j+1)*Ntot] = d[:,1+j][dyn_truth]
+                else:
+                    ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
+                    ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
 
         elif Nref > 0:
             for j, column in enumerate(c[1:]):
-                ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
+                if exact_match:
+                    ans[i,j*Nref:(j+1)*Nref] = d[:,1+j][truth]
+                else:
+                    ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
 
         else: ### Ndyn > 0
             for j, column in enumerate(c[1:]):
-                ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
+                if exact_match:
+                    ans[i,j*Ndyn:(j+1)*Ndyn] = d[:,1+j][dyn_truth]
+                else:
+                    ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
 
     return ans
 
@@ -494,7 +517,7 @@ def process2extrema(
     if dynamic_minima is not None:
         for val in dynamic_minima.values():
             assert len(val)==N, 'dynamic minima must have the same length as data'
-        loadcolumns += [key for key in dynamic_minima.keys()+dynamic_minima.values() if key not in loadcolumns]
+        loadcolumns += [key for key in dynamic_minima.keys() if key not in loadcolumns]
         dynamic_minima = [(loadcolumns.index(key), val) for key, val in dynamic_minima.items()]
     else:
         dynamic_minima = []
@@ -502,8 +525,8 @@ def process2extrema(
     if dynamic_maxima is not None:
         for val in dynamic_maxima.values():
             assert len(val)==N, 'dynamic minima must have the same length as data'
-        loadcolumns += [key for key in dynamic_maxima.keys()+dynamic_maxima.values() if key not in loadcolumns]
-        dynamic_minima = [(loadcolumns.index(key), val) for key, val in dynamic_maxima.items()]
+        loadcolumns += [key for key in dynamic_maxima.keys() if key not in loadcolumns]
+        dynamic_maxima = [(loadcolumns.index(key), val) for key, val in dynamic_maxima.items()]
     else:
         dynamic_maxima = []
 

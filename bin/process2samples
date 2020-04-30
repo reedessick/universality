@@ -30,8 +30,13 @@ rgroup.add_argument('columns', nargs='+', type=str,
 rgroup.add_argument('-r', '--reference-value', default=[], type=float, action='append',
     help='the reference values at which we extract values from the EOS parameters. \
 DEFAULT=[]')
-rgroup.add_argument('-R', '--reference-value-column', default=[], type=float, action='append',
+rgroup.add_argument('-R', '--reference-value-column', default=[], type=str, action='append',
     help='look up the reference value from this column in the input data')
+
+rgroup.add_argument('--exact-match', default=False, action='store_true',
+    help='if supplied, we require an exact match when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
+rgroup.add_argument('--exact-match-rtol', default=1e-9, type=float,
+    help='the relative tolerance for the exact match')
 
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
@@ -98,9 +103,11 @@ ans[:,Nkeep:] = utils.process2samples(
     args.eos_num_per_dir,
     args.reference,
     args.columns,
-    statick_x_test=args.reference_value,
+    static_x_test=args.reference_value,
     dynamic_x_test=ref,
     verbose=args.Verbose,
+    exact_match=args.exact_match,
+    rtol=args.exact_match_rtol
 )
 
 ### set up output columns
@@ -110,7 +117,7 @@ col_template = '%s(%s=%s)' ### add columns corresponding to a specific value
 ref_template = '%s(%s@%s)' ### add columns corresponding to reference values read dynamically from columns
 for column in args.columns:
     outcols += [col_template%(column, args.reference, val) for val in args.reference_value] 
-    outcols += [ref_template%(column, args.refernece, col) for col in args.reference_value_column]
+    outcols += [ref_template%(column, args.reference, col) for col in args.reference_value_column]
 
 #------------------------
 

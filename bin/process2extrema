@@ -34,7 +34,7 @@ e.g.: "--column-range baryon_density 2.8e14 2.8e15". Can be repeated to specify 
 
 rgroup.add_argument('--dynamic-minimum', nargs=2, type=str, default=[], action='append',
     help='restrict the extremization to above a dynamic value. e.g. "--dynamic-minimum reference_column lookup_column" will restrict the extremization to everywhere that reference_column is larger than the associated value in lookup_column')
-rgroup.add_argument('--dynamic-minimum', nargs=2, type=str, default=[], action='append',
+rgroup.add_argument('--dynamic-maximum', nargs=2, type=str, default=[], action='append',
     help='restrict the extremization to below a dynamic value. e.g. "--dynamic-maximum reference_column lookup_column" will restrict the extremization to everywhere that reference_column is smaller than the associated value in lookup_column')
 
 # verbosity arguments
@@ -83,7 +83,7 @@ keep = data[:,1:N] ### the stuff we want to transfer over to the final file
 
 dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_minimum)) ### the values defining the dynamic minima
 
-N += len(args.dynamic_minima)
+N += len(args.dynamic_minimum)
 dynamic_maxima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_maximum)) ### the values defining the dynamic maxima
 
 data = data[:,0]
