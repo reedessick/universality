@@ -113,9 +113,14 @@ def corner(*args, **kwargs):
         raise ImportError('could not import corner')
     return _corner(*args, **kwargs)
 
-def silverman_bandwidth(data):
+def silverman_bandwidth(data, weights=None):
     """approximate rule of thumb for bandwidth selection"""
-    return 0.9 * np.std(data) * len(data)**(-0.2)
+    if weights is None:
+        std = np.std(data)
+    else: ### account for weights when computing std
+        N = np.sum(weights)
+        std = (np.sum(weights*data**2)/N - (np.sum(weights*data)/N)**2)**0.5
+    return 0.9 * std * len(data)**(-0.2)
 
 def kde_corner(
         data,
@@ -154,6 +159,18 @@ def kde_corner(
     ### check data formats
     Nsamp, Ncol = data.shape
 
+    if weights is None:
+        weights = np.ones(Nsamp, dtype=float)/Nsamp
+    else:
+        assert len(weights)==Nsamp, 'must have the same number of rows in data and weights'
+    weights = np.array(weights)
+
+    if labels is None:
+        labels = [str(i) for i in xrange(Ncol)]
+    else:
+        assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
+    labels = np.array(labels)
+
     if bandwidths is None:
         bandwidths = [None]*Ncol
     else:
@@ -161,14 +178,10 @@ def kde_corner(
     variances = np.empty(Ncol, dtype=float)
     for i, b in enumerate(bandwidths):
         if b is None:
-            b = silverman_bandwidth(data[:,i])
+            b = silverman_bandwidth(data[:,i], weights=weights)
+            if verbose:
+                print('automatically selected bandwidth=%.3e for col=%s'%(b, labels[i]))
         variances[i] = b**2
-
-    if labels is None:
-        labels = [str(i) for i in xrange(Ncol)]
-    else:
-        assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
-    labels = np.array(labels)
 
     if range is None:
         range = [utils.data2range(data[:,i]) for i in xrange(Ncol)]
@@ -181,12 +194,6 @@ def kde_corner(
     else:
         assert len(truths)==Ncol, 'must have the same number of columns in data and truths'
     truths = np.array(truths)
-
-    if weights is None:
-        weights = np.ones(Nsamp, dtype=float)/Nsamp
-    else:
-        assert len(weights)==Nsamp, 'must have the same number of rows in data and weights'
-    weights = np.array(weights)
 
     ### construct figure and axes objects
     if fig is None:
