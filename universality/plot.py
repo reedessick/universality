@@ -113,6 +113,10 @@ def corner(*args, **kwargs):
         raise ImportError('could not import corner')
     return _corner(*args, **kwargs)
 
+def silverman_bandwidth(data):
+    """approximate rule of thumb for bandwidth selection"""
+    return 0.9 * np.std(data) * len(data)**(-0.2)
+
 def kde_corner(
         data,
         bandwidths=None,
@@ -151,10 +155,14 @@ def kde_corner(
     Nsamp, Ncol = data.shape
 
     if bandwidths is None:
-        bandwidths = [DEFAULT_BANDWIDTH]*Ncol
+        bandwidths = [None]*Ncol
     else:
         assert len(bandwidths)==Ncol, 'must have the same number of columns in data and bandwidths'
-    variances = np.array(bandwidths)**2
+    variances = np.empty(Ncol, dtype=float)
+    for i, b in enumerate(bandwidths):
+        if b is None:
+            b = silverman_bandwidth(data[:,i])
+        variances[i] = b**2
 
     if labels is None:
         labels = [str(i) for i in xrange(Ncol)]

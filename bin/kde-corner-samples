@@ -67,7 +67,7 @@ DEFAULT will use the minimum and maximum observed sample points.')
 
 cgroup.add_argument('-b', '--column-bandwidth', nargs=2, default=[], type=str, action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+If you do not specify a bandwidth for a column, a best-guess bandwidth will be used based on the data supplied.')
 
 cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action='append',
     help='multiply the column by this number before computing statistics. This is applied when data is first read in \
@@ -174,7 +174,7 @@ bandwidthdict = dict()
 for column, b in args.column_bandwidth:
     assert column in args.columns, 'specifying --column-bandwidth for unknown column: '+column
     bandwidthdict[column] = float(b)
-bandwidths = [bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns]
+bandwidths = [bandwidthdict.get(col, None) for col in args.columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
 
 multiplierdict = dict()
 for column, m in args.column_multiplier:
@@ -298,7 +298,7 @@ for ind, (label, path) in enumerate(args.samples):
         if args.include_neff:
             legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(stats.neff(weights), stats.nkde(weights))
         dy = 0.25 / args.figheight ### this seems to be a good scaling.
-        fig.text(0.90, 0.90-ind*dy, legend, color=colors[label], ha='right', va='top')
+        fig.text(0.95, 0.95-ind*dy, legend, color=colors[label], ha='right', va='top')
 
 ### plot reference curves
 for i, (label, path) in enumerate(args.reference):
