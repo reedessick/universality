@@ -89,7 +89,13 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+data, cols = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+
+### marginalize to avoid reading in the same EOS more than once
+if args.verbose:
+    print('marginalizing samples to avoid repeated work processing the same EoS multiple times')
+data, cols = utils.marginalize(data, np.zeros(len(data), dtype=float), cols)
+
 data = data[:,0]
 N = len(data)
 
