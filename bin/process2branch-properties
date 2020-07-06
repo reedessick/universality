@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+"""a script that will extract the properties of stable branches as identified in M-R macro files"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+DEFAULT_COLUMNS = ['baryon_density', 'pressurec2', 'energy_densityc2']
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required argumets')
+rgroup.add_argument('inpath', type=str)
+
+# lookup arguments
+lgroup = parser.add_argument_group('look-up arguments')
+lgroup.add_argument('--eos-column', default='EoS', type=str)
+lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
+lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames for eos files.')
+
+lgroup.add_argument('--macro2eos-central-baryon-density', nargs=2, default=('rhoc', 'baryon_density'), type=str,
+    help='the mapping between a column name in the macro file to a column name in the eos file. \
+This is used to look up EoS parameters associated with the central densities of interesting stellar configurations. \
+e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
+lgroup.add_argument('--mass-column', default='M', type=str,
+    help='column name for gravitational mass in the macro file')
+lgroup.add_argument('--radius-column', default='R', type=str,
+    help='column name for the radius in the macro file')
+lgroup.add_argument('--macro-basename', default='draw-macro-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames for macro files.')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+# output arguments
+ogroup = parser.add_argument_group('output arguments')
+ogroup.add_argument('--output-eos-dir', default=None, type=str,
+    help='if specified, we will write the updated files into this directory instead of overwriting them')
+ogroup.add_argument('-c', '--column', default=[], type=str, action='append',
+    help='the columns from the EoS files that we want to extract at the central densities of the interesting stellar configurations. \
+Can be repeated to specify multiple columns.')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
+
+args = parser.parse_args()
+
+args.verbose |= args.Verbose
+
+if args.output_eos_dir is None:
+    args.output_eos_dir = args.eos_dir
+
+if not args.column:
+    if args.Verbose:
+        print('setting --column to default values: %s'%(', '.join(DEFAULT_COLUMNS)))
+    args.column = DEFAULT_COLUMNS
+
+elif args.macro2eos-central-baryon-density[1] not in args.column:
+    if args.Verbose:
+        print('adding required column for baryon_density to --column: '+args.macro2eos-central-baryon-density[1])
+    args.column.append(args.macro2eos-central-baryon-density[1])
+
+#-------------------------------------------------
+
+raise NotImplementedError('''\
+for each pair of eos, macro files
+    identify the stable branches from the macro file
+    for each stable branch
+        identify the central densities of the end-points of that branch
+        look up the associated values from the eos at those points (record these so we can write them out later)
+        write stable branch macro data to a separate file
+    write statistics for branches for this eos to a csv file
+''')
+
