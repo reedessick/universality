@@ -108,7 +108,7 @@ path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(
 newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
 new_template = os.path.join(newdir_template, args.eos_basename)
 
-for i, eos in enumerate(data):
+for eos in data:
     tmp = {'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
     path = path_template%tmp
     if args.Verbose:
