@@ -14,7 +14,8 @@ from universality import utils
 
 #-------------------------------------------------
 
-DEFAULT_COLUMNS = ['baryon_density', 'pressurec2', 'energy_densityc2']
+DEFAULT_EOS_COLUMNS = ['baryon_density', 'pressurec2', 'energy_densityc2']
+DEFAULT_MACRO_COLUMNS = ['M', 'R', 'I', 'Lambda']
 
 #-------------------------------------------------
 
@@ -37,6 +38,7 @@ lgroup.add_argument('--macro2eos-central-baryon-density', nargs=2, default=('rho
     help='the mapping between a column name in the macro file to a column name in the eos file. \
 This is used to look up EoS parameters associated with the central densities of interesting stellar configurations. \
 e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
+
 lgroup.add_argument('--mass-column', default='M', type=str,
     help='column name for gravitational mass in the macro file')
 lgroup.add_argument('--radius-column', default='R', type=str,
@@ -52,9 +54,12 @@ sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, 
 ogroup = parser.add_argument_group('output arguments')
 ogroup.add_argument('--output-eos-dir', default=None, type=str,
     help='if specified, we will write the updated files into this directory instead of overwriting them')
-ogroup.add_argument('-c', '--column', default=[], type=str, action='append',
+ogroup.add_argument('--output-eos-column', default=[], type=str, action='append',
     help='the columns from the EoS files that we want to extract at the central densities of the interesting stellar configurations. \
-Can be repeated to specify multiple columns.')
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(DEFAULT_EOS_COLUMNS)))
+ogroup.add_argument('--output-macro-column', default=[], type=str, action='append',
+    help='the columns from the macro files that we want to extract at the central densities of the interesting stellar configurations. \
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(DEFAULT_MACRO_COLUMNS)))
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -64,28 +69,125 @@ args = parser.parse_args()
 
 args.verbose |= args.Verbose
 
+macro_rhoc, eos_rho = args.macro2eos-central-baryon-density ### assign these to handy names
+
+# make sure we know where we're going to write the output
 if args.output_eos_dir is None:
     args.output_eos_dir = args.eos_dir
 
-if not args.column:
+# parse the EoS columns we want to extract
+if not args.output_eos_column:
     if args.Verbose:
-        print('setting --column to default values: %s'%(', '.join(DEFAULT_COLUMNS)))
-    args.column = DEFAULT_COLUMNS
+        print('setting --output-eos-column to default values: %s'%(', '.join(DEFAULT_EOS_COLUMNS)))
+    args.output_eos_column = DEFAULT_EOS_COLUMNS
 
-elif args.macro2eos-central-baryon-density[1] not in args.column:
+if eos_rho not in args.output_eos_column:
     if args.Verbose:
-        print('adding required column for baryon_density to --column: '+args.macro2eos-central-baryon-density[1])
-    args.column.append(args.macro2eos-central-baryon-density[1])
+        print('adding required column for baryon_density to --output-eos-column: '+eos_rho)
+    args.output_eos_column.append(eos_rho)
+
+# parse the macro columns we want to extract
+if not args.output_macro_column:
+    if args.Verbose:
+        print('setting --output-macro-column to default values: %s'%(', '.join(DEFAULT_MACRO_COLUMNS)))
+    args.output_macro_column = DEFAULT_MACRO_COLUMNS
+
+if macro_rhoc not in args.output_macro_column:
+    if args.Verbose:
+        print('adding required column for baryon_density to --output-macro-column: '+macro_rhoc)
+    args.output_macro_column.append(macro_rhoc)
+
+if args.mass_column not in args.output_macro_column:
+    if args.Verbose:
+        print('adding required column for mass to --output-macro-column: '+args.mass_column)
+    args.output_macro_column.append(args.mass_column)
+
+if args.radius_column not in args.output_macro_column:
+    if args.Verbose:
+        print('adding required column for radius to --output-macro-column: '+args.radius_column)
+    args.output_macro_column.append(args.radius_column)
 
 #-------------------------------------------------
 
-raise NotImplementedError('''\
-for each pair of eos, macro files
-    identify the stable branches from the macro file
-    for each stable branch
-        identify the central densities of the end-points of that branch
-        look up the associated values from the eos at those points (record these so we can write them out later)
-        write stable branch macro data to a separate file
-    write statistics for branches for this eos to a csv file
-''')
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, cols = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
 
+### marginalize to avoid reading in the same EOS more than once
+if args.verbose:
+    print('marginalizing samples to avoid repeated work processing the same EoS multiple times')
+data, cols = utils.marginalize(data, np.zeros(len(data), dtype=float), cols)
+
+data = data[:,0]
+N = len(data)
+
+#------------------------
+
+# build templates to predict filenames based on an EoS number
+eos_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+mac_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.macro_basename)
+
+# build output templates for resulting summary and individual-branch files 
+newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
+
+assert args.macro_basename[-4:]==".csv", 'do not understand suffix of the macro basename! Expected it to end in ".csv"'
+basename = args.macro_basename[:-4] ### expect macro basename to end in ".csv"
+subdir_template = os.path.join(newdir_template, basename)
+summary_template = os.path.join(subdir_template, basename+'-branches.csv') # 
+branch_template = os.path.join(subdir_template, basename+'-%(branch)06d.csv')
+
+#------------------------
+
+### iterate to touch all EoS
+if args.verbose:
+    print('iterating over files and adding: '+args.new_column)
+
+for eos in data:
+
+    ### construct paths
+    tmp = {'moddraw':eos//args.eos_num_per_dir, 'draw':eos, 'branch':None}
+
+    # where we're going to read in data
+    eos_path = eos_template%tmp
+    mac_path = mac_template%tmp
+
+    # where we're going to write data
+    subdir = subdir_template%tmp
+    if not os.path.exists(subdir):
+        try:
+            os.makedirs(subdir)
+        except OSError:
+            pass # cateches a race condition where this directory already exists
+
+    sum_path = summary_template%tmp
+
+    if args.Verbose:
+        print('    loading macro: %s'%mac_path)
+    mac_data, mac_cols = utils.load(mac_path) ### NOTE: we load all columns because we're going to re-write them all into subdir as separate branches
+
+    if args.Verbose:
+        print('    loading eos: %s'%eos_path)
+    eos_data, eos_cols = utils.load(eos_path, args.output_eos_column)
+
+    # use macro data to identify separate stable branches
+    M = mac_data[:,mac_cols.index(args.mass_column)]
+    R = mac_data[:,mac_cols.index(args.radius_column)]
+    rhoc = mac_data[:,mac_cols.index(macro_rhoc)]
+
+    raise NotImplementedError('''get a list of truth arrays correpsonding to stable branches in mac_data. Call that "branches"''')
+
+    # iterate over stable branches to extract micro- and macroscopic parameters of these stellar configurations
+    ans = []
+    for ind, truth in enumerate(branches):
+        raise NotImplementedError('''interpolate eos data to get values at the edge configurations of each branch. Add these in a predictable order to ans''')
+
+        # define the path for this branch
+        tmp['branch'] = ind
+        branch_path = branch_template%tmp
+        if args.Verbose:
+            print('    writing branch %d into: %s'%(ind, branch_path))
+        raise NotImplementedError('''write the macro data for this branch into subdir''')
+
+    if args.Verbose:
+        print('    writing summary into: %s'%sum_path)
+    raise NotImplementedError('write the branch summary statistics into sum_path')
