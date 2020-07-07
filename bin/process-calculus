@@ -143,6 +143,9 @@ for eos in data:
 
     newdir = newdir_template%tmp
     if not os.path.exists(newdir):
-        os.makedirs(newdir)
+        try:
+            os.makedirs(newdir)
+        except OSError:
+            pass ### directory already exists
 
     np.savetxt(new, ans, comments='', delimiter=',', header=header) ### save the result to the same file
