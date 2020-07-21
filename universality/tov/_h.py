@@ -28,3 +28,9 @@ def du_dh(u, v, eps, p):
 def dv_dh(u, v, eps, p):
     """dv/dh for enthalpy description"""
     return - (1 - 2*v) * (fourpi * u * eps - v) / (fourpi * u * p + v)
+
+#-------------------------------------------------
+
+def dX_dh(u, v, eps, p):
+    """constructs the 1st order differential vector: [du/dh, dv/dh]"""
+    return np.array([du_dh(u, v, eps, p), dv_dh(u, v, eps, p)])

@@ -18,3 +18,9 @@ def dp_dr(r, eps, p, m):
 def dm_dr(r, eps):
     """TOV equation for dm/dr"""
     return fourpi * r**2 * eps
+
+#-------------------------------------------------
+
+def dX_dr(r, eps, p, m):
+    """constructs the 1st order differential vector: [dp/dr, dm/dr]"""
+    return np.array([dp_dr(r, eps, p, m), dm_dr(r, eps)])
