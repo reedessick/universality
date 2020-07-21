@@ -339,84 +339,8 @@ def logaddexp(logx):
     return max_logx + np.log( np.sum(np.exp(logx - np.outer(max_logx, np.ones(N)).reshape(logx.shape)) , axis=-1) )
 
 #-------------------------------------------------
-# 1D CDF estimation
+# utility functions for processing process directory structures
 #-------------------------------------------------
-
-def logcdf(samples, data, prior_bounds, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, num_proc=DEFAULT_NUM_PROC):
-    """estimates the log(cdf) at all points in samples based on data and integration in "direction".
-    Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
-
-    ### this should be relatively quick (just an ordered summation), so we do it once
-    data, cweights = stats.samples2cdf(data, weights=weights)
-    if direction=='increasing':
-        pass ### we already integrate up from the lower values to higher values
-    elif direction=='decreasing':
-        cweights = 1. - cweights ### reverse the order of the integral
-    else:
-        raise ValueError('direction=%s not understood!'%direction)
-
-    logcdfs = np.empty(len(samples), dtype=float)
-    if num_proc==1: ### do everything on this one core
-        logcdfs[:] = _logcdf_worker(samples, data, cweights, prior_bounds)
-
-    else: ### parallelize
-        # partition work amongst the requested number of cores
-        Nsamp = len(samples)
-        sets = _define_sets(Nsamp, num_proc)
-
-        # set up and launch processes.
-        procs = []
-        for truth in sets:
-            conn1, conn2 = mp.Pipe()
-            proc = mp.Process(target=_logcdf_worker, args=(samples[truth], data, cweights, prior_bounds), kwargs={'conn':conn2})
-            proc.start()
-            procs.append((proc, conn1))
-            conn2.close()
-
-        # read in results from process
-        for truth, (proci, conni) in zip(sets, procs):
-            proci.join() ### should clean up child...
-            logcdfs[truth] = conni.recv()
-
-    return logcdfs
-
-def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, conn=None):
-    ### we have to account for prior volume differences between different models to properly do the model-selection integral
-    ### this is handled by explicitly passing the bounds for the overall prior that may or may not be truncated by samples
-    local_samples = samples[:] ### make a copy so I can modify it in-place
-    local_samples[local_samples<bounds[0]] = bounds[0]
-    local_samples[local_samples>bounds[1]] = bounds[1]
-
-    ###                   approx to the cumulative integral within the prior bounds
-    logcdfs = np.interp(local_samples, data, cweights) - np.interp(bounds[0], data, cweights)
-    truth = logcdfs > 0
-    logcdfs[truth] = np.log(logcdfs[truth])
-    logcdfs[np.logical_not(truth)] = -np.infty
-
-    ### add the prior volume correction
-    ### NOTE: we assume flat priors implicitly! really, this should be an integral over the (non-trivial) prior distribution
-    if direction=='increasing':
-        truth = bounds[0] < local_samples
-        logcdfs[truth] -= np.log(local_samples[truth] - bounds[0])
-        logcdfs[np.logical_not(truth)] = -np.infty ### these sample shave zero support in the prior, so we assign them zero weight
-
-    elif direction=='decreasing':
-        truth = bounds[1] > local_samples
-        logcdfs[truth] -= np.log(bounds[1] - local_samples[truth])
-        logcdfs[np.logical_not(truth)] = -np.infty ### this is the same thing as above
-
-    else:
-        raise ValueError('direction=%s not understood!'%direction)
-
-    if conn is not None:
-        conn.send(logcdfs)
-    return logcdfs
-
-def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
-    """estimates the log(cdf) at all points in samples based on data and integration in "direction"
-    This is done with a 1D KDE-based CDF estimate between bounds
-    """
-    raise NotImplementedError('This is a non-trivial thing to do, and I have not done it yet')
 
 def process2samples(
         data,
@@ -637,6 +561,86 @@ def process2quantiles(
         med[i] = stats.quantile(_y, [0.5], weights=_w)[0] ### compute median
 
     return qs, med
+
+#-------------------------------------------------
+# 1D CDF estimation
+#-------------------------------------------------
+
+def logcdf(samples, data, prior_bounds, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, num_proc=DEFAULT_NUM_PROC):
+    """estimates the log(cdf) at all points in samples based on data and integration in "direction".
+    Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
+
+    ### this should be relatively quick (just an ordered summation), so we do it once
+    data, cweights = stats.samples2cdf(data, weights=weights)
+    if direction=='increasing':
+        pass ### we already integrate up from the lower values to higher values
+    elif direction=='decreasing':
+        cweights = 1. - cweights ### reverse the order of the integral
+    else:
+        raise ValueError('direction=%s not understood!'%direction)
+
+    logcdfs = np.empty(len(samples), dtype=float)
+    if num_proc==1: ### do everything on this one core
+        logcdfs[:] = _logcdf_worker(samples, data, cweights, prior_bounds)
+
+    else: ### parallelize
+        # partition work amongst the requested number of cores
+        Nsamp = len(samples)
+        sets = _define_sets(Nsamp, num_proc)
+
+        # set up and launch processes.
+        procs = []
+        for truth in sets:
+            conn1, conn2 = mp.Pipe()
+            proc = mp.Process(target=_logcdf_worker, args=(samples[truth], data, cweights, prior_bounds), kwargs={'conn':conn2})
+            proc.start()
+            procs.append((proc, conn1))
+            conn2.close()
+
+        # read in results from process
+        for truth, (proci, conni) in zip(sets, procs):
+            proci.join() ### should clean up child...
+            logcdfs[truth] = conni.recv()
+
+    return logcdfs
+
+def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, conn=None):
+    ### we have to account for prior volume differences between different models to properly do the model-selection integral
+    ### this is handled by explicitly passing the bounds for the overall prior that may or may not be truncated by samples
+    local_samples = samples[:] ### make a copy so I can modify it in-place
+    local_samples[local_samples<bounds[0]] = bounds[0]
+    local_samples[local_samples>bounds[1]] = bounds[1]
+
+    ###                   approx to the cumulative integral within the prior bounds
+    logcdfs = np.interp(local_samples, data, cweights) - np.interp(bounds[0], data, cweights)
+    truth = logcdfs > 0
+    logcdfs[truth] = np.log(logcdfs[truth])
+    logcdfs[np.logical_not(truth)] = -np.infty
+
+    ### add the prior volume correction
+    ### NOTE: we assume flat priors implicitly! really, this should be an integral over the (non-trivial) prior distribution
+    if direction=='increasing':
+        truth = bounds[0] < local_samples
+        logcdfs[truth] -= np.log(local_samples[truth] - bounds[0])
+        logcdfs[np.logical_not(truth)] = -np.infty ### these sample shave zero support in the prior, so we assign them zero weight
+
+    elif direction=='decreasing':
+        truth = bounds[1] > local_samples
+        logcdfs[truth] -= np.log(bounds[1] - local_samples[truth])
+        logcdfs[np.logical_not(truth)] = -np.infty ### this is the same thing as above
+
+    else:
+        raise ValueError('direction=%s not understood!'%direction)
+
+    if conn is not None:
+        conn.send(logcdfs)
+    return logcdfs
+
+def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
+    """estimates the log(cdf) at all points in samples based on data and integration in "direction"
+    This is done with a 1D KDE-based CDF estimate between bounds
+    """
+    raise NotImplementedError('This is a non-trivial thing to do, and I have not done it yet')
 
 #-------------------------------------------------
 # KDE and cross-validation likelihood
@@ -1020,6 +1024,37 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
 
     return mlogL, vlogL, mglogL, vglogL
 
+#-------------------------------------------------
+# utilities associated with identifying aspects about macroscopic relations
+#-------------------------------------------------
+
+def MR2branches(M, rhoc):
+    """take the M-rhoc curve and separate it into separate stable branches.
+    Note! assumes models are ordered by increasing rhoc
+    returns a list of boolean arrays denoting where each branch starts and ends
+    """
+    N = len(M)
+    branches = []
+
+    # iterate over all data points, determining stability by numeric derivatives of dM/drhoc
+    stable = False
+    for i, dM_drhoc in enumerate(np.gradient(M, rhoc)):
+        if dM_drhoc > 0: ### stable branch
+            if stable:
+                branch.append(i)
+            else:
+                branch = [i]
+                stable = True
+        elif stable: ### was on a stable branch, and it just ended
+            stable = False
+            _ = np.zeros(N, dtype=bool) ### create the boolean array
+            _[branch] = True ### set the appropriate ranges to be true
+            branches.append(branch) ### append
+
+    return branches
+
+#-------------------------------------------------
+# utilities associated with integrating the EOS realizations
 #-------------------------------------------------
 
 def set_crust(crust_eos=eos.DEFAULT_CRUST_EOS):
