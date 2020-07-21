@@ -59,6 +59,9 @@ ogroup.add_argument('--output-macro-column', default=[], type=str, action='appen
     help='the columns from the macro files that we want to extract at the central densities of the interesting stellar configurations. \
 Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(DEFAULT_MACRO_COLUMNS)))
 
+ogroup.add_argument('--suppress-individual-branches', default=False, action='store_true',
+    help='do not write separate macro files for individual branches. Instead, only produce the branches summary file')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
@@ -127,9 +130,11 @@ newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per
 
 assert args.macro_basename[-4:]==".csv", 'do not understand suffix of the macro basename! Expected it to end in ".csv"'
 basename = args.macro_basename[:-4] ### expect macro basename to end in ".csv"
-subdir_template = os.path.join(newdir_template, basename)
-summary_template = os.path.join(subdir_template, basename+'-branches.csv') # 
-branch_template = os.path.join(subdir_template, basename+'-%(branch)06d.csv')
+summary_template = os.path.join(newdir_template, basename+'-branches.csv') #
+
+if not args.suppress_individual_branches:
+    subdir_template = os.path.join(newdir_template, basename)
+    branch_template = os.path.join(subdir_template, basename+'-%(branch)06d.csv')
 
 #------------------------
 
@@ -147,14 +152,15 @@ for eos in data:
     mac_path = mac_template%tmp
 
     # where we're going to write data
-    subdir = subdir_template%tmp
-    if not os.path.exists(subdir):
-        try:
-            os.makedirs(subdir)
-        except OSError:
-            pass # cateches a race condition where this directory already exists
-
     sum_path = summary_template%tmp
+
+    if not args.suppress_individual_branches:
+        subdir = subdir_template%tmp
+        if not os.path.exists(subdir):
+            try:
+                os.makedirs(subdir)
+            except OSError:
+                pass # cateches a race condition where this directory already exists
 
     if args.Verbose:
         print('    loading macro: %s'%mac_path)
@@ -181,12 +187,13 @@ for eos in data:
     sum_header = ','.join(['branch']+['start_'+col for col in eos_cols+macro_cols]+['end_'+col for col in eos_cols+macro_cols])
     for ind, truth in enumerate(branches):
 
-        # define the path for this branch
-        tmp['branch'] = ind
-        branch_path = branch_template%tmp
-        if args.Verbose:
-            print('    writing branch %d into: %s'%(ind, branch_path))
-        np.savetxt(branch_path, mac_data[truth], comments='', header=macro_header, delimiter=',')
+        if not args.suppress_individual_branches: ### write out macros for individual branches
+            # define the path for this branch
+            tmp['branch'] = ind
+            branch_path = branch_template%tmp
+            if args.Verbose:
+                print('    writing branch %d into: %s'%(ind, branch_path))
+            np.savetxt(branch_path, mac_data[truth], comments='', header=macro_header, delimiter=',')
 
         # identify eos values at start, end of the branch
         branch = [ind] ### holder for central values, starting with the branch number
