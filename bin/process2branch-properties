@@ -43,6 +43,11 @@ e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
 
 lgroup.add_argument('--mass-column', default='M', type=str,
     help='column name for gravitational mass in the macro file')
+
+lgroup.add_argument('--macro-dir', default=None, type=str,
+    help='if not specified, will use the value assigned to --eos-dir')
+lgroup.add_argument('--macro-num-per-dir', default=None, type=int,
+    help='if not specified, will use the value assigned to --eos-num-per-dir')
 lgroup.add_argument('--macro-basename', default='draw-macro-%d.csv', type=str,
     help='a string into which the EOS number can be substituted when building filenames for macro files.')
 
@@ -71,6 +76,17 @@ vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
 args = parser.parse_args()
 
 macro_rhoc, eos_rho = args.macro2eos_central_baryon_density ### assign these to handy names
+
+### check to see if we want to use a different directory for macro files
+if args.macro_dir is None:
+    if args.verbose:
+        print('setting --macro-dir to --eos-dir=%s'%args.eos_dir)
+    args.macro_dir = args.eos_dir
+
+if args.macro_num_per_dir is None:
+    if args.verbose:
+        print('setting --macro-num-per-dir to --eos-num-per-dir=%d'%args.eos_num_per_dir)
+    args.macro_num_per_dir = args.eos_num_per_dir
 
 # make sure we know where we're going to write the output
 if args.output_eos_dir is None:
@@ -123,7 +139,7 @@ N = len(data)
 
 # build templates to predict filenames based on an EoS number
 eos_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
-mac_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.macro_basename)
+mac_template = os.path.join(args.macro_dir, 'DRAWmod%d'%args.macro_num_per_dir+'-%(moddraw)06d', args.macro_basename)
 
 # build output templates for resulting summary and individual-branch files 
 newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
