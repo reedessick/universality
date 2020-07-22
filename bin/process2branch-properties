@@ -5,6 +5,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
 
 from argparse import ArgumentParser
@@ -68,9 +70,7 @@ vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
 
 args = parser.parse_args()
 
-args.verbose |= args.Verbose
-
-macro_rhoc, eos_rho = args.macro2eos-central-baryon-density ### assign these to handy names
+macro_rhoc, eos_rho = args.macro2eos_central_baryon_density ### assign these to handy names
 
 # make sure we know where we're going to write the output
 if args.output_eos_dir is None:
@@ -78,7 +78,7 @@ if args.output_eos_dir is None:
 
 # parse the EoS columns we want to extract
 if not args.output_eos_column:
-    if args.Verbose:
+    if args.verbose:
         print('setting --output-eos-column to default values: %s'%(', '.join(DEFAULT_EOS_COLUMNS)))
     args.output_eos_column = DEFAULT_EOS_COLUMNS
 
@@ -89,17 +89,17 @@ Neos_column = len(args.output_eos_column)
 
 # parse the macro columns we want to extract
 if not args.output_macro_column:
-    if args.Verbose:
+    if args.verbose:
         print('setting --output-macro-column to default values: %s'%(', '.join(DEFAULT_MACRO_COLUMNS)))
     args.output_macro_column = DEFAULT_MACRO_COLUMNS
 
 if macro_rhoc not in args.output_macro_column:
-    if args.Verbose:
+    if args.verbose:
         print('adding required column for baryon_density to --output-macro-column: '+macro_rhoc)
     args.output_macro_column.append(macro_rhoc)
 
 if args.mass_column not in args.output_macro_column:
-    if args.Verbose:
+    if args.verbose:
         print('adding required column for mass to --output-macro-column: '+args.mass_column)
     args.output_macro_column.append(args.mass_column)
 
@@ -140,7 +140,7 @@ if not args.suppress_individual_branches:
 
 ### iterate to touch all EoS
 if args.verbose:
-    print('iterating over files and adding: '+args.new_column)
+    print('iterating over files and extracting branch parameters')
 
 for eos in data:
 
@@ -162,11 +162,11 @@ for eos in data:
             except OSError:
                 pass # cateches a race condition where this directory already exists
 
-    if args.Verbose:
+    if args.verbose:
         print('    loading macro: %s'%mac_path)
     mac_data, mac_cols = utils.load(mac_path) ### NOTE: we load all columns because we're going to re-write them all into subdir as separate branches
 
-    if args.Verbose:
+    if args.verbose:
         print('    loading eos: %s'%eos_path)
     eos_data, eos_cols = utils.load(eos_path, [eos_rho]+args.output_eos_column) ### NOTE: this guarantees that eos_rho is the first column!
 
@@ -178,36 +178,37 @@ for eos in data:
     inds = np.arange(len(rhoc)) ### used to look up indecies from boolean arrays later
 
     ### split maro data into stable branches
-    branches = utils.MR2branches(M, rhoc)
+    branches = utils.Mrhoc2branches(M, rhoc)
+    if args.verbose:
+        print('        identified %d branches'%len(branches))
 
     # iterate over stable branches to extract micro- and macroscopic parameters of these stellar configurations
     macro_header = ','.join(mac_cols) # header for the macro files representing each branch separately
 
     summary = [] # summary statistics for central values of EOS parameters at the start, end of each branch
-    sum_header = ','.join(['branch']+['start_'+col for col in eos_cols+macro_cols]+['end_'+col for col in eos_cols+macro_cols])
+    sum_header = ','.join(['branch']+['start_'+col for col in eos_cols+mac_cols]+['end_'+col for col in eos_cols+mac_cols])
     for ind, truth in enumerate(branches):
 
         if not args.suppress_individual_branches: ### write out macros for individual branches
             # define the path for this branch
             tmp['branch'] = ind
             branch_path = branch_template%tmp
-            if args.Verbose:
-                print('    writing branch %d into: %s'%(ind, branch_path))
+            if args.verbose:
+                print('        writing branch %d into: %s'%(ind, branch_path))
             np.savetxt(branch_path, mac_data[truth], comments='', header=macro_header, delimiter=',')
 
         # identify eos values at start, end of the branch
         branch = [ind] ### holder for central values, starting with the branch number
 
         for i in [inds[truth][0], inds[truth][-1]]: # add values for start of the branch and then the end of the branch
-            # add values at the beginning of the branch
             rho = rhoc[i]
             branch += [rho] # always start with central baryon density
             branch += [np.interp(rho, eos_data[:,0], eos_data[:,1+j]) for j in range(Neos_column)] # add the rest of the EoS columns
-            branch += [macro_data[i,j] for j in range(Nmacro_column)] # add the macro values
+            branch += [mac_data[i,j] for j in range(Nmacro_column)] # add the macro values
 
         # add to summary of all branches
         summary.append(branch)
 
-    if args.Verbose:
+    if args.verbose:
         print('    writing summary into: %s'%sum_path)
     np.savetxt(sum_path, summary, comments='', header=sum_header, delimiter=',')

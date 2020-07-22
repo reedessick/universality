@@ -1028,7 +1028,7 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
 # utilities associated with identifying aspects about macroscopic relations
 #-------------------------------------------------
 
-def MR2branches(M, rhoc):
+def Mrhoc2branches(M, rhoc):
     """take the M-rhoc curve and separate it into separate stable branches.
     Note! assumes models are ordered by increasing rhoc
     returns a list of boolean arrays denoting where each branch starts and ends
@@ -1047,11 +1047,17 @@ def MR2branches(M, rhoc):
                 stable = True
         elif stable: ### was on a stable branch, and it just ended
             stable = False
-            _ = np.zeros(N, dtype=bool) ### create the boolean array
-            _[branch] = True ### set the appropriate ranges to be true
-            branches.append(branch) ### append
+            branches.append(_branch2bool(branch, N)) ### append
+
+    if stable:
+        branches.append(_branch2bool(branch, N)) ### append to pick up what was left when we existed the loop
 
     return branches
+
+def _branch2bool(branch, N):
+    ans = np.zeros(N, dtype=bool)
+    ans[branch] = True
+    return ans
 
 #-------------------------------------------------
 # utilities associated with integrating the EOS realizations
