@@ -17,13 +17,25 @@ from universality import gaussianprocess as gp
 #-------------------------------------------------
 
 DEFAULT_COLUMN_NAME = {
+    'add': '(%(fcolumn)s)+(%(xcolumn)s)',
+    'subtract': '(%(fcolumn)s)-(%(xcolumn)s)',
+    'multiply': '(%(fcolumn)s)*(%(xcolumn)s)',
+    'divide': '(%(fcolumn)s)/(%(xcolumn)s)',
+    'logarithmic differentiate': 'd(ln_%(fcolumn)s)/d(ln_%(xcolumn)s)',
     'differentiate': 'd(%(fcolumn)s)/d(%(xcolumn)s)',
     'integrate': 'int(%(fcolumn)s)d(%(xcolumn)s)',
 }
+
 FUNCTIONS = {
+    'add': (lambda x, f : x+f),
+    'subtract': (lambda x, f : f-x),
+    'multiply': (lambda x, f : x*f),
+    'divide': (lambda x, f : f/x),
+    'logarithmic differentiate': (lambda x,y : gp.num_dfdx(x,f)*x/f),
     'differentiate': gp.num_dfdx,
     'integrate': gp.num_intfdx,
 }
+
 KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())
 
 #-------------------------------------------------
