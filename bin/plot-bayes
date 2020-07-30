@@ -1,0 +1,154 @@
+#!/usr/bin/env python
+
+"""make plots of the bayes factors for different numbers of stable branches"""
+__author__ = "reed.essick@gmail.com"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+plt.rcParams['text.usetex'] = True
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('prior_inpath', type=str)
+parser.add_argument('--prior-weight-column', default=[], type=str, action='append')
+parser.add_argument('--prior-weight-column-is-log', default=[], type=str, action='append')
+parser.add_argument('--prior-max-num-samples', default=np.infty, type=float)
+
+parser.add_argument('posterior_inpath', type=str)
+parser.add_argument('--posterior-weight-column', default=[], type=str, action='append')
+parser.add_argument('--posterior-weight-column-is-log', default=[], type=str, action='append')
+parser.add_argument('--posterior-max-num-samples', default=np.infty, type=float)
+
+parser.add_argument('--log-y', default=False, action='store_true')
+
+parser.add_argument('--column', default='numbranches', type=str)
+
+parser.add_argument('--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+if args.tag:
+    args.tag = '_'+args.tag
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading prior data from: '+args.prior_inpath)
+prior_data, prior_columns = utils.load(args.prior_inpath, [args.column], max_num_samples=args.prior_max_num_samples)
+Nprior = len(prior_data)
+
+if args.prior_weight_column:
+    if args.verbose:
+        print('loading non-trivial weights from: '+args.prior_inpath)
+    prior_weights = utils.load_weights(args.prior_inpath, args.prior_weight_column, args.prior_weight_column_is_log)
+else:
+    prior_weights = np.ones(Nprior, dtype=float)/Nprior
+
+if args.verbose:
+    print('marginalizing to compute prior')
+prior_data, prior_columns = utils.marginalize(prior_data, np.log(prior_weights), prior_columns)
+
+#------------------------
+
+if args.verbose:
+    print('loading posterior data from: '+args.posterior_inpath)
+posterior_data, posterior_columns = utils.load(args.posterior_inpath, [args.column], max_num_samples=args.posterior_max_num_samples)
+
+if args.posterior_weight_column:
+    if args.verbose:
+        print('loading non-trivial weights from: '+args.posterior_inpath)
+    posterior_weights = utils.load_weights(args.posterior_inpath, args.posterior_weight_column, args.posterior_weight_column_is_log)
+else:
+    posterior_weights = np.ones(Nposterior, dtype=float)/Nposterior
+
+truth = posterior_weights > 0 ### throw away anything that won't contribute to the marginalization
+posterior_data = posterior_data[truth]
+posterior_weights = posterior_weights[truth]
+Nposterior = len(posterior_data)
+
+if args.verbose:
+    print('marginalizing to compute posterior')
+posterior_data, posterior_columns = utils.marginalize(posterior_data, np.log(posterior_weights), posterior_columns)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('plotting')
+
+prior_fig = plt.figure()
+prior_ax = prior_fig.gca()
+
+posterior_fig = plt.figure()
+posterior_ax = posterior_fig.gca()
+
+bayes_fig = plt.figure()
+bayes_ax = bayes_fig.gca()
+
+branches = sorted(prior_data[:,prior_columns.index(args.column)]) ### process these in order
+for branch in branches:
+
+    ### extract prior odds
+    prior_truth = prior_data[:,prior_columns.index(args.column)] == branch
+    lnprior = prior_data[prior_truth][0][prior_columns.index('logmargweight')]
+    lnvar_prior = prior_data[prior_truth][0][prior_columns.index('logvarmargweight')]
+
+    prior = np.exp(lnprior)
+    var_prior = np.exp(lnvar_prior)
+
+    ### extract prior odds
+    posterior_truth = posterior_data[:,posterior_columns.index(args.column)] == branch
+    lnposterior = posterior_data[posterior_truth][0][posterior_columns.index('logmargweight')]
+    lnvar_posterior = posterior_data[posterior_truth][0][posterior_columns.index('logvarmargweight')]
+
+    posterior = np.exp(lnposterior)
+    var_posterior = np.exp(lnvar_posterior)
+
+    ### compute bayes factor
+    bayes = np.exp(lnposterior - lnprior)
+    var_bayes = (1./prior)**2 * var_posterior + (posterior/prior**2)**2 * var_prior
+
+    ### plot
+    for ax, y, s in [(prior_ax, prior, var_prior**0.5), (posterior_ax, posterior, var_posterior**0.5), (bayes_ax, bayes, var_bayes**0.5)]:
+        ax.plot([branch], [y], markeredgecolor='k', markerfacecolor='None', alpha=1.0, marker='o', linestyle='None')
+        ax.plot([branch, branch], [y-s, y+s], linestyle='solid', marker=None, color='k', alpha=1.0)
+
+### decorate
+xmax = np.max(branches)
+xmin = np.min(branches)
+dx = (xmax-xmin)*0.05
+xlim = (xmin-dx, xmax+dx)
+for ax in [prior_ax, posterior_ax, bayes_ax]:
+    ax.set_xlabel(args.column)
+    ax.set_xlim(xlim)
+    ax.grid(True, which='both')
+
+    if args.log_y:
+        ax.set_yscale('log')
+
+prior_ax.set_ylabel('Prior')
+posterior_ax.set_ylabel('Posterior')
+bayes_ax.set_ylabel('Bayes Factor')
+
+### save
+for fig, name in [(prior_fig, 'prior'), (posterior_fig, 'posterior'), (bayes_fig, 'bayes')]:
+    figname = os.path.join(args.output_dir, 'plot-bayes-%s-%s%s.png'%(args.column, name, args.tag))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
