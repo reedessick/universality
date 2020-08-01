@@ -37,7 +37,7 @@ sgroup.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, ac
     help='label max-num-samples pairs')
 sgroup.add_argument('-w', '--weight-column', nargs=2, default=[], type=str, action='append',
     help='label column pairs. if provided, thie numerical values from this column will be used as weights in the KDE')
-sgroup.add_argument('-W', '--weight-column-is-log', nargs=2, default=[], type=str,
+sgroup.add_argument('-W', '--weight-column-is-log', nargs=2, default=[], type=str, action='append',
     help='the label and column for samples for which this is true')
 
 # column arguments
@@ -80,6 +80,13 @@ pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 
 pgroup.add_argument('--level', default=[], type=float, action='append',
     help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+
+pgroup.add_argument('--legend', default=False, action='store_true')
+pgroup.add_argument('--include-neff', default=False, action='store_true',
+    help='include an estimate of the effective number of samples as a title')
+
+pgroup.add_argument('--filled', default=False, action='store_true',
+    help='fill in the contours plotted in corner plots')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -128,7 +135,7 @@ bandwidthdict = dict()
 for column, b in args.column_bandwidth:
     assert column in columns, 'specifying --column-bandwidth for unknown column: '+column
     bandwidthdict[column] = float(b)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in columns])**2
+bandwidths = [bandwidthdict.get(col, None) for col in columns]
 
 if args.column_label is None:
     args.column_label = '$'+args.column+'$'
@@ -173,7 +180,7 @@ for ind, (label, path) in enumerate(args.samples):
             ranges.append((np.min(data[:,i]), np.max(data[:,i])))
     global_range = (min(global_range[0], ranges[0][0]), max(global_range[1], ranges[0][1]))
 
-    if weight_column[label][0]:
+    if weight_columns[label][0]:
         if args.verbose:
             print('reading in non-trivial weights from: '+path)
         weights = utils.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
@@ -197,6 +204,18 @@ for ind, (label, path) in enumerate(args.samples):
 
     if args.Verbose:
         print('computing kde for '+label)
+
+    ### figure out the bandwidth
+    variances = np.empty(1, dtype=float)
+    if bandwidths[0] is None:
+        b = plot.silverman_bandwidth(data[:,0], weights=weights)
+        if args.verbose:
+            print('automatically selected bandwidth=%.3e for col=%s'%(b, args.column_label))
+    else:
+        b = bandwidths[0]
+
+    variances[0] = b**2
+
     logkde = utils.logkde(
         samples,
         data,
@@ -206,7 +225,10 @@ for ind, (label, path) in enumerate(args.samples):
     kde = np.exp(logkde-np.max(logkde))
     kde /= np.sum(kde)*dvect
 
-    ax.plot(samples[:,0], kde, color=colors[label])
+    if args.filled:
+        ax.fill_between(samples[:,0], np.zeros_like(kde), kde, color=colors[label], alpha=plot.DEFAULT_ALPHA)
+    else:
+        ax.plot(samples[:,0], kde, color=colors[label])
 
     if args.verbose:
         print('    argmax : %.3e'%samples[kde.argmax(),0])
@@ -215,6 +237,15 @@ for ind, (label, path) in enumerate(args.samples):
             if args.verbose:
                 print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
             lines[label].append((m, M))
+
+    # add legend
+    if args.legend:
+        legend = label
+        if args.include_neff:
+            legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(stats.neff(weights), stats.nkde(weights))
+        dy = 0.25 / args.figheight ### this seems to be a good scaling.
+        fig.text(0.89, 0.89-ind*dy, legend, color=colors[label], ha='right', va='top')
+
 
 # decorate
 
