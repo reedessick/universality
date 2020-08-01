@@ -128,6 +128,7 @@ def num_dfdx(x_obs, f_obs):
     dfdx[-1] = df[-1]/dx[-1]
 
     dfdx[1:-1] = 0.5*(df[:-1]/dx[:-1] + df[1:]/dx[1:]) ### average in the bulk
+    ### NOTE: this is different than what numpy.gradient will yield...
 
     return dfdx
 
