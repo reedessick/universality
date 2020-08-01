@@ -7,6 +7,7 @@ import glob
 
 from collections import defaultdict
 import numpy as np
+from scipy.special import erf
 
 import multiprocessing as mp
 
@@ -639,8 +640,49 @@ def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE
 def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION):
     """estimates the log(cdf) at all points in samples based on data and integration in "direction"
     This is done with a 1D KDE-based CDF estimate between bounds
+    computes I = \sum_i w_i \int_0^samples dx K(x, data_i; variance) / \sum_i w_i
+    This corresponds to integrating up to the value passed as samples for a Gaussian kernel centered at data_i
+    if direction == 'increasing', we just return this. If direction == 'decreasing', we return 1 - I
     """
-    raise NotImplementedError('This is a non-trivial thing to do, and I have not done it yet')
+    ### sanity-check the input argumants
+    assert len(np.shape(samples))==1, 'samples must be a 1D array'
+    assert len(np.shape(data))==1, 'data must be a 1D array'
+    assert isinstance(variance, (int, float)), 'variance must be an int or a float'
+
+    ### set up variables for computation
+    ans = np.empty(len(samples), dtype=float)
+    frac = variance**-0.5
+
+    if weights is None:
+        N = len(data)
+        weights = np.ones(N, dtype=float)/N
+
+    ### set up bounds
+    if bounds is None:
+        lower = 0
+        norm = 1
+    else:
+        m, M = bounds ### assumes all samples are between these bounds, but data need not be...
+        lower = _cumulative_gaussian_distribution((m - data)*frac)
+        norm = _cumulative_gaussian_distribution((M - data)*frac) - lower
+
+    ### iterate and compute the cumuative integrals
+    for i, sample in enumerate(samples):
+        ### NOTE: it is important that we pass "sample - data" so that data is the mean
+        ans[i] = np.sum(weights * (_cumulative_gaussian_distribution((sample - data)*frac) - lower))
+    ans /= np.sum(weights * norm)
+
+    ### return based on the requested direction
+    if direction == 'increasing':
+        return np.log(ans)
+    elif direction == 'decreasing':
+        return np.log(1 - ans)
+    else:
+        raise RuntimeError('direction=%s not understood!'%direction)
+
+def _cumulative_gaussian_distribution(z):
+    """standard cumulative Gaussian distribution"""
+    return 0.5*(1 + erf(z/2**0.5))
 
 #-------------------------------------------------
 # KDE and cross-validation likelihood

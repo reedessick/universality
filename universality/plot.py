@@ -117,10 +117,12 @@ def silverman_bandwidth(data, weights=None):
     """approximate rule of thumb for bandwidth selection"""
     if weights is None:
         std = np.std(data)
+        num = len(data)
     else: ### account for weights when computing std
         N = np.sum(weights)
         std = (np.sum(weights*data**2)/N - (np.sum(weights*data)/N)**2)**0.5
-    return 0.9 * std * len(data)**(-0.2)
+        num = neff(weights/np.sum(weights)) ### approximate number of samples that matter
+    return 0.9 * std * num**(-0.2)
 
 def kde_corner(
         data,
@@ -131,6 +133,7 @@ def kde_corner(
         weights=None,
         num_points=DEFAULT_NUM_POINTS,
         levels=DEFAULT_LEVELS,
+        levels1D=[],
         hist1D=False,  ### plot a normed histogram on the 1D marginal panels in addition to the KDE estimate
         reflect=False, ### reflect data points about the boundaries when performing the KDE; may be expensive...
         verbose=False,
@@ -247,8 +250,16 @@ def kde_corner(
                         weights=w,
                         num_proc=num_proc,
                     )
-                    kde = np.exp(kde - np.max(kde))
 
+                    ### figure out levels for 1D histograms
+                    lines = []
+                    if levels1D:     
+                        for level, (m, M) in zip(levels1D, stats.logkde2crbounds(d[:,0], logkde, levels1D)):
+                            if verbose:
+                                print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
+                            lines.append((m, M))
+
+                    kde = np.exp(kde - np.max(kde))
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
@@ -258,6 +269,11 @@ def kde_corner(
                         if hist1D:
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
                             xmax = max(xmax, np.max(n)*1.05)
+
+                        for m, M in lines:
+                            ax.plot([xmin, xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([xmin, xmax], [M]*2, color=color, alpha=alpha, linestyle='dashed')
+
                         ax.set_xlim(xmin=0, xmax=xmax)
 
                     else:
@@ -268,6 +284,11 @@ def kde_corner(
                         if hist1D:
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
                             ymax = max(ymax, np.max(n)*1.05)
+
+                        for m, M in lines:
+                            ax.plot([m]*2, [0, ymax], color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([M]*2, [0, ymax], color=color, alpha=alpha, linestyle='dashed')
+
                         ax.set_ylim(ymin=0, ymax=ymax)
 
                 else:

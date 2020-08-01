@@ -17,6 +17,11 @@ from universality import stats
 
 #-------------------------------------------------
 
+KNOWN_CONDITION_TYPES = ['point', 'lower-bound', 'upper-bound']
+DEFAULT_CONDITION_TYPE = 'point'
+
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 # required arguments
@@ -74,6 +79,15 @@ cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action
 (but after taking the natural log if --logcolumn is specified), meaning bandwidths and ranges should be specified in \
 terms of the column times the multiplier. If no multiplier is specified for a column, that column is left unchanged.')
 
+# conditioning arguments
+Cgroup = parser.add_argument_group('arguments for conditioning on specific vaules')
+Cgroup.add_argument('-c', '--condition', nargs=2, type=str, default=[], action='append',
+    help='condition the KDE on a specific value. eg, "--condition m1_source 1.5"')
+Cgroup.add_argument('--condition-type', nargs=2, type=str, default=[], action='append',
+    help='when conditioning the KDE, treat the value as an upper or lower limit.\
+Specify the column name and one of: %s. \
+eg, "--condition-type m1_source lower-bound".'%(', '.join(KNOWN_CONDITION_TYPES)))
+
 # workflow options
 wgroup = parser.add_argument_group('workflow options')
 wgroup.add_argument('--whiten', default=False, action='store_true',
@@ -97,6 +111,9 @@ pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='
 
 pgroup.add_argument('--level', default=[], type=float, action='append',
     help='confidence level for the contour plots. Can be repeated to specify multiple levels.')
+
+pgroup.add_argument('--level1D', default=[], type=float, action='append',
+    help='confidence level for the 1D histograms (shown with vertical lines). Can be repeated to specify multiple levels.')
 
 pgroup.add_argument('--hist1D', default=False, action='store_true',
     help='include raw histrograms in 1D marginal panels')
@@ -140,6 +157,20 @@ assert Ncol, 'please supply at least one column'
 names = [label for label, path in args.samples]
 reference_names = [label for label, path in args.reference]
 
+# set up conditioning arguments
+conditions = dict((column, (float(val), DEFAULT_CONDITION_TYPE)) for column, val in args.condition)
+condition_columns = conditions.keys()
+Ncond = len(condition_columns)
+for col in condition_columns:
+    assert col not in args.columns, 'cannot condition on a column that is included in the corner plot!'
+
+load_columns = args.columns + condition_columns
+
+for col, condition_type in args.condition_type:
+    assert col in conditions, 'specifying --condition-type for unknown column: '+col
+    assert condition_type in KNOWN_CONDITION_TYPES, 'cumulative direction not understood. Must be one of: %s'%(', '.join(KNOWN_CONDITION_TYPES))
+    conditions[col] = conditions[col][0], condition_type
+
 # workflow arguments
 if args.whiten and (len(names)>1):
     raise RuntimeError('cannot whiten data with more than one sample set!')
@@ -167,18 +198,18 @@ for label, column in args.invert_weight_column:
 # column arguments
 rangesdict = dict()
 for column, _min, _max in args.column_range:
-    assert column in args.columns, 'specifying --column-range for unknown column: '+column
+    assert column in load_columns, 'specifying --column-range for unknown column: '+column
     rangesdict[column] = (float(_min), float(_max))
 
 bandwidthdict = dict()
 for column, b in args.column_bandwidth:
-    assert column in args.columns, 'specifying --column-bandwidth for unknown column: '+column
+    assert column in load_columns, 'specifying --column-bandwidth for unknown column: '+column
     bandwidthdict[column] = float(b)
-bandwidths = [bandwidthdict.get(col, None) for col in args.columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
+bandwidths = [bandwidthdict.get(col, None) for col in load_columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
 
 multiplierdict = dict()
 for column, m in args.column_multiplier:
-    assert column in args.columns, 'specifying --column-multiplier for uknown column: '+column
+    assert column in load_columns, 'specifying --column-multiplier for uknown column: '+column
     multiplierdict[column] = float(m)
 
 labeldict = dict()
@@ -220,15 +251,15 @@ if not args.figtype:
 #-------------------------------------------------
 
 fig = None
-global_ranges = [(np.infty, -np.infty) for _ in range(Ncol)]
+global_ranges = [(np.infty, -np.infty) for _ in range(Ncol+Ncond)]
 
 ### read in data from csv and plot
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from: %s'%(label, path))
-    data, columns = utils.load(path, args.columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+    data, columns = utils.load(path, load_columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
 
-    for i, column in enumerate(args.columns): ### apply multiplicative factor based on the original column names
+    for i, column in enumerate(load_columns): ### apply multiplicative factor based on the original column names
         if column in multiplierdict:
             data[:,i] *= multiplierdict[column]
 
@@ -265,11 +296,58 @@ for ind, (label, path) in enumerate(args.samples):
 
     #--------------------
 
+    ### updatee weights based on conditioning
+    ### NOTE!: this relies on the assumption of a diagonal kernel, implying we can separate the contributions into factors
+    logcond = np.zeros(len(data), dtype=float)
+    for i, cond_col in enumerate(condition_columns):
+        val, cond_type = conditions[cond_col]
+
+        if args.verbose:
+            print('updating weights to condition on %s=%f (%s)'%(cond_col, val, cond_type))
+
+        ### determine bandwidth
+        b = bandwidths[Ncol+i]
+        if b is None:
+            b = plot.silverman_bandwidth(data[:,Ncol+i], weights=weights) ### use bandwidth from overall marignal distrib
+            if args.verbose:
+                print('automatically selected bandwidth=%.3e for col=%s as part of conditioning'%(b, cond_col))
+
+        ### compute update to weights based on the type of condition
+        if cond_type == 'point':
+            ### this way will run faster thru the loop w/in the delegation
+            logcond += utils.logkde(data[:,Ncol+i], np.array([val]), b**2, num_proc=args.num_proc)
+
+        else:
+            z = (val - data[:,Ncol+i])/b
+            phi = utils._cumulative_gaussian_distribution(z) ### integrate from -infty up to val for each data separately
+
+            if cond_type == 'upper-bound': ### integrate from val down for each sample
+                truth = phi > 0
+                logcond[truth] += np.log(phi[truth])
+
+                truth = np.logical_not(truth)
+                logcond[truth] = -np.infty ### zero weight here
+
+            elif cond_type == 'lower-bound': ### integrate from val up for each sample
+                truth = phi < 1
+                logcond[truth] += np.log(1 - phi[truth])
+
+                truth = np.logical_not(truth)
+                logcond[truth] = -np.infty ### zero weight here
+
+            else:
+                raise RuntimeError('condition type=%s not understood!'%cond_type)
+
+    ### update the weights to include the effects of conditioning
+    weights = utils.exp_weights(np.log(weights) + logcond, normalize=True)
+
+    #--------------------
+
     if args.verbose:
         print('plotting')
     fig = plot.kde_corner(
-        data,
-        bandwidths=bandwidths,
+        data[:,:Ncol],
+        bandwidths=bandwidths[:Ncol],
         truths=truths,
         truth_color=args.truth_color,
         labels=labels,
@@ -280,6 +358,7 @@ for ind, (label, path) in enumerate(args.samples):
         reflect=args.reflect,
         verbose=args.Verbose,
         hist1D=args.hist1D,
+        levels1D=args.level1D,
         levels=args.level,
         filled=args.filled,
         scatter=not args.no_scatter,
