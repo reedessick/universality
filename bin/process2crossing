@@ -79,9 +79,6 @@ ranges = dict((column, (float(m), float(M))) for column, m, M in args.column_ran
 
 args.verbose |= args.Verbose
 
-if not args.reference_column_value_is_column:
-    args.reference_column_value = float(args.reference_column_value)
-
 #-------------------------------------------------
 
 if args.verbose:
@@ -89,6 +86,9 @@ if args.verbose:
 
 dynamic_columns = [col for _, col in args.dynamic_minimum + args.dynamic_maximum]
 Ndyn = len(dynamic_columns)
+
+if args.reference_column_value_is_column:
+    dynamic_columns.append(args.reference_column_value_is_column)
 
 data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
 
@@ -99,6 +99,12 @@ dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynam
 
 N += len(args.dynamic_minimum)
 dynamic_maxima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_maximum)) ### the values defining the dynamic maxima
+
+if args.reference_column_value_is_column:
+    N += len(args.dynamic_maxima)
+    reference_column_value = data[:,N]
+else:
+    reference_column_value = float(args.reference_column_value)
 
 data = data[:,0]
 N = len(data)
@@ -118,7 +124,7 @@ ans[:,Nkeep:] = utils.process2crossing(
     path_template,
     args.eos_num_per_dir,
     args.reference_column,
-    args.reference_column_value,
+    reference_column_value,
     args.columns,
     static_ranges=ranges,
     dynamic_minima=dynamic_minima,

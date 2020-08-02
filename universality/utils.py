@@ -495,11 +495,8 @@ def process2crossing(
     ):
     """manages I/O and extracts the first, last crossings of specified columns
     """
-    raise NotImplementedError
-
-    '''
     N = len(data)
-    loadcolumns = columns[:]
+    loadcolumns = [reference_column] + columns
 
     if static_ranges is not None:
         loadcolumns += [key for key in static_ranges.keys() if key not in loadcolumns] ### avoid duplicates
@@ -523,6 +520,11 @@ def process2crossing(
     else:
         dynamic_maxima = []
 
+    if isinstance(reference_column_value, (int, float)):
+        reference_column_value = np.ones(len(data), dtype=float)*reference_column_value
+    else:
+        assert len(reference_column_value)==len(data), 'reference_column_value must be a int, float or must have the same length as data'
+
     ans = np.empty((N, 2*len(columns)), dtype=float)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
@@ -544,12 +546,13 @@ def process2crossing(
             raise RuntimeError('could not find any samples within all specified ranges!')
         d = d[truth]
 
-        for j, column in enumerate(columns):
-            ans[i,2*j] = np.max(d[:,j])
-            ans[i,2*j+1] = np.min(d[:,j])
+        raise NotImplementedError('''\
+iterate over remaining data and look for when we cross the reference value
+basically, find the indecies of d that straddle the reference value
+then interpolate the rest of the columns to extract the values. Insert into ans in the correct order (consistent with what the exectuable expects)
+''')
 
     return ans
-    '''
 
 def process2quantiles(
         data,
