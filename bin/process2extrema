@@ -99,7 +99,7 @@ N = len(data)
 #------------------------
 
 if args.verbose:
-    print('extacting maxima and minima')
+    print('extracting maxima and minima')
 
 ans = np.empty((N, Nkeep+2*Ncol), dtype=float)
 ans[:,:Nkeep] = keep ### fill in existing data
