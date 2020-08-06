@@ -112,7 +112,7 @@ N = len(data)
 #------------------------
 
 if args.verbose:
-    print('extacting maxima and minima')
+    print('extracting first and last crossings')
 
 ans = np.empty((N, Nkeep+2*Ncol), dtype=float)
 ans[:,:Nkeep] = keep ### fill in existing data
@@ -139,8 +139,8 @@ else:
     col_first = '(first_%s=%s)'
     col_last = '(last_%s=%s)'
 
-col_first = col_max%(args.referene_column, args.reference_column_value)
-col_last = col_min%(args.referene_column, args.reference_column_value)
+col_first = col_first%(args.reference_column, args.reference_column_value)
+col_last = col_last%(args.reference_column, args.reference_column_value)
 
 outcols = [col for col in args.copy_column]
 for column in args.columns:

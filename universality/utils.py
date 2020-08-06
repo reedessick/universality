@@ -488,7 +488,7 @@ def process2crossing(
     reference_column,
     reference_column_value,
     columns,
-    statick_ranges=None,
+    static_ranges=None,
     dynamic_minima=None,
     dynamic_maxima=None,
     verbose=False,
@@ -545,14 +545,42 @@ def process2crossing(
         if not np.any(truth):
             raise RuntimeError('could not find any samples within all specified ranges!')
         d = d[truth]
+        num = len(d)
 
-        raise NotImplementedError('''\
-iterate over remaining data and look for when we cross the reference value
-basically, find the indecies of d that straddle the reference value
-then interpolate the rest of the columns to extract the values. Insert into ans in the correct order (consistent with what the exectuable expects)
-''')
+        ref = reference_column_value[i] ### pull this out only once
+
+        ### direct iteration to find the first and last crossings
+        first_before, first_after = _data2crossing(d[:,0], ref)
+        
+        last_before, last_after = _data2crossing(d[::-1,0], ref) ### iterate from the back to the front...
+        last_before, last_after = num-1-last_after, num-1-last_before
+
+        # linearly interpolate to find values at the crossing
+        first_a = (ref - d[first_before,0])/(d[first_after,0] - d[first_before,0])
+        first_b = (d[first_after,0] - ref)/(d[first_after,0] - d[first_before,0])
+
+        last_a = (ref - d[last_before,0])/(d[last_after,0] - d[last_before,0])
+        last_b = (d[last_after,0] - ref)/(d[last_after,0] - d[last_before,0])
+
+        for j, column in enumerate(columns):
+            ans[i,2*j] = d[first_after,j+1]*first_a + d[first_before,j+1]*first_b ### store the value at the first crossing
+            ans[i,2*j+1] = d[last_after,j+1]*last_a + d[last_before,j+1]*last_b ### store the value at the last crossing
 
     return ans
+
+def _data2crossing(d, ref):
+    '''returns the indecies of the 1D array 'data' that braket the first time it crosses ref'''
+    N = len(d)
+    above = d[0] > ref
+    ind = 1 ### we already checked the case of i=0
+    while ind < N: # direct iteration over samples to see when we cross the reference value
+        if above != (d[ind] > ref): ### we crossed
+            break
+        ind += 1
+    else: # ind == N and we haven't crossed
+        raise RuntimeError('reference_column_value=%f never crossed by eos=%d'%(ref, eos))
+    
+    return ind-1, ind
 
 def process2quantiles(
         data,
