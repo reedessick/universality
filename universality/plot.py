@@ -89,7 +89,7 @@ def save(basename, fig, figtypes=DEFAULT_FIGTYPES, directory=DEFAULT_DIRECTORY, 
             print('saving: '+figname)
         fig.savefig(figname,  **kwargs)
 
-def weights2color(weights, basecolor, prefact=750., minimum=1e-3):
+def weights2color(weights, basecolor, prefact=100., minimum=1e-3):
     Nsamp = len(weights)
     scatter_color = np.empty((Nsamp, 4), dtype=float)
     scatter_color[:,:3] = matplotlib.colors.ColorConverter().to_rgb(basecolor)
