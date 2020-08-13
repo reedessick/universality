@@ -6,6 +6,9 @@ from collections import defaultdict
 
 from argparse import ArgumentParser
 
+### non-standard libraries
+from universality import utils
+
 #-------------------------------------------------
 
 parser = ArgumentParser()
@@ -13,15 +16,28 @@ parser = ArgumentParser()
 parser.add_argument('input_csv', type=str)
 parser.add_argument('output_csv', type=str)
 
-parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('--include', nargs=3, type=str, action='append', default=[],
     help="the field along with min and max values for what should be kept (eg: '--include distance 30 40'). This can be repeated to specify bounds for multiple fields. It can also be repeated to specify multiple bounds for a single field (ie: disconnected regions that both should be kept). If a field is not specified with this option, we do not filter based on that field.")
+
+parser.add_argument('--reject-outliers', nargs=2, type=str, action='append', default=[],
+    help="perform automatic outlier rejection for this column until no samples are found beyond the requested number of sample standard deviations from the sample mean. eg, '--rejecte-outliers m1 4' will recursively remove any samples that are more than 4 standard deviations away from the mean in m1 until no more samples are removed. NOTE, if the number of sample standard deviations is small, then this may cause a run-away pruning process")
+parser.add_argument('--reject-outliers-logic', type=str,
+    help='either "any" or "all", meaning reject if any of the conditions are met or reject only if all the conditions are met, respective')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
 bounds = defaultdict(list)
 for field, m, M in args.include:
     bounds[field].append((float(m), float(M)))
+
+outliers = [(field, float(val)) for field, val in args.reject_outliers]
+
+assert args.reject_outlier_logic in ['any', 'all'], '--reject-outlier-logic must be either "any" or "all"'
+
+args.verbose |= args.Verbose
 
 if os.path.dirname(args.output_csv) and (not os.path.exists(os.path.dirname(args.output_csv))):
     os.makedirs(os.path.dirname(args.output_csv))
@@ -31,18 +47,24 @@ if os.path.dirname(args.output_csv) and (not os.path.exists(os.path.dirname(args
 ### load data
 if args.verbose:
     print('reading samples from: '+args.input_csv)
-data = np.genfromtxt(args.input_csv, names=True, delimiter=',')
+data, cols = utils.load(args.input_csv)
 N = len(data)
 if args.verbose:
     print('found %d samples'%N)
 
 ### filter data
+if args.verbose:
+    print('pruning samples based on fixed ranges')
+
 global_truth = np.ones(N, dtype=bool)
 local_truth = np.empty(N, dtype=bool)
 for field, segs in bounds.items():
+    col = cols.index(field)
     local_truth[:] = False
-    datum = data[field]
-    for m, M in segs:
+    datum = data[:,col]
+    for m, M in segs: ### NOTE: this logic is more complicated than what's in utils.prune, and so we just use this here
+        if args.verbose:
+            print('filtering to keep col=%s within [%f, %f)'%(field, m, M))
         local_truth[:] = np.logical_or(local_truth, (m<=datum)*(datum<=M))
     global_truth[:] = np.logical_and(global_truth, local_truth)
 
@@ -50,6 +72,62 @@ if args.verbose:
     print('retaining %d samples'%(np.sum(global_truth)))
 data = data[global_truth] ### downsample
 
+### now perform recursive outlier rejection
+if args.verbose:
+    print('pruning samples based on repeated outlier rejection')
+N = len(data)
+
+global_truth = np.ones(N, dtype=bool)
+local_truth = np.empty(N, dtype=bool)
+
+old_N = np.nan ### guarantee that we won't match on the first iteration
+
+outliers = [(field, cols.index(field), val) for field, val in outliers] ### so we don't have to repeatedly call cols.index
+
+while N != old_N:
+    if args.reject_outlier_logic == 'any':
+        local_truth[:] = True
+        for field, col, val in outliers:
+            datum = data[:,col]
+
+            m = np.mean(datum[global_truth])
+            s = np.std(datum[global_truth])
+
+            reject = np.abs(datum-m)/s > val
+            if args.Verbose:
+                print('    col=%s rejects %d / %d'%(field, np.sum(reject), len(reject)))
+
+            local_truth[reject] = False
+
+    elif args.reject_outlier_logic == 'all':
+        local_truth[:] = False
+        for field, col, val in outliers:
+            datum = data[:,col]
+
+            m = np.mean(datum[global_truth])
+            s = np.std(datum[global_truth])
+
+            retain = np.abs(datum-m)/s <= val
+            if args.Verbose:
+                print('    col=%s retains %d / %d'%(field, np.sum(retain), len(retain)))
+
+            local_truth = np.logical_or(local_truth, np.abs(datum-m)/s <= val)
+
+    else:
+        raise RuntimeError('--reject-outlier-logic=%s not understood!'%args.reject_outlier_logic)
+
+    global_truth = np.logical_and(global_truth, local_truth)
+    if args.Verbose:
+        print('retaining %d samples'%(np.sum(global_truth)))
+
+    ### increment
+    old_N = N
+    N = np.sum(global_truth)
+
+if args.verbose and (not args.Verbose):
+    print('retaining %d samples'%(np.sum(global_truth)))
+data = data[global_truth] ### downsample
+    
 ### write out new data
 if args.verbose:
     print('writing retained samples to: '+args.output_csv)
