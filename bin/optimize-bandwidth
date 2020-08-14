@@ -49,6 +49,11 @@ parser.add_argument('--weight-column-is-log', default=[], type=str, action='appe
 parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
 
+parser.add_argument('--num-points', default=101, type=int,
+    help='the number of points used on each dimension of the hyper-cube used to estimate the KDE when plotting the results. \
+NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
+DEFAULT=101')
+
 parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('--no-scatter', default=False, action='store_true',
     help='do not plot sample points in the KDE corner plot')
@@ -148,7 +153,7 @@ if args.plot:
 
     N = len(data)
     Nbins = max(10, int(N**0.5)/2)
-    v = np.ones(Ncol, dtype='float') * b
+    v = np.ones(Ncol, dtype='float') * b ### note! we pass bandwidths, not variances. The conversion is done within kde_corner
     
     shape = (args.num_points, args.num_points) # used to reshape 2D sampling kdes
     

@@ -42,17 +42,17 @@ DEFAULT=[]')
 
 parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
-parser.add_argument('--num-points', default=101, type=int,
-    help='the number of points used on each dimension of the hyper-cube used to estimate the KDE when plotting the results. \
-NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
-DEFAULT=101')
-
 parser.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
     help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
+
+parser.add_argument('--num-points', default=101, type=int,
+    help='the number of points used on each dimension of the hyper-cube used to estimate the KDE when plotting the results. \
+NOTE: computing the KDE on all these grid points will scale poorly with larger --num-pts; user be warned. \
+DEFAULT=101')
 
 parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('--no-scatter', default=False, action='store_true',
