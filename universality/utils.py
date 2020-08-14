@@ -1167,60 +1167,72 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
 
     return mlogL, vlogL, mglogL, vglogL
 
-def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None, rtol=1e-3, k=1, weights=None, num_proc=DEFAULT_NUM_PROC, verbose=False):
+def optimize_bandwidth(
+        data,
+        bandwidth_range,
+        rtol=1e-3,
+        k=1,
+        weights=None,
+        num_proc=DEFAULT_NUM_PROC,
+        minb_result=None,
+        maxb_result=None,
+        verbose=False,
+    ):
     """optimize the bandwidth by finding the zero-crossing of the derivative via a bisection search"""
     Nsamp, Ncol = data.shape
     v = np.empty(Ncol, dtype=float)
     minb, maxb = bandwidth_range
 
+    midb = (maxb*minb)**0.5 ### take geometric mean as guess so that we can scan large swaths of bandwidth values efficiently
 
-    midb = (maxb*minb)**0.5
-
-    if (maxb-minb) < rtol*midb: ### basic termination condition
+    if (maxb-minb) < rtol*midb: ### basic termination condition, note that we still use the difference (rather than the ratio)
         if verbose:
             print('bandwidths agree to within %.6e, processing midb=%.6e and returning'%(rtol, midb))
-        v[:] == midb**2
-        return midb, utils.logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
+        ### Note, we probably don't need to evaluate this at the mid point (most users won't care)
+        ### however, making sure we do simplifies the return formatting (we always will return the logleavekout result)
+        ### and taking the mid point will give us strictly smaller errors than rtol, which is desired
+        v[:] = midb**2
+        return midb, logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
     else: ### may need to recurse
 
         ### check boundaries to see if we can terminate early
         if minb_result is None:
             if verbose:
-                print('processing bandwidth=%.6e'%minb)
+                print('processing minb=%.6e'%minb)
             v[:] = minb**2
             minb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if minb_result[2] < 0: ### convex function, if this is already decreasing at the min(b), then we should just return that
             if verbose:
-                print('logL decreasing at max(b), so returning edge case')
+                print('logL decreasing at minb, so returning edge case')
             return minb, minb_result
 
         if maxb_result is None:
             if verbose:
-                print('processing bandwidth=%.6e'%maxb)
+                print('processing maxb=%.6e'%maxb)
             v[:] = maxb**2
             maxb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if maxb_result[2] > 0: ### convex function, if this is still increasing at max(b), then we should just return that
             if verbose:
-                print('logL increasing at max(b), so returning edge case')
+                print('logL increasing at maxb, so returning edge case')
             return maxb, maxb_result
 
         ### we need to recurse
         if verbose:
-            print('processing bandwidth=%.6e'%midb)
+            print('processing midb=%.6e'%midb)
         v[:] = midb**2
         midb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if midb_result[2] == 0: ### vanishing, this is the optimum
             if verbose:
-                print('vanishing derivative, so returning bandwidth=%.6e'%midb)
+                print('    vanishing derivative at midb=%.6e; returning'%midb)
             return mid, midb_result
 
         elif midb_result[2] > 0: # increasing at midb, so that's the new minimum
             if verbose:
-                print('increasing at bandwidth=%.6, recursing with updated minb'%midb)
+                print('    increasing at midb=%.6e, recursing with (minb=%.6e, maxb=%.6e)'%(midb, midb, maxb))
 
             return optimize_bandwidth(
                 data,
@@ -1236,7 +1248,7 @@ def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None
 
         else: # decreasing at midb, so that's the new maximum
             if verbose:
-                print('decreasing at bandwidth=%.6, recursing with updated maxb'%midb)
+                print('    decreasing at midb=%.6e, recursing with (minb=%.6e, maxb=%.6e)'%(midb, minb, midb))
 
             return optimize_bandwidth(
                 data,

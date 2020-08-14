@@ -123,11 +123,14 @@ b, (mlogL, vlogL, mdlogLdvp, vdlogLdvp) = utils.optimize_bandwidth(
 metrics = {
     'mean_logL' : mlogL,
     'stdv_logL' : vlogL**0.5,
-    'mean_dlogLdlogb' : 2*v[0]*np.sum(mdlogLdvp), ### this makes sense because of our assumption that all variances are the same...
-    'stdv_dlogLdlogb' : 2*v[0]*(np.sum(vdlogLdvp))**0.5,  ### this is also correct assuming all variances are the same
+    'mean_dlogLdlogb' : 2 * b**2 * np.sum(mdlogLdvp), ### this makes sense because of our assumption that all variances are the same...
+    'stdv_dlogLdlogb' : 2 * b**2 * np.sum(vdlogLdvp)**0.5,  ### this is also correct assuming all variances are the same
 }
 
-print('''\
+print('optimal bandwidth = %.9e'%b)
+
+if args.verbose:
+    print('''\
     mean_logL = %(mean_logL)+.6e
     stdv_logL = %(stdv_logL)+.6e
     mean_dlogLdlogb = %(mean_dlogLdlogb)+.6e
