@@ -1,0 +1,171 @@
+#!/usr/bin/env python
+
+__doc__ = "finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space via Netwon's method"
+__author__ = "reed.essick@ligo.org"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('inpath', type=str)
+parser.add_argument('columns', nargs='+', type=str)
+parser.add_argument('bandwidth_range', nargs=2, type=float,
+    help='minimum and maximum for the bandwidth search')
+parser.add_argument('--rtol', default=1e-4, type=float,
+    help='relative tolerance for termination condition. Bandwidth uncertainty must be within this relative amount of the final estimate')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('--logcolumn', default=[], type=str, action='append',
+    help='convert the values read in for this column to natural log. \
+Can be repeated to specify multiple columns. \
+DEFAULT=[]')
+
+parser.add_argument('--num-withheld', default=1, type=int,
+    help='the number of samples to withhold in the cross-validation likelihood. \
+Larger values should result in faster run-times (fewer sets to evaluate), but may result in worsened logL estimates.')
+
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
+
+parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+parser.add_argument('--weight-column', default=[], type=str, action='append',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
+    help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
+
+parser.add_argument('-p', '--plot', default=False, action='store_true')
+parser.add_argument('--no-scatter', default=False, action='store_true',
+    help='do not plot sample points in the KDE corner plot')
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+Ncol = len(args.columns)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if args.output_dir and (not os.path.exists(args.output_dir)):
+    os.makedirs(args.output_dir)
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+### read in data from csv
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+Nsamp = len(data)
+
+if args.verbose:
+    print('Nsamples = %d'%Nsamp)
+    if Ncol > 1:
+        print(('Covar\n  '+' '.join(['%-10s']*Ncol))%tuple(columns))
+        for row in np.cov(data, rowvar=0):
+            print(('  '+' '.join(['%+02.3e']*Ncol)))%tuple(row)
+    else:
+        print('Covar\n  %-10s'%columns[0])
+        print('  %+02.3e'%np.std(data))
+
+# whiten data so a single bandwidth makes more sense
+data, means, stds = utils.whiten(data, verbose=args.verbose)
+
+#------------------------
+
+### load in weights
+if args.weight_column:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.inpath)
+    weights = utils.load_weights(
+        args.inpath,
+        args.weight_column,
+        logweightcolumns=args.weight_column_is_log,
+        invweightcolumns=args.invert_weight_column,
+        max_num_samples=args.max_num_samples,
+    )
+
+else:
+    weights = np.ones(Nsamp, dtype=float)/Nsamp
+
+#------------------------
+
+### perform bisection search
+if args.verbose:
+    print('optimizing bandwidth')
+b, (mlogL, vlogL, mdlogLdvp, vdlogLdvp) = utils.optimize_bandwidth(
+    data,
+    args.bandwidth_range,
+    rtol=args.rtol,
+    k=args.num_withheld,
+    weights=weights,
+    num_proc=args.num_proc,
+    verbose=args.Verbose,
+)
+
+### report the result
+metrics = {
+    'mean_logL' : mlogL,
+    'stdv_logL' : vlogL**0.5,
+    'mean_dlogLdlogb' : 2*v[0]*np.sum(mdlogLdvp), ### this makes sense because of our assumption that all variances are the same...
+    'stdv_dlogLdlogb' : 2*v[0]*(np.sum(vdlogLdvp))**0.5,  ### this is also correct assuming all variances are the same
+}
+
+print('''\
+    mean_logL = %(mean_logL)+.6e
+    stdv_logL = %(stdv_logL)+.6e
+    mean_dlogLdlogb = %(mean_dlogLdlogb)+.6e
+    stdv_dlogLdlogb = %(stdv_dlogLdlogb)+.6e'''%metrics)
+
+#------------------------
+### generate plots/visualizations representing results
+
+if args.plot:
+    if args.verbose:
+        print('plotting visualization of KDE')
+
+    vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in xrange(Ncol)])
+    bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
+
+    N = len(data)
+    Nbins = max(10, int(N**0.5)/2)
+    v = np.ones(Ncol, dtype='float') * b
+    
+    shape = (args.num_points, args.num_points) # used to reshape 2D sampling kdes
+    
+    # actually generate figure
+    fig = plot.kde_corner(
+        data,
+        bandwidths=v,
+        range=bounds,
+        weights=weights,
+        hist1D=True,
+        scatter=not args.no_scatter,
+        verbose=args.Verbose,
+    )
+    
+    # further decorate
+    fig.suptitle('$b=%.3e$'%b)
+    
+    # save
+    figname = os.path.join(args.output_dir, 'optimize_bandwidth-kde%s.png'%(args.tag))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+    plot.close(fig)
