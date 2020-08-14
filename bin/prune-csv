@@ -21,8 +21,9 @@ parser.add_argument('--include', nargs=3, type=str, action='append', default=[],
 
 parser.add_argument('--reject-outliers', nargs=2, type=str, action='append', default=[],
     help="perform automatic outlier rejection for this column until no samples are found beyond the requested number of sample standard deviations from the sample mean. eg, '--rejecte-outliers m1 4' will recursively remove any samples that are more than 4 standard deviations away from the mean in m1 until no more samples are removed. NOTE, if the number of sample standard deviations is small, then this may cause a run-away pruning process")
-parser.add_argument('--reject-outliers-logic', type=str,
-    help='either "any" or "all", meaning reject if any of the conditions are met or reject only if all the conditions are met, respective')
+parser.add_argument('--reject-outliers-logic', type=str, default='any',
+    help='either "any" or "all", meaning reject if any of the conditions are met or reject only if all the conditions are met, respective. \
+DEFAULT="any"')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
@@ -35,7 +36,7 @@ for field, m, M in args.include:
 
 outliers = [(field, float(val)) for field, val in args.reject_outliers]
 
-assert args.reject_outlier_logic in ['any', 'all'], '--reject-outlier-logic must be either "any" or "all"'
+assert args.reject_outliers_logic in ['any', 'all'], '--reject-outlier-logic must be either "any" or "all"'
 
 args.verbose |= args.Verbose
 
@@ -85,7 +86,7 @@ old_N = np.nan ### guarantee that we won't match on the first iteration
 outliers = [(field, cols.index(field), val) for field, val in outliers] ### so we don't have to repeatedly call cols.index
 
 while N != old_N:
-    if args.reject_outlier_logic == 'any':
+    if args.reject_outliers_logic == 'any':
         local_truth[:] = True
         for field, col, val in outliers:
             datum = data[:,col]
@@ -99,7 +100,7 @@ while N != old_N:
 
             local_truth[reject] = False
 
-    elif args.reject_outlier_logic == 'all':
+    elif args.reject_outliers_logic == 'all':
         local_truth[:] = False
         for field, col, val in outliers:
             datum = data[:,col]
@@ -114,7 +115,7 @@ while N != old_N:
             local_truth = np.logical_or(local_truth, np.abs(datum-m)/s <= val)
 
     else:
-        raise RuntimeError('--reject-outlier-logic=%s not understood!'%args.reject_outlier_logic)
+        raise RuntimeError('--reject-outlier-logic=%s not understood!'%args.reject_outliers_logic)
 
     global_truth = np.logical_and(global_truth, local_truth)
     if args.Verbose:
@@ -131,4 +132,4 @@ data = data[global_truth] ### downsample
 ### write out new data
 if args.verbose:
     print('writing retained samples to: '+args.output_csv)
-np.savetxt(args.output_csv, data, delimiter=',', comments='', header=','.join(data.dtype.names))
+np.savetxt(args.output_csv, data, delimiter=',', comments='', header=','.join(cols))
