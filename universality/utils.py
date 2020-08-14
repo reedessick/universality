@@ -1180,7 +1180,7 @@ def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None
         if verbose:
             print('bandwidths agree to within %.6e, processing midb=%.6e and returning'%(rtol, midb))
         v[:] == midb**2
-        return midb, utils.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
+        return midb, utils.logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
     else: ### may need to recurse
 
@@ -1189,7 +1189,7 @@ def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None
             if verbose:
                 print('processing bandwidth=%.6e'%minb)
             v[:] = minb**2
-            minb_result = utils.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
+            minb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if minb_result[2] < 0: ### convex function, if this is already decreasing at the min(b), then we should just return that
             if verbose:
@@ -1200,7 +1200,7 @@ def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None
             if verbose:
                 print('processing bandwidth=%.6e'%maxb)
             v[:] = maxb**2
-            maxb_result = utils.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
+            maxb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if maxb_result[2] > 0: ### convex function, if this is still increasing at max(b), then we should just return that
             if verbose:
@@ -1211,7 +1211,7 @@ def optimize_bandwidth(data, bandwidth_range, minb_result=None, maxb_result=None
         if verbose:
             print('processing bandwidth=%.6e'%midb)
         v[:] = midb**2
-        midb_result = utils.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
+        midb_result = logleavekoutLikelihood(data, v, k=k, weights=weights, num_proc=num_proc)
 
         if midb_result[2] == 0: ### vanishing, this is the optimum
             if verbose:
