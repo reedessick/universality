@@ -97,7 +97,7 @@ def column2logcolumn(name):
 def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = []
     with open(inpath, 'r') as obj:
-        cols = obj.readline().strip().split(',')
+        cols = [_.strip() for _ in obj.readline().strip().split(',')]
         if columns:
             check_columns(cols, columns)
         else:
