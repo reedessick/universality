@@ -1,0 +1,367 @@
+#!/usr/bin/env python
+
+"""a script that processes macroscipic relations between the mass and moment of inertia (MoI) in order to identify and characterize phase transitoins"""
+__author__ = "reed.essick@gmail.com"
+
+#-------------------------------------------------
+
+import os
+import sys
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality import gaussianprocess as gp
+from universality import plot as plt
+
+#-------------------------------------------------
+
+START_TEMPLATE = 'start_%s'
+END_TEMPLATE = 'end_%s'
+
+def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None):
+    """\
+    looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
+    returns the corresponding values from data along with names based on cols
+    """
+    names = [START_TEMPLATE%col for col in cols] + [END_TEMPLATE%col for col in cols]
+    params = []
+
+    ### compute the absolute value of the curvature, which we use as an indicator variable
+    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr)
+    k = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
+
+    ### find local maxima; a subset of these are the interesting points for our analysis
+    maxima = (np.diff(np.sign(np.diff(k))) < 0).nonzero()[0] + 1
+
+    ### characterize local maxima to figure out what is what
+
+    # starting from the maxima that corresponds to the highest rhoc, throw away all maxima until we hit the first one that is bigger than the next
+    maxima = list(maxima[::-1]) ### reverse the order for ease
+    while len(maxima) > 1:
+        _ = maxima.pop(0) ### remove this maxima as it doesn't correspond to anything we want
+        if arctan_dlnI_dlnM[_] > arctan_dlnI_dlnM[maxima[0]]: ### we hit the first "bump", beyond which we can identify things in a predictable way
+            break
+
+    # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
+    while len(maxima):
+        end = maxima.pop(0)
+        if arctan_dlnI_dlnM[end] <= 0: ### a reasonably strong phase transition. Not sure if this is a good criteria, though it seems to work annectdotally
+            start = maxima.pop(0)
+            while len(maxima):
+                if arctan_dlnI_dlnM[start] >= 0: ### keep going back until we get a sign flip (or if we have both equal to zero...)
+                    if (arctan_dlnI_dlnM[end]!=0) and (arctan_dlnI_dlnM[start] == 0): ### special case
+                        end = start
+                    else:
+                        break
+                start = maxima.pop(0) ### go to the next one and try again
+            else: ### ran out of maxima, so there is no "start" corresponding to this "end", from which we infer there is no phase transition
+                break
+
+            params.append( list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on
+            
+    for m in maxima:
+        params.append( list(data[m]) + list(data[m]) )
+
+    if not len(params):
+        params = np.empty((0,len(names)), dtype=float)
+
+    else:
+        params = np.array(params, dtype=float)
+
+    return params, names
+
+def arctan_transform(rhoc, M, I, flatten_thr=0.):
+    """compute the special arctan function we use to feed into our feature identification function
+    """
+    dlnI_drhoc = gp.num_dfdx(rhoc, I) / I
+    dlnM_drhoc = gp.num_dfdx(rhoc, M) / M
+
+    ### regularlize the derivatives so we don't get oscillatory behavior due to numerical precision when there is no change with respect to rhoc
+    ### only filter placed where we've touched both dM and dI to account for numerical error
+    spurious = (np.abs(dlnI_drhoc*rhoc)<flatten_thr) *(np.abs(dlnM_drhoc*rhoc)<flatten_thr)
+
+    dlnI_drhoc[spurious] = 0
+    dlnM_drhoc[spurious] = 0
+
+    return np.arctan2(dlnI_drhoc, dlnM_drhoc), (spurious, dlnM_drhoc, dlnI_drhoc)
+
+def abs_curvature(s, x, y, smoothing_width=None):
+    """computes something like a smoothed curvature to identify interesting points in the M(s) -- dln[y(s)]/dln[x(s)] plane
+    """
+    ### compute curvature given this parametrization
+    ans = gp.num_dfdx(s, x)*gp.num_dfdx(s, gp.num_dfdx(s, y))
+    ans -= gp.num_dfdx(s, y)*gp.num_dfdx(s, gp.num_dfdx(s, x))
+    ans /= (gp.num_dfdx(s, x)**2 + gp.num_dfdx(s, y)**2)**(3./2)
+
+    ### take the absolute value of the curvature
+    ans = np.abs(ans)
+
+    ### smooth the curvature estiamte
+    if smoothing_width is not None:
+        v = (smoothing_width)**2 
+        wer = np.empty_like(ans)
+        inds = np.arange(len(s))
+        for i, S in enumerate(s):
+            weights = np.exp(-0.5*(S-s)**2/v) ### the basic Gaussian kernel
+            weights /= np.sum(weights)
+            wer[i] = np.sum(weights*ans)
+        ans = wer
+
+    return ans
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument("macropath", type=str)
+
+parser.add_argument('--outpath', default=None,
+    help='if specified, write to this file. Otherwise, print to stdout')
+
+parser.add_argument("--mass-column", default='M', type=str)
+parser.add_argument("--moi-column", default='I', type=str)
+parser.add_argument("--baryon-density-column", default='rhoc', type=str)
+parser.add_argument("--reference-column", default=[], action='append', type=str,
+    help='Columns for which we report the values at identified points. Can be used to identify different stellar models. \
+For example, the central baryon density (rhoc) may be easier to connect to the EoS than just the mass and/or MoI')
+
+parser.add_argument('--flatten-thr', default=2e-2, type=float,
+    help='the threshold on |dlnX/dlnrho| below which we set this to zero')
+parser.add_argument('--smoothing-width', default=0.01, type=float,
+    help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
+The kernel is defined over log(rhoc), and 0.02 seems to work well.')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-p', '--plot', default=False, action='store_true')
+parser.add_argument('--figtype', default=[], type=str, action='append')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype.append('png')
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading macro data from: '+args.macropath)
+data, cols = utils.load(args.macropath, [args.mass_column, args.moi_column, args.baryon_density_column]+args.reference_column)
+
+### make sure we order the result by increasing rhoc (which should be the default, but we need to check)
+rhoc = data[:,2]
+data = data[np.argsort(rhoc)]
+
+# separate things in a way that's convenient
+M = data[:,0]
+I = data[:,1]
+rhoc = data[:,2]
+
+#------------------------
+
+if args.verbose:
+    print('extracting features of possible phase transitions')
+params, names = identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=args.flatten_thr, smoothing_width=args.smoothing_width)
+
+if args.outpath is not None:
+    if args.verbose:
+        print('saving parameters of %d identified phase transitions to: %s'%(len(params), args.outpath))
+else:
+    args.outpath = sys.stdout
+np.savetxt(args.outpath, params, delimiter=',', comments='', header=','.join(names))
+
+#-------------------------------------------------
+
+if args.plot:
+    if args.verbose:
+        print('building basic sanity checking and reference plot')
+
+    ### compute basis of indicator variable
+    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=args.flatten_thr)
+
+    fig = plt.figure()
+    ax = plt.plt.subplot(2,2,1)
+    AX = plt.plt.subplot(2,2,3)
+
+    xa = plt.plt.subplot(2,2,2)
+    XA = plt.plt.subplot(2,2,4)
+
+    # plot
+    kwargs = dict(linestyle='none', marker='.', markersize=2, color='k')
+
+    ax.plot(rhoc, M)
+    ax.plot(rhoc[spurious], M[spurious], **kwargs)
+
+    AX.plot(rhoc, dlnM_drhoc*rhoc)
+    AX.plot(rhoc[spurious], dlnM_drhoc[spurious]*rhoc[spurious], **kwargs)
+
+    xa.plot(rhoc, I)
+    xa.plot(rhoc[spurious], I[spurious], **kwargs)
+
+    XA.plot(rhoc, dlnI_drhoc*rhoc)
+    XA.plot(rhoc[spurious], dlnI_drhoc[spurious]*rhoc[spurious], **kwargs)
+
+    for _ in [ax, AX, xa, XA]:
+        _.set_xscale("log")
+        _.set_xlim(xmin=1.5e14, xmax=4e15)
+        _.grid(True, which='both')
+
+    ax.set_ylabel('$M\ [M_\odot]$')
+    AX.set_ylabel(r'$d\ln M/d\ln\rho_c$')
+
+    xa.set_ylabel('$I$ some units')
+    XA.set_ylabel(r'$d\ln I/d\ln\rho_c$')
+
+    for _ in [xa, XA]:
+        _.yaxis.tick_right()
+        _.yaxis.set_label_position('right')
+
+    for _ in [ax, xa]:
+        plt.setp(_.get_xticklabels(), visible=False)
+
+    for _ in [AX, XA]:
+        _.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+
+    plt.plt.subplots_adjust(hspace=0.02, wspace=0.02)
+
+    ### save
+    plt.save('extract-moi-features-reference%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose)
+    plt.close(fig)
+
+    #--------------------
+
+    if args.verbose:
+        print('plotting the identified phase transitions')
+
+    fig = plt.figure()
+    ax = plt.plt.subplot(2,2,1)
+    AX = plt.plt.subplot(2,2,3)
+
+    xa = plt.plt.subplot(2,2,2)
+    XA = plt.plt.subplot(2,2,4)
+
+    ymin = -np.pi ### bounds the range of arctan
+    ymax = +np.pi
+
+    # plot the main curve
+    kwargs = dict(linestyle='none', marker='.', markersize=2, color='k')
+
+    ax.plot(M, arctan_dlnI_dlnM)
+    ax.plot(M[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
+
+    AX_y = gp.num_dfdx(M, arctan_dlnI_dlnM)
+    AX.plot(M, AX_y)
+    AX.plot(M[spurious], AX_y[spurious], **kwargs)
+
+    xa.plot(rhoc, arctan_dlnI_dlnM)
+    xa.plot(rhoc[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
+
+    XA_y = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=args.smoothing_width)
+    XA.plot(rhoc, XA_y)
+    XA.plot(rhoc[spurious], XA_y[spurious], **kwargs)
+
+    # annotate points corresponding to params!
+    kwargs = dict(marker='|', color='r', markerfacecolor='none', linestyle='none', markersize=10, markeredgewidth=1)
+
+    ### start points
+    start = params[:,names.index(START_TEMPLATE%args.baryon_density_column)]
+    y = np.interp(start, rhoc, arctan_dlnI_dlnM)
+    xa.plot(start, y, **kwargs)
+
+    start_M = params[:,names.index(START_TEMPLATE%args.mass_column)]
+    ax.plot(start_M, y, **kwargs)
+
+    y = np.interp(start, rhoc, XA_y)
+    XA.plot(start, y, **kwargs)
+
+    y = np.interp(start, rhoc, AX_y)
+    AX.plot(start_M, y, **kwargs)
+
+    ### end points
+    end = params[:,names.index(END_TEMPLATE%args.baryon_density_column)]
+    y = np.interp(end, rhoc, arctan_dlnI_dlnM)
+    xa.plot(end, y, **kwargs)
+
+    end_M = params[:,names.index(END_TEMPLATE%args.mass_column)]
+    ax.plot(end_M, y, **kwargs)
+
+    y = np.interp(end, rhoc, XA_y)
+    XA.plot(end, y, **kwargs)
+
+    y = np.interp(end, rhoc, AX_y)
+    AX.plot(end_M, y, **kwargs)
+
+    # shade the regions that corresponds to negative dM/drhoc
+    ax.set_xscale('linear')
+    AX.set_xscale(ax.get_xscale())
+
+    xa.set_xscale('log')
+    XA.set_xscale(xa.get_xscale())
+
+    xlim = ax.get_xlim()
+    ax.fill_between(xlim, [ymin]*2, [-np.pi/2]*2, color='grey', alpha=0.5)
+    ax.fill_between(xlim, [ymax]*2, [+np.pi/2]*2, color='grey', alpha=0.5)
+    ax.set_xlim(xlim)
+
+    xlim = xa.get_xlim()
+    xa.fill_between(xlim, [ymin]*2, [-np.pi/2]*2, color='grey', alpha=0.5)
+    xa.fill_between(xlim, [ymax]*2, [+np.pi/2]*2, color='grey', alpha=0.5)
+    xa.set_xlim(xlim)
+
+    # decroate
+    ax.set_ylim(ymin=ymin, ymax=ymax)
+
+    ax.set_xlabel(r'$M\ [M_\odot]$')
+    ax.set_ylabel(r'$\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)$')
+
+    ax.grid(True, which='both')
+
+    AX.set_xlim(ax.get_xlim())
+
+    AX.set_ylabel(r'$d\left(\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)\right)/dM$')
+    AX.set_xlabel(ax.get_xlabel())
+
+    AX.grid(True, which='both')
+
+    xa.set_xlim(xmin=1.5e14, xmax=4e15)
+    xa.set_ylim(ymin=ymin, ymax=ymax)
+
+    xa.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+    xa.set_ylabel(r'$\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)$')
+
+    xa.grid(True, which='both')
+
+    XA.set_xlim(xa.get_xlim())
+    XA.set_yscale('log')
+    ylim = XA.get_ylim()
+    XA.set_ylim(ymin=max(1e-10, ylim[0]), ymax=min(1e+15, ylim[1]))
+
+    XA.set_ylabel(r'$\kappa\left[\ln\rho_c, M, \mathrm{arctan}(d\ln I/d\ln M)\right]$')
+    XA.set_xlabel(xa.get_xlabel())
+
+    XA.grid(True, which='both')
+
+    plt.setp(ax.get_xticklabels(), visible=False)
+    ax.set_xlabel('')
+    plt.setp(xa.get_xticklabels(), visible=False)
+    xa.set_xlabel('')
+
+    xa.yaxis.tick_right()
+    xa.yaxis.set_label_position('right')
+
+    XA.yaxis.tick_right()
+    XA.yaxis.set_label_position('right')
+
+    plt.plt.subplots_adjust(hspace=0.02, wspace=0.02)
+    
+    ### save
+    plt.save('extract-moi-features%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose)
+    plt.close(fig)
