@@ -21,8 +21,8 @@ from universality import plot as plt
 START_TEMPLATE = 'start_%s'
 END_TEMPLATE = 'end_%s'
 
-def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None):
-    """\
+def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None, diff_thr=0.05):
+    """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
     returns the corresponding values from data along with names based on cols
     """
@@ -44,17 +44,29 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
     while len(maxima) > 1:
         _ = maxima.pop(0) ### remove this maxima as it doesn't correspond to anything we want
                           ### this will always throw away the first peak, but that's almost certainly in the final unstable branch
+        if dlnM_drhoc[_] < 0: ### still on the unstable final branche
+            continue
+
         if arctan_dlnI_dlnM[_] > arctan_dlnI_dlnM[maxima[0]]: ### we hit the first "bump", beyond which we can identify things in a predictable way
             break
 
     while len(maxima) > 1:
         end = maxima.pop(0)
-        if (dlnM_drhoc[end] >= 0): ### back into stability after "final collapse"    
-            if s[end] > 0: ### sign of curvature is right for this to be the end of a phase transition
+        ### sign of curvature is right for this to be the end of a phase transition
+        if ((dlnM_drhoc[end] > 0) and (s[end] > 0)) or ((dlnM_drhoc[end] <= 0) and (s[end] < 0)):
+            start = maxima.pop(0)
+            while len(maxima) and s[start] > 0: ### keep going until we get a sign change
                 start = maxima.pop(0)
-                while len(maxima) and s[start] > 0: ### keep going until we get a sign change
-                    start = maxima.pop(0)
+            ### check separation to see if it is "big enough" to warrant recording
+            if arctan_dlnI_dlnM[start] - arctan_dlnI_dlnM[end] > diff_thr:
                 params.append(list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on       
+
+    '''
+    while len(maxima) > 1:
+        end = maxima.pop(0)
+        start = maxima.pop(0)
+        params.append(list(data[start]) + list(data[end]) )
+    '''
 
 #    # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
 #    while len(maxima) > 1: ### need to have at least 2 so we can pair them into start/end of a phase transition
