@@ -46,7 +46,7 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
             break
 
     # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
-    while len(maxima):
+    while len(maxima) > 1: ### need to have at least 2 so we can pair them into start/end of a phase transition
         end = maxima.pop(0)
         if arctan_dlnI_dlnM[end] <= 0: ### a reasonably strong phase transition. Not sure if this is a good criteria, though it seems to work annectdotally
             start = maxima.pop(0)
