@@ -31,7 +31,7 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
 
     ### compute the absolute value of the curvature, which we use as an indicator variable
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr)
-    k = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
+    k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
 
     ### find local maxima; a subset of these are the interesting points for our analysis
     maxima = (np.diff(np.sign(np.diff(k))) < 0).nonzero()[0] + 1
@@ -40,31 +40,39 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
 
     # starting from the maxima that corresponds to the highest rhoc, throw away all maxima until we hit the first one that is bigger than the next
     maxima = list(maxima[::-1]) ### reverse the order for ease
+
     while len(maxima) > 1:
         _ = maxima.pop(0) ### remove this maxima as it doesn't correspond to anything we want
+                          ### this will always throw away the first peak, but that's almost certainly in the final unstable branch
         if arctan_dlnI_dlnM[_] > arctan_dlnI_dlnM[maxima[0]]: ### we hit the first "bump", beyond which we can identify things in a predictable way
             break
 
-    # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
-    while len(maxima) > 1: ### need to have at least 2 so we can pair them into start/end of a phase transition
+    while len(maxima) > 1:
         end = maxima.pop(0)
-        if arctan_dlnI_dlnM[end] <= 0: ### a reasonably strong phase transition. Not sure if this is a good criteria, though it seems to work annectdotally
-            start = maxima.pop(0)
-            while len(maxima):
-                if arctan_dlnI_dlnM[start] >= 0: ### keep going back until we get a sign flip (or if we have both equal to zero...)
-                    if (arctan_dlnI_dlnM[end]!=0) and (arctan_dlnI_dlnM[start] == 0): ### special case
-                        end = start
-                    else:
-                        break
-                start = maxima.pop(0) ### go to the next one and try again
-            else: ### ran out of maxima, so there is no "start" corresponding to this "end", from which we infer there is no phase transition
-                break
+        if (dlnM_drhoc[end] >= 0): ### back into stability after "final collapse"    
+            if s[end] > 0: ### sign of curvature is right for this to be the end of a phase transition
+                start = maxima.pop(0)
+                while len(maxima) and s[start] > 0: ### keep going until we get a sign change
+                    start = maxima.pop(0)
+                params.append(list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on       
 
-            params.append( list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on
+#    # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
+#    while len(maxima) > 1: ### need to have at least 2 so we can pair them into start/end of a phase transition
+#        end = maxima.pop(0)
+#        if arctan_dlnI_dlnM[end] <= 0: ### a reasonably strong phase transition. Not sure if this is a good criteria, though it seems to work annectdotally
+#            start = maxima.pop(0)
+#            while len(maxima):
+#                if arctan_dlnI_dlnM[start] >= 0: ### keep going back until we get a sign flip (or if we have both equal to zero...)
+#                    if (arctan_dlnI_dlnM[end]!=0) and (arctan_dlnI_dlnM[start] == 0): ### special case
+#                        end = start
+#                    else:
+#                        break
+#                start = maxima.pop(0) ### go to the next one and try again
+#            else: ### ran out of maxima, so there is no "start" corresponding to this "end", from which we infer there is no phase transition
+#                break
+#
+#            params.append( list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on
             
-    for m in maxima:
-        params.append( list(data[m]) + list(data[m]) )
-
     if not len(params):
         params = np.empty((0,len(names)), dtype=float)
 
@@ -97,6 +105,7 @@ def abs_curvature(s, x, y, smoothing_width=None):
     ans /= (gp.num_dfdx(s, x)**2 + gp.num_dfdx(s, y)**2)**(3./2)
 
     ### take the absolute value of the curvature
+    sgn = np.sign(ans) # remember the sign!
     ans = np.abs(ans)
 
     ### smooth the curvature estiamte
@@ -110,7 +119,7 @@ def abs_curvature(s, x, y, smoothing_width=None):
             wer[i] = np.sum(weights*ans)
         ans = wer
 
-    return ans
+    return ans, sgn
 
 #-------------------------------------------------
 
@@ -264,7 +273,7 @@ if args.plot:
     xa.plot(rhoc, arctan_dlnI_dlnM)
     xa.plot(rhoc[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
 
-    XA_y = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=args.smoothing_width)
+    XA_y, _ = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=args.smoothing_width)
     XA.plot(rhoc, XA_y)
     XA.plot(rhoc[spurious], XA_y[spurious], **kwargs)
 
