@@ -21,7 +21,7 @@ from universality import plot as plt
 START_TEMPLATE = 'start_%s'
 END_TEMPLATE = 'end_%s'
 
-def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None, diff_thr=0.05):
+def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None, diff_thr=0.25):
     """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
     returns the corresponding values from data along with names based on cols
@@ -35,11 +35,18 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
 
     ### find local maxima; a subset of these are the interesting points for our analysis
     maxima = (np.diff(np.sign(np.diff(k))) < 0).nonzero()[0] + 1
+    maxima = list(maxima)
+    # add special cases for the beginning and end of the curves...
+    if k[0] > k[1]:
+        maxima.insert(0, 0)
+
+    if k[-1] > k[-2]:
+        maxima.append(len(k)-1)
 
     ### characterize local maxima to figure out what is what
 
     # starting from the maxima that corresponds to the highest rhoc, throw away all maxima until we hit the first one that is bigger than the next
-    maxima = list(maxima[::-1]) ### reverse the order for ease
+    maxima = maxima[::-1] ### reverse the order for ease
 
     while len(maxima) > 1:
         _ = maxima.pop(0) ### remove this maxima as it doesn't correspond to anything we want
@@ -55,36 +62,17 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
         ### sign of curvature is right for this to be the end of a phase transition
         if ((dlnM_drhoc[end] > 0) and (s[end] > 0)) or ((dlnM_drhoc[end] <= 0) and (s[end] < 0)):
             start = maxima.pop(0)
-            while len(maxima) and s[start] > 0: ### keep going until we get a sign change
+            while len(maxima) and (s[start] > 0): ### keep going until we get a sign change
                 start = maxima.pop(0)
+
+            ### FIXME
+            ### maybe consider looking for the density corresponding to the part of the curve that is right above the center of curvature?
+            ### eitehr that, or tracking back up the sound-speed curve to the most recent maximum sound speed preceeding what we identified as "start"?
+
             ### check separation to see if it is "big enough" to warrant recording
             if arctan_dlnI_dlnM[start] - arctan_dlnI_dlnM[end] > diff_thr:
                 params.append(list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on       
 
-    '''
-    while len(maxima) > 1:
-        end = maxima.pop(0)
-        start = maxima.pop(0)
-        params.append(list(data[start]) + list(data[end]) )
-    '''
-
-#    # we now iterate, selecting off pairs of maxima that we think correspond to a phase transition until we run out of maxima
-#    while len(maxima) > 1: ### need to have at least 2 so we can pair them into start/end of a phase transition
-#        end = maxima.pop(0)
-#        if arctan_dlnI_dlnM[end] <= 0: ### a reasonably strong phase transition. Not sure if this is a good criteria, though it seems to work annectdotally
-#            start = maxima.pop(0)
-#            while len(maxima):
-#                if arctan_dlnI_dlnM[start] >= 0: ### keep going back until we get a sign flip (or if we have both equal to zero...)
-#                    if (arctan_dlnI_dlnM[end]!=0) and (arctan_dlnI_dlnM[start] == 0): ### special case
-#                        end = start
-#                    else:
-#                        break
-#                start = maxima.pop(0) ### go to the next one and try again
-#            else: ### ran out of maxima, so there is no "start" corresponding to this "end", from which we infer there is no phase transition
-#                break
-#
-#            params.append( list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on
-            
     if not len(params):
         params = np.empty((0,len(names)), dtype=float)
 
