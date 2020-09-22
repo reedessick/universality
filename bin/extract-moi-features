@@ -58,6 +58,7 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
             break
 
     while len(maxima) > 1:
+        ### FIXME: we may want to skip "end" if the next thing is also consistent with being an "end", effectively dropping a possible pairing because the next one might fit better...
         end = maxima.pop(0)
         ### sign of curvature is right for this to be the end of a phase transition
         if ((dlnM_drhoc[end] > 0) and (s[end] > 0)) or ((dlnM_drhoc[end] <= 0) and (s[end] < 0)):
@@ -68,6 +69,7 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
             ### FIXME
             ### maybe consider looking for the density corresponding to the part of the curve that is right above the center of curvature?
             ### eitehr that, or tracking back up the sound-speed curve to the most recent maximum sound speed preceeding what we identified as "start"?
+            ### this local max in cs2c2 looks like it might correspond to a local min in abs(k) as well....
 
             ### check separation to see if it is "big enough" to warrant recording
             if arctan_dlnI_dlnM[start] - arctan_dlnI_dlnM[end] > diff_thr:
