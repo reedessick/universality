@@ -206,6 +206,7 @@ parser.add_argument('--flatten-thr', default=2e-2, type=float,
 parser.add_argument('--smoothing-width', default=0.01, type=float,
     help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
 The kernel is defined over log(rhoc), and 0.02 seems to work well.')
+parser.add_argument('--diff-thr', type=float, default=0.0)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
@@ -262,6 +263,7 @@ params, names = identify_phase_transitions(
     eos_cols,
     flatten_thr=args.flatten_thr,
     smoothing_width=args.smoothing_width,
+    diff_thr=args.diff_thr,
 )
 
 if args.outpath is not None:
