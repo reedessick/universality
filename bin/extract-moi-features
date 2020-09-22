@@ -18,62 +18,97 @@ from universality import plot as plt
 
 #-------------------------------------------------
 
-START_TEMPLATE = 'start_%s'
-END_TEMPLATE = 'end_%s'
+MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
+MAX_K_TEMPLATE = 'max_k_%s'
+MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
+MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
-def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing_width=None, diff_thr=0.25):
+def identify_phase_transitions(
+        rhoc,
+        M,
+        I,
+        baryon_density,
+        cs2c2,
+        macro_data,
+        macro_cols,
+        eos_data,
+        eos_cols,
+        flatten_thr=0.0,
+        smoothing_width=None,
+        diff_thr=0.0,
+    ):
     """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
     returns the corresponding values from data along with names based on cols
     """
-    names = [START_TEMPLATE%col for col in cols] + [END_TEMPLATE%col for col in cols]
+    names = []
+    for tmp in [MAX_CS2C2_TEMPLATE, MAX_K_TEMPLATE, MIN_CS2C2_TEMPLATE, MIN_ARCTAN_DLNI_DLNM_TEMPLATE]:
+        names += [tmp%col for col in macro_cols]
+        names += [tmp%col for col in eos_cols]
     params = []
 
     ### compute the absolute value of the curvature, which we use as an indicator variable
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr)
-    k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
 
-    ### find local maxima; a subset of these are the interesting points for our analysis
-    maxima = (np.diff(np.sign(np.diff(k))) < 0).nonzero()[0] + 1
-    maxima = list(maxima)
-    # add special cases for the beginning and end of the curves...
-    if k[0] > k[1]:
-        maxima.insert(0, 0)
+    ### find the possible end points as local minima of arctan_dlnI_dlnM
+    ends = list(find_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
-    if k[-1] > k[-2]:
-        maxima.append(len(k)-1)
-
-    ### characterize local maxima to figure out what is what
-
-    # starting from the maxima that corresponds to the highest rhoc, throw away all maxima until we hit the first one that is bigger than the next
-    maxima = maxima[::-1] ### reverse the order for ease
-
-    while len(maxima) > 1:
-        _ = maxima.pop(0) ### remove this maxima as it doesn't correspond to anything we want
-                          ### this will always throw away the first peak, but that's almost certainly in the final unstable branch
-        if dlnM_drhoc[_] < 0: ### still on the unstable final branche
-            continue
-
-        if arctan_dlnI_dlnM[_] > arctan_dlnI_dlnM[maxima[0]]: ### we hit the first "bump", beyond which we can identify things in a predictable way
+    ### discard any local minima that are in the final unstable branch
+    while len(ends):
+        end = ends.pop(0)
+        if np.any(dlnM_drhoc[end:] > 0): ### not part of the 'final unstable branch'
+            ends.insert(0, end)
             break
 
-    while len(maxima) > 1:
-        ### FIXME: we may want to skip "end" if the next thing is also consistent with being an "end", effectively dropping a possible pairing because the next one might fit better...
-        end = maxima.pop(0)
-        ### sign of curvature is right for this to be the end of a phase transition
-        if ((dlnM_drhoc[end] > 0) and (s[end] > 0)) or ((dlnM_drhoc[end] <= 0) and (s[end] < 0)):
-            start = maxima.pop(0)
-            while len(maxima) and (s[start] > 0): ### keep going until we get a sign change
-                start = maxima.pop(0)
+    if ends: ### we have something to do
+        k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
 
-            ### FIXME
-            ### maybe consider looking for the density corresponding to the part of the curve that is right above the center of curvature?
-            ### eitehr that, or tracking back up the sound-speed curve to the most recent maximum sound speed preceeding what we identified as "start"?
-            ### this local max in cs2c2 looks like it might correspond to a local min in abs(k) as well....
+        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
+        max_k_rhoc = rhoc[max_k]
 
-            ### check separation to see if it is "big enough" to warrant recording
-            if arctan_dlnI_dlnM[start] - arctan_dlnI_dlnM[end] > diff_thr:
-                params.append(list(data[start]) + list(data[end]) ) ### we found a pair! add it and move on       
+        min_cs2c2 = np.array(find_minima(cs2c2))
+        min_cs2c2_baryon_density = baryon_density[min_cs2c2]
+
+        max_cs2c2 = np.array(find_maxima(cs2c2))
+        max_cs2c2_baryon_density = baryon_density[max_cs2c2]
+
+        # iterate through and grab the following associated with each "end"
+        Neos = len(eos_cols)
+        Nmac = len(macro_cols)
+        for end in ends:
+            r = rhoc[end]
+            datum = []
+
+            try:
+                ### max sound speed preceeding "end"
+                ind = find_preceeding(r, max_cs2c2_baryon_density, max_cs2c2)
+
+                if np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) - arctan_dlnI_dlnM[end] < diff_thr: ### does not pass our basic selection cut
+                    continue
+
+                datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
+                datum += list(eos_data[ind])
+
+                ### maximum of the curvature associated preceeding "end"
+                ind = find_preceeding(r, max_k_rhoc, max_k)
+                datum += list(macro_data[ind])
+                datum += [np.interp(rhoc[ind], baryon_density, eos_data[:,i]) for i in range(Neos)]
+
+                ### min sound speed preceeding "end"
+                ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
+                datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
+                datum += list(eos_data[ind])
+ 
+                ### parameters at "end"
+                ind = end
+                datum += list(data[end])
+                datum += [np.interp(rhoc[end], baryon_density, eos_data[:,i]) for i in range(Neos)]
+
+                ### append this
+                params.append(datum)
+
+            except RuntimeError: ### probably from failure to find a preceeding value in "find_preceeding"
+                pass # skip this entry since we can't do anything too meaningful with it...
 
     if not len(params):
         params = np.empty((0,len(names)), dtype=float)
@@ -82,6 +117,28 @@ def identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=0., smoothing
         params = np.array(params, dtype=float)
 
     return params, names
+
+def find_preceeding(x_ref, x, y):
+    found = x <= x_ref
+    if np.sum(found):
+        return y[found][-1]
+    else:
+        raise RuntimeError('no preceeding value found!')
+
+def find_maxima(x):
+    return find_minima(-np.array(x))
+
+def find_minima(x):
+    mins = []
+    old = +np.infty
+    for i in range(len(x)-1):
+        new = x[i]
+        if (old > new) and (new < x[i+1]):
+            mins.append(i)
+        old = new
+    if x[i+1] > x[i]:
+        mins.append(i+1)
+    return mins
 
 def arctan_transform(rhoc, M, I, flatten_thr=0.):
     """compute the special arctan function we use to feed into our feature identification function
@@ -127,15 +184,20 @@ def abs_curvature(s, x, y, smoothing_width=None):
 
 parser = ArgumentParser(description=__doc__)
 
+parser.add_argument('eospath', type=str)
 parser.add_argument("macropath", type=str)
 
 parser.add_argument('--outpath', default=None,
     help='if specified, write to this file. Otherwise, print to stdout')
 
-parser.add_argument("--mass-column", default='M', type=str)
-parser.add_argument("--moi-column", default='I', type=str)
-parser.add_argument("--baryon-density-column", default='rhoc', type=str)
-parser.add_argument("--reference-column", default=[], action='append', type=str,
+parser.add_argument("--eos-baryon-density-column", default="baryon_density", type=str)
+parser.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
+parser.add_argument('--eos-reference-column', default=[], type=str, action='append')
+
+parser.add_argument("--macro-mass-column", default='M', type=str)
+parser.add_argument("--macro-moi-column", default='I', type=str)
+parser.add_argument("--macro-baryon-density-column", default='rhoc', type=str)
+parser.add_argument("--macro-reference-column", default=[], action='append', type=str,
     help='Columns for which we report the values at identified points. Can be used to identify different stellar models. \
 For example, the central baryon density (rhoc) may be easier to connect to the EoS than just the mass and/or MoI')
 
@@ -164,23 +226,43 @@ if not args.figtype:
 #-------------------------------------------------
 
 if args.verbose:
+    print('loading eos data from: '+args.eospath)
+eos_data, eos_cols = utils.load(args.eospath, [args.eos_baryon_density_column, args.eos_sound_speed_column]+args.eos_reference_column)
+baryon_density = eos_data[:,0]
+cs2c2 = eos_data[:,1]
+
+#------------------------
+
+if args.verbose:
     print('loading macro data from: '+args.macropath)
-data, cols = utils.load(args.macropath, [args.mass_column, args.moi_column, args.baryon_density_column]+args.reference_column)
+macro_data, macro_cols = utils.load(args.macropath, [args.macro_mass_column, args.macro_moi_column, args.macro_baryon_density_column]+args.macro_reference_column)
 
 ### make sure we order the result by increasing rhoc (which should be the default, but we need to check)
-rhoc = data[:,2]
-data = data[np.argsort(rhoc)]
+rhoc = macro_data[:,2]
+data = macro_data[np.argsort(rhoc)]
 
 # separate things in a way that's convenient
-M = data[:,0]
-I = data[:,1]
-rhoc = data[:,2]
+M = macro_data[:,0]
+I = macro_data[:,1]
+rhoc = macro_data[:,2]
 
 #------------------------
 
 if args.verbose:
     print('extracting features of possible phase transitions')
-params, names = identify_phase_transitions(rhoc, M, I, data, cols, flatten_thr=args.flatten_thr, smoothing_width=args.smoothing_width)
+params, names = identify_phase_transitions(
+    rhoc,
+    M,
+    I,
+    baryon_density,
+    cs2c2,
+    macro_data,
+    macro_cols,
+    eos_data,
+    eos_cols,
+    flatten_thr=args.flatten_thr,
+    smoothing_width=args.smoothing_width,
+)
 
 if args.outpath is not None:
     if args.verbose:
@@ -263,52 +345,43 @@ if args.plot:
     ymax = +np.pi
 
     # plot the main curve
-    kwargs = dict(linestyle='none', marker='.', markersize=2, color='k')
+    kwargs = dict(linestyle='none', marker='.', markersize=2, color='y')
 
-    ax.plot(M, arctan_dlnI_dlnM)
+    ax.plot(M, arctan_dlnI_dlnM, color='k')
     ax.plot(M[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
 
     AX_y = gp.num_dfdx(M, arctan_dlnI_dlnM)
-    AX.plot(M, AX_y)
+    AX.plot(M, AX_y, color='k')
     AX.plot(M[spurious], AX_y[spurious], **kwargs)
 
-    xa.plot(rhoc, arctan_dlnI_dlnM)
+    xa.plot(rhoc, arctan_dlnI_dlnM, color='k')
     xa.plot(rhoc[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
 
     XA_y, _ = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=args.smoothing_width)
-    XA.plot(rhoc, XA_y)
+    XA.plot(rhoc, XA_y, color='k')
     XA.plot(rhoc[spurious], XA_y[spurious], **kwargs)
 
     # annotate points corresponding to params!
-    kwargs = dict(marker='|', color='r', markerfacecolor='none', linestyle='none', markersize=10, markeredgewidth=1)
+    kwargs = dict(marker='o', markerfacecolor='none', linestyle='none', markersize=4, markeredgewidth=1)
 
-    ### start points
-    start = params[:,names.index(START_TEMPLATE%args.baryon_density_column)]
-    y = np.interp(start, rhoc, arctan_dlnI_dlnM)
-    xa.plot(start, y, **kwargs)
+    for tmp, color in [
+            (MAX_CS2C2_TEMPLATE, 'm'),
+            (MAX_K_TEMPLATE, 'c'),
+            (MIN_CS2C2_TEMPLATE, 'r'),
+            (MIN_ARCTAN_DLNI_DLNM_TEMPLATE, 'b'),
+        ]:
+        start = params[:,names.index(tmp%args.macro_baryon_density_column)]
+        y = np.interp(start, rhoc, arctan_dlnI_dlnM)
+        xa.plot(start, y, markeredgecolor=color, **kwargs)
 
-    start_M = params[:,names.index(START_TEMPLATE%args.mass_column)]
-    ax.plot(start_M, y, **kwargs)
+        start_M = params[:,names.index(tmp%args.macro_mass_column)]
+        ax.plot(start_M, y, markeredgecolor=color, **kwargs)
 
-    y = np.interp(start, rhoc, XA_y)
-    XA.plot(start, y, **kwargs)
+        y = np.interp(start, rhoc, XA_y)
+        XA.plot(start, y, markeredgecolor=color, **kwargs)
 
-    y = np.interp(start, rhoc, AX_y)
-    AX.plot(start_M, y, **kwargs)
-
-    ### end points
-    end = params[:,names.index(END_TEMPLATE%args.baryon_density_column)]
-    y = np.interp(end, rhoc, arctan_dlnI_dlnM)
-    xa.plot(end, y, **kwargs)
-
-    end_M = params[:,names.index(END_TEMPLATE%args.mass_column)]
-    ax.plot(end_M, y, **kwargs)
-
-    y = np.interp(end, rhoc, XA_y)
-    XA.plot(end, y, **kwargs)
-
-    y = np.interp(end, rhoc, AX_y)
-    AX.plot(end_M, y, **kwargs)
+        y = np.interp(start, rhoc, AX_y)
+        AX.plot(start_M, y, markeredgecolor=color, **kwargs)
 
     # shade the regions that corresponds to negative dM/drhoc
     ax.set_xscale('linear')
