@@ -73,10 +73,17 @@ def identify_phase_transitions(
 #        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
 #        max_k_rhoc = rhoc[max_k]
 
-        min_cs2c2 = np.array([ind for ind in find_inclusive_minima(cs2c2) if np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0]) ### only retain points on stable branches
+        print('WARING! requiring max, min cs2c2 to be on a stable branch causes us to drop things that are below when we started solving the TOV equations!')
+        print('maybe just require that max, min are either stable or below the lowest rhoc available?')
+
+        min_cs2c2 = find_inclusive_minima(cs2c2)
+        min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
+        min_cs2c2 = np.array(min_cs2c2)
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
 
-        max_cs2c2 = np.array([ind for ind in find_maxima(cs2c2) if np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0]) ### only retain points on stable branches
+        max_cs2c2 = find_maxima(cs2c2)
+        max_cs2c2 = [ind for ind in max_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
+        max_cs2c2 = np.array(max_cs2c2)
         max_cs2c2_baryon_density = baryon_density[max_cs2c2]
 
         # iterate through and grab the following associated with each "end"
