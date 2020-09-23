@@ -193,7 +193,10 @@ def arctan_transform(rhoc, M, I, flatten_thr=0.):
     dlnI_drhoc[spurious] = 0
     dlnM_drhoc[spurious] = 0
 
-    return np.arctan2(dlnI_drhoc, dlnM_drhoc), (spurious, dlnM_drhoc, dlnI_drhoc)
+    ans = np.arctan2(dlnI_drhoc, dlnM_drhoc)
+    ans[ans>np.pi/2] -= 2*np.pi ### wrap this around so that all the region where dlnM_drhoc < 0 is "contiguous"
+
+    return ans, (spurious, dlnM_drhoc, dlnI_drhoc)
 
 def abs_curvature(s, x, y, smoothing_width=None):
     """computes something like a smoothed curvature to identify interesting points in the M(s) -- dln[y(s)]/dln[x(s)] plane
@@ -387,8 +390,8 @@ if args.plot:
     xa = plt.plt.subplot(2,2,2)
     XA = plt.plt.subplot(2,2,4)
 
-    ymin = -np.pi ### bounds the range of arctan
-    ymax = +np.pi
+    ymin = -3*np.pi/2. ### bounds the range of arctan
+    ymax = +np.pi/2.
 
     # plot the main curve
     kwargs = dict(linestyle='none', marker='.', markersize=2, color='y')
