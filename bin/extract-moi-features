@@ -19,7 +19,7 @@ from universality import plot as plt
 #-------------------------------------------------
 
 MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
-MAX_K_TEMPLATE = 'max_k_%s'
+#MAX_K_TEMPLATE = 'max_k_%s'
 MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
@@ -43,7 +43,12 @@ def identify_phase_transitions(
     returns the corresponding values from data along with names based on cols
     """
     names = []
-    for tmp in [MAX_CS2C2_TEMPLATE, MAX_K_TEMPLATE, MIN_CS2C2_TEMPLATE, MIN_ARCTAN_DLNI_DLNM_TEMPLATE]:
+    for tmp in [
+            MAX_CS2C2_TEMPLATE,
+#            MAX_K_TEMPLATE,
+            MIN_CS2C2_TEMPLATE,
+            MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
+        ]:
         names += [tmp%col for col in macro_cols]
         names += [tmp%col for col in eos_cols]
     params = []
@@ -62,10 +67,10 @@ def identify_phase_transitions(
             break
 
     if ends: ### we have something to do
-        k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
-
-        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
-        max_k_rhoc = rhoc[max_k]
+#        k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
+#
+#        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
+#        max_k_rhoc = rhoc[max_k]
 
         min_cs2c2 = np.array(find_minima(cs2c2))
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
@@ -91,8 +96,9 @@ def identify_phase_transitions(
                 continue
 
             min_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+            max_cs2c2_arctan = np.interp(min_r, rhoc, arctan_dlnI_dlnM)
 
-            if np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr: ### does not pass our basic selection cut
+            if (dlnM_drhoc[end] > 0) and (np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
                     print('WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
@@ -101,6 +107,7 @@ def identify_phase_transitions(
             datum += list(eos_data[ind])
 
             ### maximum of the curvature associated preceeding "end"
+            '''
             try:
                 ind = find_preceeding(r, max_k_rhoc, max_k)
             except RuntimeError:
@@ -115,6 +122,7 @@ def identify_phase_transitions(
                 if verbose:
                     print('WARNING! max(k) occurs earlier than max(cs2c2); rejecting this possible transition')
                 continue
+            '''
 
             ### min sound speed preceeding "end"
             try:
@@ -122,6 +130,12 @@ def identify_phase_transitions(
             except RuntimeError:
                 if verbose:
                     print('WARNING! coult not find preceeding minimum in cs2c2')
+                continue
+
+            min_cs2c2_arctan = np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM)
+            if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
+                if verbose:
+                    print('WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
                 continue
 
             datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -415,7 +429,7 @@ if args.plot:
 
     for tmp, color in [
             (MAX_CS2C2_TEMPLATE, 'm'),
-            (MAX_K_TEMPLATE, 'c'),
+#            (MAX_K_TEMPLATE, 'c'),
             (MIN_CS2C2_TEMPLATE, 'r'),
             (MIN_ARCTAN_DLNI_DLNM_TEMPLATE, 'b'),
         ]:
