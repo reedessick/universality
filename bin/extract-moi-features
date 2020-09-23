@@ -36,6 +36,7 @@ def identify_phase_transitions(
         flatten_thr=0.0,
         smoothing_width=None,
         diff_thr=0.0,
+        verbose=False,
     ):
     """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
@@ -75,40 +76,79 @@ def identify_phase_transitions(
         # iterate through and grab the following associated with each "end"
         Neos = len(eos_cols)
         Nmac = len(macro_cols)
+        last_r = +np.infty ### logic to avoid overlapping phase transitions
+        group = []
         for end in ends:
             r = rhoc[end]
             datum = []
 
+            ### max sound speed preceeding "end"
             try:
-                ### max sound speed preceeding "end"
                 ind = find_preceeding(r, max_cs2c2_baryon_density, max_cs2c2)
+            except RuntimeError:
+                if verbose:
+                    print('WARNING! could not find preceeding maximum in cs2c2')
+                continue
 
-                if np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) - arctan_dlnI_dlnM[end] < diff_thr: ### does not pass our basic selection cut
-                    continue
+            min_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
 
-                datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
-                datum += list(eos_data[ind])
+            if np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr: ### does not pass our basic selection cut
+                if verbose:
+                    print('WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
+                continue
 
-                ### maximum of the curvature associated preceeding "end"
+            datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind])
+
+            ### maximum of the curvature associated preceeding "end"
+            try:
                 ind = find_preceeding(r, max_k_rhoc, max_k)
-                datum += list(macro_data[ind])
-                datum += [np.interp(rhoc[ind], baryon_density, eos_data[:,i]) for i in range(Neos)]
+            except RuntimeError:
+                if verbose:
+                    print('WARNING! coult not find preceeding maximum in curvature')
+                continue
 
-                ### min sound speed preceeding "end"
+            datum += list(macro_data[ind])
+            datum += [np.interp(rhoc[ind], baryon_density, eos_data[:,i]) for i in range(Neos)]
+
+            if rhoc[ind] < min_r: ### bad ordering
+                if verbose:
+                    print('WARNING! max(k) occurs earlier than max(cs2c2); rejecting this possible transition')
+                continue
+
+            ### min sound speed preceeding "end"
+            try:
                 ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
-                datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
-                datum += list(eos_data[ind])
+            except RuntimeError:
+                if verbose:
+                    print('WARNING! coult not find preceeding minimum in cs2c2')
+                continue
+
+            datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind])
  
-                ### parameters at "end"
-                ind = end
-                datum += list(data[end])
-                datum += [np.interp(rhoc[end], baryon_density, eos_data[:,i]) for i in range(Neos)]
+            if baryon_density[ind] < min_r:
+                if verbose:
+                    print('WARNING: min(cs2c2) occurs earlier than max(cs2c2); rejecting this possible transition')
+                continue
 
-                ### append this
-                params.append(datum)
+            ### parameters at "end"
+            ind = end
+            datum += list(data[end])
+            datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
-            except RuntimeError: ### probably from failure to find a preceeding value in "find_preceeding"
-                pass # skip this entry since we can't do anything too meaningful with it...
+            ### figure out if there is any overlap, keep the one with the minimum dlnI_drhoc[end]
+            if len(group) and (r < last_r): ### we already have a group and this would *not* overlap with something we've already declared a phase transition, so figure out which is best and add it
+                group.sort(key=lambda x:x[0]) ### sort so the smallest dlnI_drhoc is first
+                params.append(group[0][1]) ### append the datum
+                group = [] ### start a new group
+            group.append((arctan_dlnI_dlnM[end], datum))
+
+            last_r = min_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
+
+    if group: ### add the last identified transition
+        group.sort(key=lambda x:x[0])
+        params.append(group[0][1])
 
     if not len(params):
         params = np.empty((0,len(names)), dtype=float)
@@ -209,6 +249,7 @@ The kernel is defined over log(rhoc), and 0.02 seems to work well.')
 parser.add_argument('--diff-thr', type=float, default=0.0)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('--figtype', default=[], type=str, action='append')
@@ -223,6 +264,8 @@ if args.tag:
 
 if not args.figtype:
     args.figtype.append('png')
+
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
@@ -264,6 +307,7 @@ params, names = identify_phase_transitions(
     flatten_thr=args.flatten_thr,
     smoothing_width=args.smoothing_width,
     diff_thr=args.diff_thr,
+    verbose=args.Verbose,
 )
 
 if args.outpath is not None:
