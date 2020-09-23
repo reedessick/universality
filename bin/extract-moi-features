@@ -42,7 +42,7 @@ def identify_phase_transitions(
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
     returns the corresponding values from data along with names based on cols
     """
-    names = []
+    names = ['transition']
     for tmp in [
             MAX_CS2C2_TEMPLATE,
 #            MAX_K_TEMPLATE,
@@ -54,10 +54,11 @@ def identify_phase_transitions(
     params = []
 
     ### compute the absolute value of the curvature, which we use as an indicator variable
-    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr)
+    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr, smoothing_width=smoothing_width)
 
     ### find the possible end points as local minima of arctan_dlnI_dlnM
-    ends = list(find_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
+#    ends = list(find_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
+    ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
     ### discard any local minima that are in the final unstable branch
     while len(ends):
@@ -72,10 +73,10 @@ def identify_phase_transitions(
 #        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
 #        max_k_rhoc = rhoc[max_k]
 
-        min_cs2c2 = np.array(find_minima(cs2c2))
+        min_cs2c2 = np.array([ind for ind in find_inclusive_minima(cs2c2) if np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0]) ### only retain points on stable branches
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
 
-        max_cs2c2 = np.array(find_maxima(cs2c2))
+        max_cs2c2 = np.array([ind for ind in find_maxima(cs2c2) if np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0]) ### only retain points on stable branches
         max_cs2c2_baryon_density = baryon_density[max_cs2c2]
 
         # iterate through and grab the following associated with each "end"
@@ -87,12 +88,15 @@ def identify_phase_transitions(
             r = rhoc[end]
             datum = []
 
+            if verbose:
+                print('    processing end at rhoc=%.6e'%r)
+
             ### max sound speed preceeding "end"
             try:
                 ind = find_preceeding(r, max_cs2c2_baryon_density, max_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('WARNING! could not find preceeding maximum in cs2c2')
+                    print('    WARNING! could not find preceeding maximum in cs2c2')
                 continue
 
             min_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
@@ -100,7 +104,7 @@ def identify_phase_transitions(
 
             if (dlnM_drhoc[end] > 0) and (np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
-                    print('WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
+                    print('    WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
 
             datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -112,7 +116,7 @@ def identify_phase_transitions(
                 ind = find_preceeding(r, max_k_rhoc, max_k)
             except RuntimeError:
                 if verbose:
-                    print('WARNING! coult not find preceeding maximum in curvature')
+                    print('    WARNING! coult not find preceeding maximum in curvature')
                 continue
 
             datum += list(macro_data[ind])
@@ -120,7 +124,7 @@ def identify_phase_transitions(
 
             if rhoc[ind] < min_r: ### bad ordering
                 if verbose:
-                    print('WARNING! max(k) occurs earlier than max(cs2c2); rejecting this possible transition')
+                    print('    WARNING! max(k) occurs earlier than max(cs2c2); rejecting this possible transition')
                 continue
             '''
 
@@ -129,13 +133,13 @@ def identify_phase_transitions(
                 ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('WARNING! coult not find preceeding minimum in cs2c2')
+                    print('    WARNING! coult not find preceeding minimum in cs2c2')
                 continue
 
             min_cs2c2_arctan = np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM)
             if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
                 if verbose:
-                    print('WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
+                    print('    WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
                 continue
 
             datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -143,7 +147,7 @@ def identify_phase_transitions(
  
             if baryon_density[ind] < min_r:
                 if verbose:
-                    print('WARNING: min(cs2c2) occurs earlier than max(cs2c2); rejecting this possible transition')
+                    print('    WARNING: min(cs2c2) occurs earlier than max(cs2c2); rejecting this possible transition')
                 continue
 
             ### parameters at "end"
@@ -164,6 +168,8 @@ def identify_phase_transitions(
         group.sort(key=lambda x:x[0])
         params.append(group[0][1])
 
+    params = [[ind]+thing for ind, thing in enumerate(params)] ### include a transition number for reference
+
     if not len(params):
         params = np.empty((0,len(names)), dtype=float)
 
@@ -180,9 +186,11 @@ def find_preceeding(x_ref, x, y):
         raise RuntimeError('no preceeding value found!')
 
 def find_maxima(x):
+    """find indecies of strict local maxima"""
     return find_minima(-np.array(x))
 
 def find_minima(x):
+    """find indecies of strict local minima"""
     mins = []
     old = +np.infty
     for i in range(len(x)-1):
@@ -194,11 +202,28 @@ def find_minima(x):
         mins.append(i+1)
     return mins
 
-def arctan_transform(rhoc, M, I, flatten_thr=0.):
+def find_inclusive_minima(x):
+    """find indecies of local minima, including cases when the value does not change from one sample to the next"""
+    mins = []
+    old = +np.infty
+    for i in range(len(x)-1):
+        new = x[i]
+        if (old >= new) and (new <= x[i+1]):
+            mins.append(i)
+        old = new
+    if x[i+1] > x[i]:
+        mins.append(i+1)
+    return mins
+
+def arctan_transform(rhoc, M, I, flatten_thr=0., smoothing_width=None):
     """compute the special arctan function we use to feed into our feature identification function
     """
     dlnI_drhoc = gp.num_dfdx(rhoc, I) / I
     dlnM_drhoc = gp.num_dfdx(rhoc, M) / M
+
+    if smoothing_width:
+        dlnI_drhoc = smooth(np.log(rhoc), dlnI_drhoc, smoothing_width)
+        dlnM_drhoc = smooth(np.log(rhoc), dlnM_drhoc, smoothing_width)
 
     ### regularlize the derivatives so we don't get oscillatory behavior due to numerical precision when there is no change with respect to rhoc
     ### only filter placed where we've touched both dM and dI to account for numerical error
@@ -226,16 +251,19 @@ def abs_curvature(s, x, y, smoothing_width=None):
 
     ### smooth the curvature estiamte
     if smoothing_width is not None:
-        v = (smoothing_width)**2 
-        wer = np.empty_like(ans)
-        inds = np.arange(len(s))
-        for i, S in enumerate(s):
-            weights = np.exp(-0.5*(S-s)**2/v) ### the basic Gaussian kernel
-            weights /= np.sum(weights)
-            wer[i] = np.sum(weights*ans)
-        ans = wer
+        ans = smooth(s, ans, smoothing_width)
 
     return ans, sgn
+
+def smooth(x, y, width):
+    v = (width)**2
+    ans = np.empty_like(y)
+    inds = np.arange(len(x))
+    for i, S in enumerate(x):
+        weights = np.exp(-0.5*(S-x)**2/v) ### the basic Gaussian kernel
+        weights /= np.sum(weights)
+        ans[i] = np.sum(weights*y)
+    return ans
 
 #-------------------------------------------------
 
@@ -341,7 +369,7 @@ if args.plot:
         print('building basic sanity checking and reference plot')
 
     ### compute basis of indicator variable
-    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=args.flatten_thr)
+    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=args.flatten_thr, smoothing_width=args.smoothing_width)
 
     fig = plt.figure()
     ax = plt.plt.subplot(2,2,1)
