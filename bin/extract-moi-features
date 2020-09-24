@@ -59,13 +59,6 @@ def identify_phase_transitions(
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
-    ### if the lowest rhoc available is a minimum, we discard it since we can't tell if it is a local minimum or not
-    if ends[-1] == 0:
-        ends = ends[:-1]
-
-    if ends[0] == len(rhoc)-1: ### same thing with the end point
-        ends = ends[1:]
-
     ### discard any local minima that are before the first stable branch
     while len(ends):
         end = ends[-1]
@@ -81,6 +74,13 @@ def identify_phase_transitions(
             break
 
     if ends: ### we have something to do
+
+        ### if the lowest rhoc available is a minimum, we discard it since we can't tell if it is a local minimum or not
+        if ends[-1] == 0:
+            ends = ends[:-1]
+
+        if ends[0] == len(rhoc)-1: ### same thing with the end point
+            ends = ends[1:]
 
         ### local minima in sound speed
         min_cs2c2 = find_inclusive_minima(cs2c2)
