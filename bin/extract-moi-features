@@ -57,8 +57,18 @@ def identify_phase_transitions(
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr, smoothing_width=smoothing_width)
 
     ### find the possible end points as local minima of arctan_dlnI_dlnM
-#    ends = list(find_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
+
+    ### if the lowest rhoc available is a minimum, we discard it since we can't tell if it is a local minimum or not
+    if ends[-1] == 0:
+        ends = ends[:-1]
+
+    ### discard any local minima that are before the first stable branch
+    while len(ends):
+        end = ends[-1]
+        if np.any(dlnM_drhoc[:end] > 0): ### something is stable before this
+             break
+        ends = ends[:-1] ### truncate this guy
 
     ### discard any local minima that are in the final unstable branch
     while len(ends):
@@ -171,9 +181,9 @@ def identify_phase_transitions(
 
             last_r = min_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
 
-    if group: ### add the last identified transition
-        group.sort(key=lambda x:x[0])
-        params.append(group[0][1])
+        if group: ### add the last identified transition
+            group.sort(key=lambda x:x[0])
+            params.append(group[0][1])
 
     params = [[ind]+thing for ind, thing in enumerate(params)] ### include a transition number for reference
 
