@@ -63,6 +63,9 @@ def identify_phase_transitions(
     if ends[-1] == 0:
         ends = ends[:-1]
 
+    if ends[0] == len(rhoc)-1: ### same thing with the end point
+        ends = ends[1:]
+
     ### discard any local minima that are before the first stable branch
     while len(ends):
         end = ends[-1]
@@ -115,7 +118,7 @@ def identify_phase_transitions(
             datum = []
 
             if verbose:
-                print('    processing end at rhoc=%.6e'%r)
+                print('    processing end=%d/%d at rhoc=%.6e'%(end, len(rhoc), r))
 
             ### min sound speed preceeding "end"
             try:
