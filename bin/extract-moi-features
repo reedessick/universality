@@ -79,14 +79,25 @@ def identify_phase_transitions(
     if ends: ### we have something to do
 
         min_cs2c2 = find_inclusive_minima(cs2c2)
-        min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
+#        min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
         min_cs2c2 = np.array(min_cs2c2)
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
 
-        max_cs2c2 = find_maxima(cs2c2)
-        max_cs2c2 = [ind for ind in max_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
-        max_cs2c2 = np.array(max_cs2c2)
-        max_cs2c2_baryon_density = baryon_density[max_cs2c2]
+        max_cs2c2 = []
+        for ind in find_maxima(cs2c2):
+            if baryon_density[ind] < rhoc[0]: ### before the earliest stellar model
+                if (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0):
+                    max_cs2c2.append(ind)
+                elif (np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) > 0):
+                    max_cs2c2.append(ind)
+            else:
+                max_cs2c2.append(ind)
+
+        if not max_cs2c2: ### no qualifying maxima
+            ends = [] ### this will make us skip all the ends because we can't match them to starting points
+        else:
+            max_cs2c2 = np.array(max_cs2c2)
+            max_cs2c2_baryon_density = baryon_density[max_cs2c2]
 
         # iterate through and grab the following associated with each "end"
         Neos = len(eos_cols)
@@ -125,7 +136,8 @@ def identify_phase_transitions(
             min_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
             max_cs2c2_arctan = np.interp(min_r, rhoc, arctan_dlnI_dlnM)
 
-            if (dlnM_drhoc[end] > 0) and (np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
+#            if (dlnM_drhoc[end] > 0) and (np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
+            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
                     print('    WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
