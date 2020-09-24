@@ -78,20 +78,25 @@ def identify_phase_transitions(
 
     if ends: ### we have something to do
 
+        ### local minima in sound speed
         min_cs2c2 = find_inclusive_minima(cs2c2)
 #        min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
         min_cs2c2 = np.array(min_cs2c2)
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
 
-        max_cs2c2 = []
-        for ind in find_maxima(cs2c2):
-            if baryon_density[ind] < rhoc[0]: ### before the earliest stellar model
-                if (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0):
-                    max_cs2c2.append(ind)
-                elif (np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) > 0):
-                    max_cs2c2.append(ind)
-            else:
-                max_cs2c2.append(ind)
+        ### local maxima in sound speed
+#        max_cs2c2 = []
+#        for ind in find_maxima(cs2c2):
+#            if baryon_density[ind] < rhoc[0]: ### before the earliest stellar model
+#                if (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0):
+#                    max_cs2c2.append(ind)
+#                elif (np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) > 0):
+#                    max_cs2c2.append(ind)
+#            else:
+#                max_cs2c2.append(ind)
+
+        ### global maxima in sound speed up to the current point
+        max_cs2c2 = find_running_maxima(cs2c2)
 
         if not max_cs2c2: ### no qualifying maxima
             ends = [] ### this will make us skip all the ends because we can't match them to starting points
@@ -184,6 +189,20 @@ def find_preceeding(x_ref, x, y):
         return y[found][-1]
     else:
         raise RuntimeError('no preceeding value found!')
+
+def find_running_maxima(x):
+    """find the indecies of the largest thing that's been seen up until the current index"""
+    return find_running_minima(-np.array(x))
+
+def find_running_minima(x):
+    """find the indecies of the smallest thing that's been seen up until the current index"""
+    mins = []
+    best = +np.infty
+    for i, X in enumerate(x):
+        if X < best:
+            mins.append(i)
+            best = X
+    return mins
 
 def find_maxima(x):
     """find indecies of strict local maxima"""
@@ -286,9 +305,9 @@ parser.add_argument("--macro-reference-column", default=[], action='append', typ
     help='Columns for which we report the values at identified points. Can be used to identify different stellar models. \
 For example, the central baryon density (rhoc) may be easier to connect to the EoS than just the mass and/or MoI')
 
-parser.add_argument('--flatten-thr', default=2e-2, type=float,
+parser.add_argument('--flatten-thr', default=0.0, type=float,
     help='the threshold on |dlnX/dlnrho| below which we set this to zero')
-parser.add_argument('--smoothing-width', default=0.01, type=float,
+parser.add_argument('--smoothing-width', default=None, type=float,
     help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
 The kernel is defined over log(rhoc), and 0.02 seems to work well.')
 parser.add_argument('--diff-thr', type=float, default=0.0)
