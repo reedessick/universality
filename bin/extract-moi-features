@@ -44,9 +44,8 @@ def identify_phase_transitions(
     """
     names = ['transition']
     for tmp in [
-            MAX_CS2C2_TEMPLATE,
-#            MAX_K_TEMPLATE,
             MIN_CS2C2_TEMPLATE,
+            MAX_CS2C2_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
         names += [tmp%col for col in macro_cols]
@@ -78,13 +77,6 @@ def identify_phase_transitions(
             break
 
     if ends: ### we have something to do
-#        k, s = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=smoothing_width)
-#
-#        max_k = np.array([ind for ind in find_maxima(k) if s[ind] < 0])
-#        max_k_rhoc = rhoc[max_k]
-
-        print('WARING! requiring max, min cs2c2 to be on a stable branch causes us to drop things that are below when we started solving the TOV equations!')
-        print('maybe just require that max, min are either stable or below the lowest rhoc available?')
 
         min_cs2c2 = find_inclusive_minima(cs2c2)
         min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
@@ -108,9 +100,23 @@ def identify_phase_transitions(
             if verbose:
                 print('    processing end at rhoc=%.6e'%r)
 
+            ### min sound speed preceeding "end"
+            try:
+                ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
+            except RuntimeError:
+                if verbose:
+                    print('    WARNING! coult not find preceeding minimum in cs2c2')
+                continue
+
+            min_r = baryon_density[ind]
+            min_cs2c2_arctan = np.interp(min_r, rhoc, arctan_dlnI_dlnM)
+
+            datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind])
+
             ### max sound speed preceeding "end"
             try:
-                ind = find_preceeding(r, max_cs2c2_baryon_density, max_cs2c2)
+                ind = find_preceeding(min_r, max_cs2c2_baryon_density, max_cs2c2) ### look for local max before the local min
             except RuntimeError:
                 if verbose:
                     print('    WARNING! could not find preceeding maximum in cs2c2')
@@ -124,48 +130,13 @@ def identify_phase_transitions(
                     print('    WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
 
-            datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
-            datum += list(eos_data[ind])
-
-            ### maximum of the curvature associated preceeding "end"
-            '''
-            try:
-                ind = find_preceeding(r, max_k_rhoc, max_k)
-            except RuntimeError:
-                if verbose:
-                    print('    WARNING! coult not find preceeding maximum in curvature')
-                continue
-
-            datum += list(macro_data[ind])
-            datum += [np.interp(rhoc[ind], baryon_density, eos_data[:,i]) for i in range(Neos)]
-
-            if rhoc[ind] < min_r: ### bad ordering
-                if verbose:
-                    print('    WARNING! max(k) occurs earlier than max(cs2c2); rejecting this possible transition')
-                continue
-            '''
-
-            ### min sound speed preceeding "end"
-            try:
-                ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
-            except RuntimeError:
-                if verbose:
-                    print('    WARNING! coult not find preceeding minimum in cs2c2')
-                continue
-
-            min_cs2c2_arctan = np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM)
             if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
                 if verbose:
                     print('    WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
                 continue
 
-            datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind])
- 
-            if baryon_density[ind] < min_r:
-                if verbose:
-                    print('    WARNING: min(cs2c2) occurs earlier than max(cs2c2); rejecting this possible transition')
-                continue
 
             ### parameters at "end"
             ind = end
