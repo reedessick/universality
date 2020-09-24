@@ -166,7 +166,7 @@ def identify_phase_transitions(
 
             ### parameters at "end"
             ind = end
-            datum += list(data[end])
+            datum += list(macro_data[end])
             datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
             ### figure out if there is any overlap, keep the one with the minimum dlnI_drhoc[end]
@@ -353,6 +353,10 @@ if args.verbose:
     print('loading eos data from: '+args.eospath)
 eos_data, eos_cols = utils.load(args.eospath, [args.eos_baryon_density_column, args.eos_sound_speed_column]+args.eos_reference_column)
 baryon_density = eos_data[:,0]
+eos_data = eos_data[np.argsort(baryon_density)] ### sort so we increase in baryon density
+
+# separate things in a way that's convenient
+baryon_density = eos_data[:,0]
 cs2c2 = eos_data[:,1]
 
 #------------------------
@@ -363,7 +367,7 @@ macro_data, macro_cols = utils.load(args.macropath, [args.macro_mass_column, arg
 
 ### make sure we order the result by increasing rhoc (which should be the default, but we need to check)
 rhoc = macro_data[:,2]
-data = macro_data[np.argsort(rhoc)]
+macro_data = macro_data[np.argsort(rhoc)]
 
 # separate things in a way that's convenient
 M = macro_data[:,0]
