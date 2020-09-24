@@ -37,6 +37,7 @@ def identify_phase_transitions(
         smoothing_width=None,
         diff_thr=0.0,
         verbose=False,
+        cs2c2_cofactor=3.0, ### should be a conservative bound...
     ):
     """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
@@ -150,6 +151,11 @@ def identify_phase_transitions(
             if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
                 if verbose:
                     print('    WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
+                continue
+
+            if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind]: ### recovery occurs at a larger sound speed than the onset...
+                if verbose:
+                    print('    WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
                 continue
 
             datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -312,7 +318,12 @@ parser.add_argument('--flatten-thr', default=0.0, type=float,
 parser.add_argument('--smoothing-width', default=None, type=float,
     help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
 The kernel is defined over log(rhoc), and 0.02 seems to work well.')
-parser.add_argument('--diff-thr', type=float, default=0.0)
+parser.add_argument('--diff-thr', type=float, default=0.0,
+    help='a threshold on how big the "dip" in arctan(dlnI/dlnM) must be for us to record the possible phase transition. \
+This is useful for removing small numerical noise (likely from the somewhat "coarse grained" TOV solutions)')
+parser.add_argument('--cs2c2-cofactor', type=float, default=1.0,
+    help='a threshold on how big the ratio of sound speeds can be between the local minimum in arctan(dlnI/dlnM) and the preceeding running maximum in cs2c2. \
+There are cases in which this helps reject things that stall the final collapse to a BH but do not look like obvious "classic" phase transitions in the sound speed.')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
@@ -373,6 +384,7 @@ params, names = identify_phase_transitions(
     flatten_thr=args.flatten_thr,
     smoothing_width=args.smoothing_width,
     diff_thr=args.diff_thr,
+    cs2c2_cofactor=args.cs2c2_cofactor,
     verbose=args.Verbose,
 )
 
