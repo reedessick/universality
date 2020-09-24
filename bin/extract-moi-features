@@ -165,12 +165,14 @@ def identify_phase_transitions(
                 group.sort(key=lambda x:x[0]) ### sort so the smallest dlnI_drhoc is first
                 params.append(group[0][1]) ### append the datum
                 group = [] ### start a new group
-            group.append((arctan_dlnI_dlnM[end], datum))
+#            group.append((arctan_dlnI_dlnM[end], datum))
+            group.append((rhoc[end], datum)) ### FIXME: this whole "group" logic may be wasteful of memory if we know we're going to order by rhoc and we already iterate based on samples ordered by rhoc...
 
             last_r = min_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
 
         if group: ### add the last identified transition
-            group.sort(key=lambda x:x[0])
+#            group.sort(key=lambda x:x[0])
+            group.sort(key=lambda x: -x[0]) ### bigger rhoc first
             params.append(group[0][1])
 
     params = [[ind]+thing for ind, thing in enumerate(params)] ### include a transition number for reference
