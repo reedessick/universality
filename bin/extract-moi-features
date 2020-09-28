@@ -21,6 +21,7 @@ from universality import plot as plt
 MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
 #MAX_K_TEMPLATE = 'max_k_%s'
 MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
+MAX_DCS_DP_TEMPLATE = 'max_dcs2_dpressure_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
 def identify_phase_transitions(
@@ -29,6 +30,7 @@ def identify_phase_transitions(
         I,
         baryon_density,
         cs2c2,
+        pressurec2,
         macro_data,
         macro_cols,
         eos_data,
@@ -47,6 +49,7 @@ def identify_phase_transitions(
     for tmp in [
             MIN_CS2C2_TEMPLATE,
             MAX_CS2C2_TEMPLATE,
+            MAX_DCS_DP_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
         names += [tmp%col for col in macro_cols]
@@ -84,20 +87,8 @@ def identify_phase_transitions(
 
         ### local minima in sound speed
         min_cs2c2 = find_inclusive_minima(cs2c2)
-#        min_cs2c2 = [ind for ind in min_cs2c2 if (baryon_density[ind] < rhoc[0]) or (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0)] ### only retain points on stable branches
         min_cs2c2 = np.array(min_cs2c2)
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
-
-        ### local maxima in sound speed
-#        max_cs2c2 = []
-#        for ind in find_maxima(cs2c2):
-#            if baryon_density[ind] < rhoc[0]: ### before the earliest stellar model
-#                if (np.interp(baryon_density[ind], rhoc, dlnM_drhoc) > 0):
-#                    max_cs2c2.append(ind)
-#                elif (np.interp(baryon_density[ind], rhoc, arctan_dlnI_dlnM) > 0):
-#                    max_cs2c2.append(ind)
-#            else:
-#                max_cs2c2.append(ind)
 
         ### global maxima in sound speed up to the current point
         max_cs2c2 = find_running_maxima(cs2c2)
@@ -107,6 +98,10 @@ def identify_phase_transitions(
         else:
             max_cs2c2 = np.array(max_cs2c2)
             max_cs2c2_baryon_density = baryon_density[max_cs2c2]
+
+        ### maxima of dcs2c2_dpressurec2
+        max_dcs_dpressure = np.array(find_maxima(gp.num_dfdx(pressurec2, cs2c2)))
+        max_dcs_dpressure_baryon_density = baryon_density[max_dcs_dpressure]
 
         # iterate through and grab the following associated with each "end"
         Neos = len(eos_cols)
@@ -142,11 +137,10 @@ def identify_phase_transitions(
                     print('    WARNING! could not find preceeding maximum in cs2c2')
                 continue
 
-            min_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
-            max_cs2c2_arctan = np.interp(min_r, rhoc, arctan_dlnI_dlnM)
+            max_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+            max_cs2c2_arctan = np.interp(max_r, rhoc, arctan_dlnI_dlnM)
 
-#            if (dlnM_drhoc[end] > 0) and (np.max(np.abs(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)] - arctan_dlnI_dlnM[end])) < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
-            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(min_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
+            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(max_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
                     print('    WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
@@ -161,7 +155,20 @@ def identify_phase_transitions(
                     print('    WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
                 continue
 
-            datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += [np.interp(max_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind])
+
+            ### parameters of max dcs2_dpressure
+            try:
+                ind = find_following(min_r, max_dcs_dpressure_baryon_density, max_dcs_dpressure) ### maximum after min(cs2c2)
+            except RuntimeError:
+                if verbose:
+                    print('    WARNING! could not find the following maximum in dcs2c2_dpressurec2')
+                continue
+
+            max_dcs_r = baryon_density[ind]
+
+            datum += [np.interp(max_dcs_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind])
 
             ### parameters at "end"
@@ -195,11 +202,16 @@ def identify_phase_transitions(
     return params, names
 
 def find_preceeding(x_ref, x, y):
+    '''assumes x is ordered from decreasing to increasing'''
     found = x <= x_ref
     if np.sum(found):
         return y[found][-1]
     else:
         raise RuntimeError('no preceeding value found!')
+
+def find_following(x_ref, x, y):
+    '''assumes x is ordered from decreasing to increasing'''
+    return find_preceeding(-x_ref, -x[::-1], y[::-1])
 
 def find_running_maxima(x):
     """find the indecies of the largest thing that's been seen up until the current index"""
@@ -307,6 +319,8 @@ parser.add_argument('--outpath', default=None,
 
 parser.add_argument("--eos-baryon-density-column", default="baryon_density", type=str)
 parser.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
+parser.add_argument('--energy-densityc2-column', default='energy_densityc2', type=str)
+parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
 parser.add_argument('--eos-reference-column', default=[], type=str, action='append')
 
 parser.add_argument("--macro-mass-column", default='M', type=str)
@@ -351,13 +365,15 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('loading eos data from: '+args.eospath)
-eos_data, eos_cols = utils.load(args.eospath, [args.eos_baryon_density_column, args.eos_sound_speed_column]+args.eos_reference_column)
+eos_data, eos_cols = utils.load(args.eospath, [args.eos_baryon_density_column, args.eos_sound_speed_column, args.pressurec2_column, args.energy_densityc2_column]+args.eos_reference_column)
 baryon_density = eos_data[:,0]
 eos_data = eos_data[np.argsort(baryon_density)] ### sort so we increase in baryon density
 
 # separate things in a way that's convenient
 baryon_density = eos_data[:,0]
 cs2c2 = eos_data[:,1]
+pressurec2 = eos_data[:,2]
+energy_densityc2 = eos_data[:,3]
 
 #------------------------
 
@@ -384,6 +400,7 @@ params, names = identify_phase_transitions(
     I,
     baryon_density,
     cs2c2,
+    pressurec2,
     macro_data,
     macro_cols,
     eos_data,
@@ -404,178 +421,155 @@ np.savetxt(args.outpath, params, delimiter=',', comments='', header=','.join(nam
 
 #-------------------------------------------------
 
-if args.plot:
+if args.plot: ### make a big ol' plot
     if args.verbose:
-        print('building basic sanity checking and reference plot')
+        print('plotting the identified phase transitions')
+
+    TEMPLATES = [
+        (MAX_CS2C2_TEMPLATE, 'm'),
+#        (MAX_K_TEMPLATE, 'c'),
+        (MIN_CS2C2_TEMPLATE, 'r'),
+        (MIN_ARCTAN_DLNI_DLNM_TEMPLATE, 'b'),
+        (MAX_DCS_DP_TEMPLATE, 'c'),
+    ]
+
+    ### things that will be plotted against rhoc
 
     ### compute basis of indicator variable
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=args.flatten_thr, smoothing_width=args.smoothing_width)
 
-    fig = plt.figure()
-    ax = plt.plt.subplot(2,2,1)
-    AX = plt.plt.subplot(2,2,3)
+    macro_y = [
+        ('M', r'$M\ [M_\odot]$', M, 'linear'),
+        ('dlnM_dlnrhoc', r'$d\ln M/d\ln \rho_c$', dlnM_drhoc*rhoc, 'linear'),
+        ('I', r'$I\ [\mathrm{some units}]$', I, 'linear'),
+        ('dlnI_dlnrhoc', r'$d\ln I/d\ln \rho_c$', dlnI_drhoc*rhoc, 'linear'),
+        ('arctan_dlnI_dlnM', r'$\mathrm{arctan}(d\ln I/d\ln M)$', arctan_dlnI_dlnM, 'linear'),
+    ]
 
-    xa = plt.plt.subplot(2,2,2)
-    XA = plt.plt.subplot(2,2,4)
+    ### things that will be plotted against baryon_density
+    pressurec2 = eos_data[:,eos_cols.index(args.pressurec2_column)]
 
-    # plot
-    kwargs = dict(linestyle='none', marker='.', markersize=2, color='k')
+    dcs2c2_deps = gp.num_dfdx(energy_densityc2, cs2c2)
+    dcs2c2_dp = gp.num_dfdx(pressurec2, cs2c2)
 
-    ax.plot(rhoc, M)
-    ax.plot(rhoc[spurious], M[spurious], **kwargs)
+    d2cs2c2_dp2 = gp.num_dfdx(pressurec2, dcs2c2_dp) * pressurec2**2
 
-    AX.plot(rhoc, dlnM_drhoc*rhoc)
-    AX.plot(rhoc[spurious], dlnM_drhoc[spurious]*rhoc[spurious], **kwargs)
+    d2cs2c2_deps2 = gp.num_dfdx(energy_densityc2, dcs2c2_deps) * energy_densityc2**2
+    d2cs2c2_dlneps2 = gp.num_dfdx(energy_densityc2, dcs2c2_deps * energy_densityc2) * energy_densityc2
 
-    xa.plot(rhoc, I)
-    xa.plot(rhoc[spurious], I[spurious], **kwargs)
+    micro_y = [
+        ('pressurec2', '$p/c^2\ [\mathrm{g}/\mathrm{cm}^2]$', pressurec2, 'log', (1e11, 1e16)),
+        ('cs2c2', '$c_s^2/c^2$', cs2c2, 'log', (1e-3, 1.0)),
+#        ('d(cs2c2_d(lnenergy_densityc2)', '$dc_s^2/d\ln\epsilon$', dcs2c2_deps * energy_densityc2, 'linear', (-2, +2)),
+#        ('d(cs2c2_d(lnenergy_densityc2)', '$dc_s^2/d\ln p $', dcs2c2_dp * pressurec2, 'linear', (-2, +2)),
+        ('d(cs2c2_d(lnenergy_densityc2)', '$dc_s^2/d\epsilon$', dcs2c2_deps, 'linear', (-1e-14, +1e-14)),
+        ('d(cs2c2_d(lnenergy_densityc2)', '$dc_s^2/dp $', dcs2c2_dp, 'linear', (-1e-13, +1e-13)),
+        ('does not matter', r'$\left|d^2c_s^2/d\epsilon^2\right|\epsilon^2$', np.abs(d2cs2c2_deps2), 'log', (1e-2, 1e+2)), 
+        ('not applicable', r'$\left|d^2c_s^2/dp^2\right|p^2$', np.abs(d2cs2c2_dp2), 'log', (1e-2, 1e+1)),
+#        ('d(d(cs2c2)_d(lnenergy_densityc2))_d(lnenergy_densityc2)', r'$\left|d^2c_s^2/d\ln\epsilon^2\right|$', np.abs(d2cs2c2_dlneps2), 'log', (1e-2, 1e+1)),
+#        ('does not matter', r'$\left(d^2c_s^2/d\epsilon^2\right)\epsilon^2$', d2cs2c2_deps2, 'linear', None), 
+#        ('d(d(cs2c2)_d(lnenergy_densityc2))_d(lnenergy_densityc2)', '$d^2c_s^2/d\ln\epsilon^2$', d2cs2c2_dlneps2, 'linear', None),
+    ]
 
-    XA.plot(rhoc, dlnI_drhoc*rhoc)
-    XA.plot(rhoc[spurious], dlnI_drhoc[spurious]*rhoc[spurious], **kwargs)
+    ### actually make the figure
+    Nrow = max(len(macro_y), len(micro_y))
 
-    for _ in [ax, AX, xa, XA]:
-        _.set_xscale("log")
-        _.set_xlim(xmin=1.5e14, xmax=4e15)
-        _.grid(True, which='both')
+    fig = plt.figure(figsize=(10, 3*Nrow))
 
-    ax.set_ylabel('$M\ [M_\odot]$')
-    AX.set_ylabel(r'$d\ln M/d\ln\rho_c$')
+    line_kwargs = dict(linestyle='solid', marker='o', markersize=2, color='k', alpha=0.75)
+    marker_kwargs = dict(marker='o', markerfacecolor='none', linestyle='none', markersize=4, markeredgewidth=1)
 
-    xa.set_ylabel('$I$ some units')
-    XA.set_ylabel(r'$d\ln I/d\ln\rho_c$')
+    ### plot the things that go vs rhoc
+    row = 1
 
-    for _ in [xa, XA]:
-        _.yaxis.tick_right()
-        _.yaxis.set_label_position('right')
+    for name, label, vec, scale in macro_y:
+        ax = plt.plt.subplot(Nrow, 2, row)
 
-    for _ in [ax, xa]:
-        plt.setp(_.get_xticklabels(), visible=False)
+        ### plot the main curve
+        ax.plot(rhoc, vec, **line_kwargs)
 
-    for _ in [AX, XA]:
-        _.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+        ### decorate
+        ax.set_ylabel(label)
+        plt.setp(ax.get_xticklabels(), visible=False)
 
-    plt.plt.subplots_adjust(hspace=0.02, wspace=0.02)
+        ax.set_xscale('log')
+        ax.set_xlim(xmin=2.0e14, xmax=4.0e15) ### FIXME: don't hard-code this?
 
-    ### save
-    plt.save('extract-moi-features-reference%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose)
-    plt.close(fig)
+        ax.set_yscale(scale)
 
-    #--------------------
+        ax.grid(True, which='both')
 
-    if args.verbose:
-        print('plotting the identified phase transitions')
+        # annotate points corresponding to params!
+        ylim = ax.get_ylim()
+        for tmp, color in TEMPLATES:
+            start = params[:,names.index(tmp%args.macro_baryon_density_column)] ### NOTE: using the macro value here instead of the eos value
+            y = np.interp(start, rhoc, vec)
+            ax.plot(start, y, markeredgecolor=color, **marker_kwargs)
+            for X in start:
+                ax.plot([X]*2, ylim, color=color)
 
-    fig = plt.figure()
-    ax = plt.plt.subplot(2,2,1)
-    AX = plt.plt.subplot(2,2,3)
+        # shade unstable regions
+        if (name == 'dlnM_dlnrhoc') and (ylim[0] < 0):
+            xlim = ax.get_xlim()
+            ax.fill_between(xlim, [ylim[0]]*2, [0]*2, color='grey', alpha=0.25)
+            ax.set_xlim(xlim)
 
-    xa = plt.plt.subplot(2,2,2)
-    XA = plt.plt.subplot(2,2,4)
+        elif (name == 'arctan_dlnI_dlnM') and (ylim[0] < -np.pi/2):
+            xlim = ax.get_xlim()
+            ax.fill_between(xlim, [ylim[0]]*2, [-np.pi/2]*2, color='grey', alpha=0.25)
+            ax.set_xlim(xlim)
+            
+        ax.set_ylim(ylim)
 
-    ymin = -3*np.pi/2. ### bounds the range of arctan
-    ymax = +np.pi/2.
+        # increment the row number
+        row += 2 
 
-    # plot the main curve
-    kwargs = dict(linestyle='none', marker='.', markersize=2, color='y')
+    ### finish decoration
+    ax.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+    plt.setp(ax.get_xticklabels(), visible=True)
 
-    ax.plot(M, arctan_dlnI_dlnM, color='k')
-    ax.plot(M[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
+    ### plot the things that go vs baryon_density
+    row = 2
+    for name, label, vec, scale, ylim in micro_y:
+        ax = plt.plt.subplot(Nrow, 2, row)
 
-    AX_y = gp.num_dfdx(M, arctan_dlnI_dlnM)
-    AX.plot(M, AX_y, color='k')
-    AX.plot(M[spurious], AX_y[spurious], **kwargs)
+        ### plot the main curve
+        ax.plot(baryon_density, vec, **line_kwargs)
 
-    xa.plot(rhoc, arctan_dlnI_dlnM, color='k')
-    xa.plot(rhoc[spurious], arctan_dlnI_dlnM[spurious], **kwargs)
+        ### decorate
+        ax.set_ylabel(label)
+        plt.setp(ax.get_xticklabels(), visible=False)
 
-    XA_y, _ = abs_curvature(np.log(rhoc), M, arctan_dlnI_dlnM, smoothing_width=args.smoothing_width)
-    XA.plot(rhoc, XA_y, color='k')
-    XA.plot(rhoc[spurious], XA_y[spurious], **kwargs)
+        ax.set_xscale('log')
+        ax.set_xlim(xmin=3e13, xmax=1e16) ### FIXME: don't hard-code this?
 
-    # annotate points corresponding to params!
-    kwargs = dict(marker='o', markerfacecolor='none', linestyle='none', markersize=4, markeredgewidth=1)
+        ax.set_yscale(scale)
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position('right')
 
-    for tmp, color in [
-            (MAX_CS2C2_TEMPLATE, 'm'),
-#            (MAX_K_TEMPLATE, 'c'),
-            (MIN_CS2C2_TEMPLATE, 'r'),
-            (MIN_ARCTAN_DLNI_DLNM_TEMPLATE, 'b'),
-        ]:
-        start = params[:,names.index(tmp%args.macro_baryon_density_column)]
-        y = np.interp(start, rhoc, arctan_dlnI_dlnM)
-        xa.plot(start, y, markeredgecolor=color, **kwargs)
+        ax.grid(True, which='both')
 
-        start_M = params[:,names.index(tmp%args.macro_mass_column)]
-        ax.plot(start_M, y, markeredgecolor=color, **kwargs)
+        # annotate points corresponding to params!
+        if ylim is None:
+            ylim = ax.get_ylim()
 
-        y = np.interp(start, rhoc, XA_y)
-        XA.plot(start, y, markeredgecolor=color, **kwargs)
+        for tmp, color in TEMPLATES:
+            start = params[:,names.index(tmp%args.eos_baryon_density_column)] ### NOTE: using the eos value here instead of the macro value
+            y = np.interp(start, baryon_density, vec)
+            ax.plot(start, y, markeredgecolor=color, **marker_kwargs)
+            for X in start:
+                ax.plot([X]*2, ylim, color=color)
 
-        y = np.interp(start, rhoc, AX_y)
-        AX.plot(start_M, y, markeredgecolor=color, **kwargs)
+        ax.set_ylim(ylim)
 
-    # shade the regions that corresponds to negative dM/drhoc
-    ax.set_xscale('linear')
-    AX.set_xscale(ax.get_xscale())
+        # increment the row number
+        row += 2
 
-    xa.set_xscale('log')
-    XA.set_xscale(xa.get_xscale())
+    ### finish decoration
+    ax.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+    plt.setp(ax.get_xticklabels(), visible=True)
 
-    xlim = ax.get_xlim()
-    ax.fill_between(xlim, [ymin]*2, [-np.pi/2]*2, color='grey', alpha=0.5)
-    ax.fill_between(xlim, [ymax]*2, [+np.pi/2]*2, color='grey', alpha=0.5)
-    ax.set_xlim(xlim)
-
-    xlim = xa.get_xlim()
-    xa.fill_between(xlim, [ymin]*2, [-np.pi/2]*2, color='grey', alpha=0.5)
-    xa.fill_between(xlim, [ymax]*2, [+np.pi/2]*2, color='grey', alpha=0.5)
-    xa.set_xlim(xlim)
-
-    # decroate
-    ax.set_ylim(ymin=ymin, ymax=ymax)
-
-    ax.set_xlabel(r'$M\ [M_\odot]$')
-    ax.set_ylabel(r'$\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)$')
-
-    ax.grid(True, which='both')
-
-    AX.set_xlim(ax.get_xlim())
-
-    AX.set_ylabel(r'$d\left(\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)\right)/dM$')
-    AX.set_xlabel(ax.get_xlabel())
-
-    AX.grid(True, which='both')
-
-    xa.set_xlim(xmin=1.5e14, xmax=4e15)
-    xa.set_ylim(ymin=ymin, ymax=ymax)
-
-    xa.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
-    xa.set_ylabel(r'$\mathrm{arctan}\left(\left.d\ln I\right/d\ln M\right)$')
-
-    xa.grid(True, which='both')
-
-    XA.set_xlim(xa.get_xlim())
-    XA.set_yscale('log')
-    ylim = XA.get_ylim()
-    XA.set_ylim(ymin=max(1e-10, ylim[0]), ymax=min(1e+15, ylim[1]))
-
-    XA.set_ylabel(r'$\kappa\left[\ln\rho_c, M, \mathrm{arctan}(d\ln I/d\ln M)\right]$')
-    XA.set_xlabel(xa.get_xlabel())
-
-    XA.grid(True, which='both')
-
-    plt.setp(ax.get_xticklabels(), visible=False)
-    ax.set_xlabel('')
-    plt.setp(xa.get_xticklabels(), visible=False)
-    xa.set_xlabel('')
-
-    xa.yaxis.tick_right()
-    xa.yaxis.set_label_position('right')
-
-    XA.yaxis.tick_right()
-    XA.yaxis.set_label_position('right')
-
-    plt.plt.subplots_adjust(hspace=0.02, wspace=0.02)
+    plt.plt.subplots_adjust(top=0.98, bottom=0.05, left=0.10, right=0.90, hspace=0.02, wspace=0.02)
     
     ### save
     plt.save('extract-moi-features%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose)
