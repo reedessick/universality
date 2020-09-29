@@ -184,7 +184,7 @@ def identify_phase_transitions(
 #            group.append((arctan_dlnI_dlnM[end], datum))
             group.append((rhoc[end], datum)) ### FIXME: this whole "group" logic may be wasteful of memory if we know we're going to order by rhoc and we already iterate based on samples ordered by rhoc...
 
-            last_r = min_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
+            last_r = max_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
 
         if group: ### add the last identified transition
 #            group.sort(key=lambda x:x[0])
