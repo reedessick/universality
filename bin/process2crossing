@@ -11,7 +11,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
+from universality.properties import crossing
 
 #-------------------------------------------------
 
@@ -53,7 +54,7 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -90,7 +91,7 @@ Ndyn = len(dynamic_columns)
 if args.reference_column_value_is_column:
     dynamic_columns.append(args.reference_column_value_is_column)
 
-data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
+data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
 
 N = 1+len(args.copy_column)
 keep = data[:,1:N] ### the stuff we want to transfer over to the final file
@@ -119,7 +120,7 @@ ans[:,:Nkeep] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = utils.process2crossing(
+ans[:,Nkeep:] = crossing.process2crossing(
     data,
     path_template,
     args.eos_num_per_dir,

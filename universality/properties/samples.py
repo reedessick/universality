@@ -81,3 +81,87 @@ def process2samples(
                     ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
 
     return ans
+
+#-------------------------------------------------
+
+def process2quantiles(
+        data,
+        tmp,
+        mod,
+        xcolumn,
+        ycolumn,
+        x_test,
+        quantiles,
+        quantile_type='sym',
+        x_multiplier=1.,
+        y_multiplier=1.,
+        weights=None,
+        verbose=False,
+    ):
+    """manages I/O and extracts quantiles at the specified places
+    """
+    y_test = [] ### keep this as a list because we don't know how many stable branches there are
+    w_test = []
+    num_points = len(x_test)
+
+    truth = np.empty(num_points, dtype=bool) ### used to extract values
+
+    columns = [xcolumn, ycolumn]
+    if weights is None:
+        weights = np.ones(len(data), dtype=float) / len(data)
+
+    for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
+        for eos_path in glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}):
+            if verbose:
+                print('    '+eos_path)
+            d, _ = load(eos_path, columns)
+
+            d[:,0] *= x_multiplier
+            d[:,1] *= y_multiplier
+
+            _y = np.empty(num_points, dtype=float)
+            _y[:] = np.nan ### signal that nothing was available at this x-value
+
+            truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
+            _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
+
+            y_test.append( _y ) ### add to the total list
+            w_test.append( weight )
+
+    if len(y_test)==0:
+        raise RuntimeError('could not find any files matching "%s"'%tmp)
+
+    y_test = np.array(y_test) ### cast to an array
+    w_test = np.array(w_test)
+
+    ### compute the quantiles
+    Nquantiles = len(quantiles)
+    if quantile_type=='hpd':
+        Nquantiles *= 2 ### need twice as many indicies for this
+
+    qs = np.empty((Nquantiles, num_points), dtype=float)
+    med = np.empty(num_points, dtype=float)
+
+    for i in xrange(num_points):
+
+        _y = y_test[:,i]
+        truth = _y==_y
+        _y = _y[truth] ### only keep things that are not nan
+        _w = w_test[truth]
+
+        if quantile_type=="sym":
+            qs[:,i] = stats.quantile(_y, quantiles, weights=_w)     ### compute quantiles
+
+        elif quantile_type=="hpd":
+
+            ### FIXME: the following returns bounds on a contiguous hpd interval, which is not necessarily what we want...
+
+            bounds = stats.samples2crbounds(_y, quantiles, weights=_w) ### get the bounds
+            qs[:,i] = np.array(bounds).flatten()
+
+        else:
+            raise ValueError('did not understand --quantile-type=%s'%quantile_type)
+
+        med[i] = stats.quantile(_y, [0.5], weights=_w)[0] ### compute median
+
+    return qs, med

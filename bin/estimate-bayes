@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 from universality import stats
 
 #-------------------------------------------------
@@ -55,8 +55,8 @@ for label, col in args.weight_column_is_log:
     else:
         raise ValueError('specifying --weight-column-is-log for unknown samples set %s'%label)
 
-max_num_samples1 = utils.DEFAULT_MAX_NUM_SAMPLES
-max_num_samples2 = utils.DEFAULT_MAX_NUM_SAMPLES
+max_num_samples1 = io.DEFAULT_MAX_NUM_SAMPLES
+max_num_samples2 = io.DEFAULT_MAX_NUM_SAMPLES
 for label, num in args.max_num_samples:
     if label == label1:
         max_num_samples1 = int(num)
@@ -70,7 +70,7 @@ for label, num in args.max_num_samples:
 ### read in source samples
 if args.verbose:
     print('reading samples from: '+inpath1)
-weights1 = utils.load_weights(inpath1, weight1_columns, logweightcolumns=logweight1_columns, max_num_samples=max_num_samples1, normalize=False)
+weights1 = io.load_weights(inpath1, weight1_columns, logweightcolumns=logweight1_columns, max_num_samples=max_num_samples1, normalize=False)
 N1 = len(weights1)
 
 if args.verbose:
@@ -79,7 +79,7 @@ if args.verbose:
 
 if args.verbose:
     print('reading samples from: '+inpath2)
-weights2 = utils.load_weights(inpath2, weight2_columns, logweightcolumns=logweight2_columns, max_num_samples=max_num_samples2, normalize=False)
+weights2 = io.load_weights(inpath2, weight2_columns, logweightcolumns=logweight2_columns, max_num_samples=max_num_samples2, normalize=False)
 N2 = len(weights2)
 
 if args.verbose:

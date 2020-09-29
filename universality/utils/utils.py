@@ -11,7 +11,6 @@ import multiprocessing as mp
 #-------------------------------------------------
 
 DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
-DEFAULT_MAX_NUM_SAMPLES = np.infty
 
 #------------------------
 

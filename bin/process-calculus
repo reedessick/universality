@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import gaussianprocess as gp
 
 #-------------------------------------------------
@@ -66,7 +66,7 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -101,7 +101,7 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, cols = utils.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+data, cols = io.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
 
 ### marginalize to avoid reading in the same EOS more than once
 if args.verbose:
@@ -125,7 +125,7 @@ for eos in data:
     path = path_template%tmp
     if args.Verbose:
         print('    '+path)
-    d, c = utils.load(path)
+    d, c = io.load(path)
 
     npts, ncol = d.shape
     if args.overwrite:

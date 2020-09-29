@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (kde, io)
 from universality import kde
 from universality import stats
 from universality import plot
@@ -40,13 +40,13 @@ parser.add_argument('--range', nargs=3, default=[], action='append', type=str,
 Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 
-parser.add_argument('--max-num-samples1', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--max-num-samples1', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 parser.add_argument('--weight1-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_argument('--weight1-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
 
-parser.add_argument('--max-num-samples2', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--max-num-samples2', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 parser.add_argument('--weight2-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 parser.add_argument('--weight2-column-is-log', default=[], type=str, action='append',
@@ -81,7 +81,7 @@ variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in a
 ### read in data from csv
 if args.verbose:
     print('reading samples from: '+args.inpath1)
-data1, columns = utils.load(args.inpath1, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples1)
+data1, columns = io.load(args.inpath1, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples1)
 
 ranges1 = []
 for i, col in enumerate(args.columns):
@@ -93,7 +93,7 @@ for i, col in enumerate(args.columns):
 if args.weight1_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath1)
-    weights1 = utils.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
+    weights1 = io.load_weights(args.inpath1, args.weight1_column, logweightcolumns=args.weight1_column_is_log, max_num_samples=args.max_num_samples1)
 
 else:
     N = len(data1)
@@ -102,7 +102,7 @@ else:
 ### read in data from csv
 if args.verbose:
     print('reading samples from: '+args.inpath2)
-data2, columns = utils.load(args.inpath2, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples2)
+data2, columns = io.load(args.inpath2, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples2)
 
 ranges2 = []
 for i, col in enumerate(args.columns):
@@ -114,7 +114,7 @@ for i, col in enumerate(args.columns):
 if args.weight2_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath2)
-    weights2 = utils.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2)
+    weights2 = io.load_weights(args.inpath2, args.weight2_column, logweightcolumns=args.weight2_column_is_log, max_num_samples=args.max_num_samples2)
 
 else:
     N = len(data2)
@@ -126,13 +126,13 @@ if args.verbose:
     print('computing kde')
 ranges = [(min(m1,m2), max(M1,M2)) for (m1, M1), (m2, M2) in zip(ranges1, ranges2)]
 vects = [np.linspace(m, M, args.num_points) for m, M in ranges]
-flatgrid = utils.vects2flatgrid(*vects)
+flatgrid = kde.vects2flatgrid(*vects)
 
 if args.prune:
     data1, weights1 = utils.prune(data1, ranges, weights=weights1)
 if args.reflect:
     data1, weights1 = utils.reflect(data1, ranges, weights=weights1)
-logkde1 = utils.logkde(
+logkde1 = kde.logkde(
     flatgrid,
     data1,
     variances,
@@ -143,7 +143,7 @@ if args.prune:
     data2, weights2 = utils.prune(data2, ranges, weights=weights2)
 if args.reflect:
     data2, weights2 = utils.reflect(data2, ranges, weights=weights2)
-logkde2 = utils.logkde(
+logkde2 = kde.logkde(
     flatgrid,
     data2,
     variances,
@@ -161,8 +161,8 @@ if args.sym_dkl:
     print('sym Dkl(1,2) = %.6e'%stats.sym_kldiv(vects, logkde1, logkde2))
 
 if args.dlogL:
-    print('dlogL1(argmax2) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde2)]), data1, variances, weights=weights1) - np.max(logkde1)))
-    print('dlogL2(argmax1) = %.6e'%(utils.logkde(np.array([stats.logkde2argmax(vects, logkde1)]), data2, variances, weights=weights2) - np.max(logkde2)))
+    print('dlogL1(argmax2) = %.6e'%(kde.logkde(np.array([stats.logkde2argmax(vects, logkde2)]), data1, variances, weights=weights1) - np.max(logkde1)))
+    print('dlogL2(argmax1) = %.6e'%(kde.logkde(np.array([stats.logkde2argmax(vects, logkde1)]), data2, variances, weights=weights2) - np.max(logkde2)))
 
 if args.dtheta:
     dtheta = stats.logkde2argmax(vects, logkde1) - stats.logkde2argmax(vects, logkde2)

@@ -8,6 +8,10 @@ import numpy as np
 from . import utils
 
 #-------------------------------------------------
+
+DEFAULT_MAX_NUM_SAMPLES = np.infty
+
+#-------------------------------------------------
 # basic utilities for manipulating existing sapmles
 #-------------------------------------------------
 
@@ -19,7 +23,7 @@ def check_columns(present, required, logcolumns=[]):
     for column in required:
         assert column in present, 'required column=%s is missing!'%column
 
-def load(inpath, columns=[], logcolumns=[], max_num_samples=utils.DEFAULT_MAX_NUM_SAMPLES):
+def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = []
 
     ### make sure we load only a single copy of each column; preserve the order as much as possible
@@ -73,7 +77,7 @@ def load_weights(*args, **kwargs):
     normalize = kwargs.pop('normalize', True)
     return utils.exp_weights(load_logweights(*args, **kwargs), normalize=normalize)
 
-def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumns=[], max_num_samples=utils.DEFAULT_MAX_NUM_SAMPLES):
+def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     """loads and returns logweights from multiple columns
     """
     data, columns = load(inpath, columns=weight_columns, max_num_samples=max_num_samples) ### load the raw data
