@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-"""a script that will extract the properties of stable branches as identified in M-R macro files"""
+"""a script that will extract the properties of stable branches as identified in M-R macro files
+"""
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------

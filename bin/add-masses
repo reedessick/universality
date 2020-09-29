@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
-__doc__ = "read in Phil's csv files and add in columns for component masses and chirp mass. If outpath is not provided, will overwrite inpath in place"
-__author__ = "reed.essick@ligo.org"
+"""read in Phil's csv files and add in columns for component masses and chirp mass. If outpath is not provided, will overwrite inpath in place
+"""
+"Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
 import numpy as np
 
 from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import io
 
 #-------------------------------------------------
 
@@ -27,12 +31,12 @@ if args.output is None:
 
 if args.verbose:
     print('loading: '+inpath)
-data = np.genfromtxt(args.inpath, names=True, delimiter=',')
+data, cols = io.load(args.inpath, names=True, delimiter=',')
 
 if args.verbose:
     print('computing additional mass parameters')
-Mtot = data['Mtot']
-q = data['q']
+Mtot = data[:, cols.index('Mtot')]
+q = data[:, cols.index('q')]
 
 m1 = Mtot/(1.+q)
 m2 = q*m1
@@ -44,8 +48,10 @@ if args.verbose:
 
 fields = data.dtype.fields.keys()
 newfields = ['m1', 'm2', 'Mc']
-with open(args.outpath, 'w') as file_obj:
-    print >> file_obj, ','.join(fields+newfields)
-    for sample, M1, M2, M3 in zip(data, m1, m2, Mc):
-        sample = list(sample[f] for f in fields)+[M1, M2, M3]
-        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
+atad = np.empty((len(data), len(fields)+len(newfields)), dtype=float)
+atad[:,:len(fields)] = data
+atad[:,-3] = m1
+atad[:,-2] = m2
+atad[:,-1] = Mc
+
+np.savetxt(args.outpath, atad, comments='', header=','.join(fields+newfields), delimiter=',')

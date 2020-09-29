@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-__doc__ = "determine the locations at which a value is first reached in each direction from some set of bound within a set of EOS (a process)"
-__author__ = "reed.essick@ligo.org"
+"""determine the locations at which a value is first reached in each direction from some set of bound within a set of EOS (a process)
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
 import os
+
 import numpy as np
 
 from argparse import ArgumentParser

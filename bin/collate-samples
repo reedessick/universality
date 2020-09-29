@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 
 #-------------------------------------------------
 
@@ -65,10 +65,10 @@ for source in samples.keys():
     if args.verbose:
         print('reading data from source: '+source)
     if len(samples[source]):
-        d, c = utils.load(source, args.reference_columns+samples[source])
+        d, c = io.load(source, args.reference_columns+samples[source])
         refind = range(Nref)
     else:
-        d, c = utils.load(source)
+        d, c = io.load(source)
         for col in args.reference_columns:
             assert col in c, 'reference_column=%s not found in %s'%(col, source)
         refind = [c.index(col) for col in args.reference_columns]
@@ -102,7 +102,7 @@ Ncol = sum(len(c) for c in columns.values()) - len(samples.keys())*len(args.refe
 if os.path.exists(args.output):
     if args.verbose:
         print('loading existing columns from: '+args.output)
-    d, c = utils.load(args.output)
+    d, c = io.load(args.output)
     for col in args.reference_columns:
         assert col in c, 'reference_column=%s not present in %s'%(col, args.output)
     result_refind = [c.index(col) for col in args.reference_columns]
