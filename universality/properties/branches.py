@@ -79,7 +79,10 @@ def _bounds2bool(start, end, N):
 
 #------------------------
 
-def data2branch_properties(M, rhoc, baryon_density, eos_data, eos_cols, mac_data, mac_cols, branch_template=None, verbose=False):
+START_TEMPATE = 'start_%s'
+END_TEMPLATE = 'end_%s'
+
+def data2branch_properties(rhoc, M, baryon_density, macro_data, macro_cols, eos_data, eos_cols, branch_template=None, verbose=False):
 
     inds = np.arange(len(rhoc)) ### used to look up indecies from boolean arrays later
 
@@ -92,7 +95,7 @@ def data2branch_properties(M, rhoc, baryon_density, eos_data, eos_cols, mac_data
     macro_header = ','.join(mac_cols) # header for the macro files representing each branch separately
 
     summary = [] # summary statistics for central values of EOS parameters at the start, end of each branch
-    names = ['branch']+['start_'+col for col in eos_cols+mac_cols]+['end_'+col for col in eos_cols+mac_cols]
+    names = ['branch']+[START_TEMPLATE%col for col in eos_cols+mac_cols]+[END_TEMPLSTE%col for col in eos_cols+mac_cols]
 
     Neos_column = len(eos_cols)
     Nmacro_column = len(mac_cols)
@@ -126,8 +129,6 @@ def data2branch_properties(M, rhoc, baryon_density, eos_data, eos_cols, mac_data
         summary.append(branch)
 
     return np.array(summary), names
-
-    np.savetxt(sum_path, summary, comments='', header=sum_header, delimiter=',')
 
 def process2branch_properties(
         data,
@@ -177,8 +178,17 @@ def process2branch_properties(
         else:
             branch_template = None
 
-        params, names = data2branch_properties(M, rhoc, baryon_density, eos_data, eos_cols, mac_data, mac_cols, branch_template=None, verbose=verbose)
-
+        params, names = data2branch_properties(
+            rhoc,
+            M,
+            baryon_density,
+            macro_data,
+            macro_cols,
+            eos_data,
+            eos_cols,
+            branch_template=branch_template,
+            verbose=verbose,
+        )
         if verbose:
             print('    writing summary into: %s'%sum_path)
         np.savetxt(sum_path, summary, comments='', header=sum_header, delimiter=',')
