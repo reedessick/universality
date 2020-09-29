@@ -96,6 +96,14 @@ def column2logcolumn(name):
 
 def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMPLES):
     data = []
+
+    ### make sure we load only a single copy of each column; preserve the order as much as possible
+    unique = []
+    for col in columns:
+        if col not in unique:
+            unique.append(col)
+    columns = unique
+
     with open(inpath, 'r') as obj:
         cols = [_.strip() for _ in obj.readline().strip().split(',')]
         if columns:
