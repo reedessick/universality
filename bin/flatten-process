@@ -10,8 +10,8 @@ import h5py
 from argparse import ArgumentParser
 
 ### non-standard imports
-from universality import gaussianprocess as gp
-from universality import hyperparams as hp
+from universality.gaussianprocess import gaussianprocess as gp
+from universality.gaussianprocess import hyperparameters as hp
 
 #-------------------------------------------------
 

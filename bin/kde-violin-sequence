@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+from universality import kde
 from universality import stats
 from universality import plot
 
@@ -26,7 +27,7 @@ parser.add_argument('--multiplier', type=float, default=1.)
 parser.add_argument('--logcolumn', default=False, action='store_true')
 parser.add_argument('--column-label', default=None, type=str)
 parser.add_argument('--column-range', nargs=2, type=float)
-parser.add_argument('--column-bandwidth', default=utils.DEFAULT_BANDWIDTH, type=float)
+parser.add_argument('--column-bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float)
 parser.add_argument('--column-truth', default=None, type=float)
 
 parser.add_argument('--level', default=[], action='append', type=float,

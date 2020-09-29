@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+from universality import kde
 from universality import stats
 from universality import plot
 
@@ -55,7 +56,7 @@ parser.add_argument('--num-points', default=plot.DEFAULT_NUM_POINTS, type=int,
     help='DEFAULT=%d'%plot.DEFAULT_NUM_POINTS)
 parser.add_argument('--bandwidth', nargs=2, default=[], type=str, action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%kde.DEFAULT_BANDWIDTH)
 parser.add_argument('--reflect', default=False, action='store_true',
     help='reflect the points about their boundaries within the KDE')
 parser.add_argument('--prune', default=False, action='store_true',
@@ -73,7 +74,7 @@ assert len(args)>3, 'please supply at least 4 input argument\n%s'%__usage__
 rangesdict = dict((column,(float(_min), float(_max))) for column, _min, _max in args.range)
 
 bandwidthdict = dict((col, float(val)) for col, val in args.bandwidth)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns])**2
+variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in args.columns])**2
 
 #-------------------------------------------------
 

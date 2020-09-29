@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+from universality import kde
 from universality import plot
 
 #-------------------------------------------------
@@ -33,8 +34,8 @@ parser.add_argument("-V", '--Verbose', default=False, action='store_true')
 parser.add_argument('--field', default=[], action='append')
 parser.add_argument('--ignore', default=[], action='append')
 
-parser.add_argument('-b', '--bandwidth', default=utils.DEFAULT_BANDWIDTH, type=float,
-    help='DEFAULT=%f'%utils.DEFAULT_BANDWIDTH)
+parser.add_argument('-b', '--bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float,
+    help='DEFAULT=%f'%kde.DEFAULT_BANDWIDTH)
 parser.add_argument('-n', '--num-points', default=DEFAULT_NUM_POINTS, type=int,
     help='DEFAULT=%d'%DEFAULT_NUM_POINTS)
 

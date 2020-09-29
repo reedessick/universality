@@ -3,3 +3,17 @@
 """an executable to extract branch properties from a single EoS
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+raise NotImplementedError

@@ -18,7 +18,7 @@ except ImportError:
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import rates
+from universality.priors import rates
 from universality import utils
 
 #-------------------------------------------------

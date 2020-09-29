@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+from universality import kde
 
 #-------------------------------------------------
 
@@ -27,8 +28,8 @@ parser.add_argument('target_column', type=str,
 parser.add_argument('prior_bounds', nargs=2, type=float,
     help='the prior bound used to complete the integral.')
 
-parser.add_argument('--cumulative-integral-direction', default=utils.DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, type=str,
-    help='must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS)))
+parser.add_argument('--cumulative-integral-direction', default=kde.DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, type=str,
+    help='must be one of: %s'%(', '.join(kde.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS)))
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 

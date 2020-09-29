@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality import utils
+from universality import kde
 from universality import stats
 from universality import plot
 
@@ -45,7 +46,7 @@ Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 cgroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%kde.DEFAULT_BANDWIDTH)
 
 cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action='append',
     help='multiply the column by this number before computing statistics. This is applied when data is first read in \
@@ -94,7 +95,7 @@ args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
 args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
 
 bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns])**2
+variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in args.columns])**2
 multiplierdict = dict((col, float(val)) for col, val in args.column_multiplier)
 
 #-------------------------------------------------

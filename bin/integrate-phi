@@ -15,7 +15,9 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality import eos
+from universality.utils import io
+from universality.tov.utils import (dedp2e, stitch_below_reference_pressure, e_p2rho)
 
 #-------------------------------------------------
 
@@ -37,23 +39,23 @@ igroup.add_argument('--sigma-logpressurec2', default=0, type=float,
     help='The reference pressurec2 used is drawn from a log-normal distribution (natural log) with the mean specified as an argument and this option as the standard deviation. NOTE: this is the standard deviation of the log(pressure/c^2) where pressure/c^2 is measured in g/cm^3. The reference pressure, however, is still specified in g/cm^3 and NOT log(pressure/c^2).')
 igroup.add_argument('--stitch-below-reference-pressure', default=False, action='store_true',
     help='if supplied, report the values from the piecewise polytropic EOS below reference_pressure rather than continuing the drawn EOS below the stitching point.')
-igroup.add_argument('--crust-eos', default=utils.eos.DEFAULT_CRUST_EOS, type=str,
+igroup.add_argument('--crust-eos', default=eos.DEFAULT_CRUST_EOS, type=str,
     help='the eos used at the crust when stitching. \
-DEFAULT='+utils.eos.DEFAULT_CRUST_EOS)
+DEFAULT='+eos.DEFAULT_CRUST_EOS)
 
 args = parser.parse_args()
 
 if args.outpath is None:
     args.outpath = args.phipath
 
-utils.set_crust(crust_eos=args.crust_eos)
+eos.set_crust(crust_eos=args.crust_eos)
 
 #-------------------------------------------------
 
 # read in data
 if args.verbose:
     print('reading: '+args.phipath)
-data, columns = utils.load(args.phipath)
+data, columns = io.load(args.phipath)
 
 pressurec2 = np.exp(data[:,columns.index('log(pressurec2)')])
 denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')])) ### this is the definition of phi=log(de/dp - 1)
@@ -65,13 +67,13 @@ denergy_densitydpressure = (1 + np.exp(data[:,columns.index('phi')])) ### this i
 if args.verbose:
     print('performing numeric integration for energy_density via trapazoidal approximation')
 reference_pressurec2 = np.exp(np.log(args.reference_pressurec2) + np.random.randn()*args.sigma_logpressurec2)
-energy_densityc2 = utils.dedp2e(
+energy_densityc2 = dedp2e(
     denergy_densitydpressure,
     pressurec2,
     reference_pressurec2,
 )
 if args.stitch_below_reference_pressure:
-    energy_densityc2, pressurec2 = utils.stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2)
+    energy_densityc2, pressurec2 = stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2)
 
 ### throw away pressures corresponding to negative energy densities!
 truth = energy_densityc2 >= 0
@@ -85,16 +87,13 @@ energy_densityc2 = energy_densityc2[truth]
 # NOTE: this could probably be improved as well...
 if args.verbose:
     print('performing numeric integration for baryon_density via trapazoidal approximation')
-baryon_density = utils.e_p2rho(energy_densityc2, pressurec2, reference_pressurec2)
+baryon_density = e_p2rho(energy_densityc2, pressurec2, reference_pressurec2)
 if args.stitch_below_reference_pressure:
     ### the following indecies should match up because of the call to utils.stitch_below_reference_pressure made above
-    baryon_density[pressurec2<=reference_pressurec2] = utils.CRUST_BARYON_DENSITY[utils.CRUST_PRESSUREC2<=reference_pressurec2] 
+    baryon_density[pressurec2<=reference_pressurec2] = eos.CRUST_BARYON_DENSITY[utils.CRUST_PRESSUREC2<=reference_pressurec2] 
 
 ### NOTE: we now assume 
 # write output
 if args.verbose:
     print('writing: '+args.outpath)
-with open(args.outpath, 'w') as obj:
-    print >> obj, ','.join(['pressurec2', 'energy_densityc2', 'baryon_density'])
-    for tup in zip(pressurec2, energy_densityc2, baryon_density):
-        print >> obj, ','.join('%.9e'%_ for _ in tup)
+np.savetxt(args.outpath, np.array(zip(pressurec2, energy_densityc2, baryon_density), dtype=float), comments='', delimiter=',', header=','.join(['pressurec2', 'energy_densityc2', 'baryon_density']))
