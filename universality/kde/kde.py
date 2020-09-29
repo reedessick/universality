@@ -3,30 +3,17 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
-import glob
-
-from collections import defaultdict
 import numpy as np
 from scipy.special import erf
 
 import multiprocessing as mp
 
-from universality import eos
 from universality import stats
-from universality import utils
+from universality.utils import DEFAULT_NUM_PROC
 
 #-------------------------------------------------
 
-G = 6.674e-8        # newton's constant in (g^-1 cm^3 s^-2)
-c = (299792458*100) # speed of light in (cm/s)
-c2 = c**2
-Msun = 1.989e33     # mass of the sun in (g)
-
-#------------------------
-
-DEFAULT_NUM_PROC = utils.DEFAULT_NUM_PROC
-
-DEFAULT_BANDWIDTH = utils.DEFAULT_BANDWIDTH
+DEFAULT_BANDWIDTH = 0.1
 
 KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS = [
     'increasing',

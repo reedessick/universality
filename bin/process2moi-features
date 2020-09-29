@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+"""an executable to extract moment-of-inertia (MoI) features from a process
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
