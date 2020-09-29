@@ -13,8 +13,6 @@ import multiprocessing as mp
 DEFAULT_NUM_PROC = min(max(mp.cpu_count()-1, 1), 15) ### reasonable bounds for parallelization...
 DEFAULT_MAX_NUM_SAMPLES = np.infty
 
-DEFAULT_WEIGHT_COLUMN = 'logweight'
-
 #-------------------------------------------------
 # basic utilities for simulating samples
 #-------------------------------------------------
@@ -34,6 +32,10 @@ def draw(mean, std, size=1, bounds=None):
 
     else:
         return np.random.normal(mean, std, size)
+
+#-------------------------------------------------
+# basic utilities for manipulating weights
+#-------------------------------------------------
 
 def draw_from_weights(weights, size=1):
     """

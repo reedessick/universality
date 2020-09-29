@@ -7,8 +7,7 @@ __author__ = "reed.essick@ligo.org"
 
 import numpy as np
 
-### non-standard libraries
-from . import utils
+from universality import utils
 from . import priors
 
 #-------------------------------------------------

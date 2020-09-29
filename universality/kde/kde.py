@@ -465,6 +465,21 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
 
     return mlogL, vlogL, mglogL, vglogL
 
+#-------------------------------------------------
+# automatic bandwidth selection
+#-------------------------------------------------
+
+def silverman_bandwidth(data, weights=None):
+    """approximate rule of thumb for bandwidth selection"""
+    if weights is None:
+        std = np.std(data)
+        num = len(data)
+    else: ### account for weights when computing std
+        N = np.sum(weights)
+        std = (np.sum(weights*data**2)/N - (np.sum(weights*data)/N)**2)**0.5
+        num = neff(weights/np.sum(weights)) ### approximate number of samples that matter
+    return 0.9 * std * num**(-0.2)
+
 def optimize_bandwidth(
         data,
         bandwidth_range,
