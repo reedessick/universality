@@ -19,7 +19,7 @@ except ImportError:
 import multiprocessing as mp
 
 ### non-standard libraries
-from universality import gaussianprocess as gp
+from . import gaussianprocess as gp
 from universality import utils
 
 #-------------------------------------------------

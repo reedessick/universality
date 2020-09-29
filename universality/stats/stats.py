@@ -6,19 +6,8 @@ __author__ = "reed.essick@ligo.org"
 import numpy as np
 
 #-------------------------------------------------
-
-def quantile(x, quantiles, weights=None):
-    if weights is None:
-        return np.percentile(x, np.array(quantiles)*100)
-
-    else:
-        order = x.argsort()
-        x = x[order]
-        csum = np.cumsum(weights[order])
-        csum /= csum[-1]
-
-        return np.interp(quantiles, csum, x)
-#        return np.array([x[[csum<=q]][-1] for q in quantiles])
+# basic statistical quantities about convergence of monte-carlo integrals
+#-------------------------------------------------
 
 def nkde(weights):
     """the number of samples that determine the scaling of the variance of our KDE estimates"""
@@ -40,31 +29,22 @@ def information(weights, base=2.):
     """compute the information in the distribution"""
     return np.log(len(weights))/np.log(base) - entropy(weights, base=base)
 
-def logkde2levels(logkde, levels):
-    logkde = logkde.flatten()
-    kde = np.exp(logkde-np.max(logkde))
+#-------------------------------------------------
+# basic statistical quantities to be derived from samples
+#-------------------------------------------------
 
-    order = kde.argsort()[::-1] ### largest to smallest
-    ckde = np.cumsum(kde[order]) ### cumulative distribution
-    ckde /= np.sum(kde)
+def quantile(x, quantiles, weights=None):
+    if weights is None:
+        return np.percentile(x, np.array(quantiles)*100)
 
-    ans = []
-    for level in levels: ### iterate through levels, returning the kde value associated with that confidence
-                         ### assume kde spacing is close enough that interpolation isn't worth while...
-        ind = order[ckde<=level]
-        if len(ind):
-            ans.append(logkde[ind[-1]])
-        else: ### nothing is smaller than the first level, so we just add the first element
-              ### this issue should go away if we increase the number of samples in the kde...
-            ans.append(logkde[order[0]])
+    else:
+        order = x.argsort()
+        x = x[order]
+        csum = np.cumsum(weights[order])
+        csum /= csum[-1]
 
-    return ans
-
-def vects2vol(vects):
-    """
-    find approximate volume element
-    """
-    return np.prod([vect[1]-vect[0] for vect in vects])
+        return np.interp(quantiles, csum, x)
+#        return np.array([x[[csum<=q]][-1] for q in quantiles])
 
 def samples2cdf(data, weights=None):
     """estimate a CDF (integrating from small values to large values in data) based on weighted samples
@@ -80,6 +60,12 @@ def samples2cdf(data, weights=None):
     cweights = np.cumsum(weights)/np.sum(weights)
 
     return data, cweights
+
+def samples2range(data, pad=0.1):
+    m = np.min(data)
+    M = np.max(data)
+    delta = (M-m)*pad
+    return (m-delta, M+delta)
 
 def samples2median(data, weights=None):
     data, cweights = samples2cdf(data, weights=weights)
@@ -126,6 +112,36 @@ def samples2crbounds(data, levels, weights=None):
         bounds.append( best )
 
     return bounds
+
+#-------------------------------------------------
+# statistical interpretations of kdes
+#-------------------------------------------------
+
+def vects2vol(vects):
+    """
+    find approximate volume element
+    """
+    return np.prod([vect[1]-vect[0] for vect in vects])
+
+def logkde2levels(logkde, levels):
+    logkde = logkde.flatten()
+    kde = np.exp(logkde-np.max(logkde))
+
+    order = kde.argsort()[::-1] ### largest to smallest
+    ckde = np.cumsum(kde[order]) ### cumulative distribution
+    ckde /= np.sum(kde)
+
+    ans = []
+    for level in levels: ### iterate through levels, returning the kde value associated with that confidence
+                         ### assume kde spacing is close enough that interpolation isn't worth while...
+        ind = order[ckde<=level]
+        if len(ind):
+            ans.append(logkde[ind[-1]])
+        else: ### nothing is smaller than the first level, so we just add the first element
+              ### this issue should go away if we increase the number of samples in the kde...
+            ans.append(logkde[order[0]])
+
+    return ans
 
 def logkde2crbounds(vect, logkde, levels):
     """
