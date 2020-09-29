@@ -34,7 +34,6 @@ This is used to look up EoS parameters associated with the central densities of 
 e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
 
 parser.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
-parser.add_argument('--eos-reference-column', default=[], type=str, action='append')
 
 lgroup.add_argument('--eos-dir', default='.', type=str)
 lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
@@ -79,13 +78,10 @@ ogroup.add_argument('--output-eos-dir', default=None, type=str,
     help='if specified, we will write the updated files into this directory instead of overwriting them')
 ogroup.add_argument('--output-eos-column', default=[], type=str, action='append',
     help='the columns from the EoS files that we want to extract at the central densities of the interesting stellar configurations. \
-Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(branches.DEFAULT_EOS_COLUMNS)))
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(features.DEFAULT_EOS_COLUMNS)))
 ogroup.add_argument('--output-macro-column', default=[], type=str, action='append',
     help='the columns from the macro files that we want to extract at the central densities of the interesting stellar configurations. \
-Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(branches.DEFAULT_MACRO_COLUMNS)))
-
-ogroup.add_argument('--suppress-individual-branches', default=False, action='store_true',
-    help='do not write separate macro files for individual branches. Instead, only produce the branches summary file')
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(features.DEFAULT_MACRO_COLUMNS)))
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -116,8 +112,8 @@ if args.output_eos_dir is None:
 # parse the EoS columns we want to extract
 if not args.output_eos_column:
     if args.verbose:
-        print('setting --output-eos-column to default values: %s'%(', '.join(branches.DEFAULT_EOS_COLUMNS)))
-    args.output_eos_column = branches.DEFAULT_EOS_COLUMNS
+        print('setting --output-eos-column to default values: %s'%(', '.join(features.DEFAULT_EOS_COLUMNS)))
+    args.output_eos_column = features.DEFAULT_EOS_COLUMNS
 
 if eos_rho in args.output_eos_column:
     args.output_eos_column.remove(eos_rho) ### remove this so we don't load it twice
@@ -125,8 +121,8 @@ if eos_rho in args.output_eos_column:
 # parse the macro columns we want to extract
 if not args.output_macro_column:
     if args.verbose:
-        print('setting --output-macro-column to default values: %s'%(', '.join(branches.DEFAULT_MACRO_COLUMNS)))
-    args.output_macro_column = branches.DEFAULT_MACRO_COLUMNS
+        print('setting --output-macro-column to default values: %s'%(', '.join(features.DEFAULT_MACRO_COLUMNS)))
+    args.output_macro_column = features.DEFAULT_MACRO_COLUMNS
 
 if macro_rhoc not in args.output_macro_column:
     if args.verbose:
@@ -163,13 +159,13 @@ newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per
 
 assert args.macro_basename[-4:]==".csv", 'do not understand suffix of the macro basename! Expected it to end in ".csv"'
 basename = args.macro_basename[:-4] ### expect macro basename to end in ".csv"
-summary_template = os.path.join(newdir_template, basename+'-branches.csv') #
+summary_template = os.path.join(newdir_template, basename+'-moi-features.csv') #
 
 ### iterate to touch all EoS
 if args.verbose:
     print('iterating over files and extracting branch parameters')
 
-branches.process2branch_properties(
+features.process2moi_features(
     data,
     eos_template,
     args.eos_num_per_dir,
@@ -177,14 +173,15 @@ branches.process2branch_properties(
     args.macro_num_per_dir,
     summary_template,
     eos_rho,
+    args.eos_sound_speed_column,
     macro_rhoc,
     args.mass_column,
+    args.moi_column,
     output_eos_columns=args.output_eos_columns,
     output_macro_columns=args.output_macro_column,
-    suppress_individual_branches=args.suppress_individual_branches,
+    flatten_thr=args.flatten_thr,
+    smoothing_width=args.smoothing_width,
+    diff_thr=args.diff_thr,
+    cs2c2_cofactor=args.cs2c2_cofactor,
     verbose=args.Verbose,
 )
-#-------------------------------------------------
-
-raise NotImplementedError
-

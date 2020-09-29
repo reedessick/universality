@@ -300,7 +300,7 @@ def data2moi_features(
 
 #------------------------
 
-def process2moi_features(*args, **kwargs):
+def process2moi_features(
         data,
         eos_template,
         eos_num_per_dir,
