@@ -71,4 +71,4 @@ if args.output_path is not None:
 else:
     args.output_path = sys.stdout ### write to STDOUT
 
-np.savetxt(args.output_path, results, header=','.join(columns), comments='', delimiter=',')
+io.write(args.output_path, results, columns)

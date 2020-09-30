@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = 'use basic numerical differentiation to infer the values of the derivatives at the evaulation points'
-__author__ = 'reed.essick@ligo.org'
+"""use basic numerical differentiation to infer the values of the derivatives at the evaulation points
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 from universality import gaussianprocess as gp
 
 #-------------------------------------------------
@@ -32,7 +33,7 @@ if args.outpath is None:
 ### read in existing data
 if opts.verbose:
     print('reading: '+args.eospath)
-data, columns = utils.load(args.eospath)
+data, columns = io.load(args.eospath)
 
 e = data[:,columns.index('energy_densityc2')]
 p = data[:,columns.index('pressurec2')]
@@ -49,7 +50,7 @@ dedp = gp.num_dfdx(p, e) # delegate for convenience
 ### write out the result
 if opts.verbose:
     print('writing: '+args.outpath)
-with open(args.outpath, 'w') as obj:
-    print >> obj, ','.join(columns+['denergy_densitydpressure'])
-    for i in xrange(N):
-        print >> obj, ','.join('%9e'%_ for _ in list(data[i,:])+[dedp[i]])
+atad = np.empty((len(data), len(columns)+1), dtype=float)
+atad[:,:-1] = data
+atad[:,-1] = dedp
+io.write(args.outpath, atad, columns+['denergy_densitydpressure'])

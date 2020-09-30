@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""a simple script to remove some samples from a CSV
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
 import os
 import numpy as np
 from collections import defaultdict
@@ -7,7 +13,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 
 #-------------------------------------------------
 
@@ -48,7 +54,7 @@ if os.path.dirname(args.output_csv) and (not os.path.exists(os.path.dirname(args
 ### load data
 if args.verbose:
     print('reading samples from: '+args.input_csv)
-data, cols = utils.load(args.input_csv)
+data, cols = io.load(args.input_csv)
 N = len(data)
 if args.verbose:
     print('found %d samples'%N)
@@ -132,4 +138,4 @@ data = data[global_truth] ### downsample
 ### write out new data
 if args.verbose:
     print('writing retained samples to: '+args.output_csv)
-np.savetxt(args.output_csv, data, delimiter=',', comments='', header=','.join(cols))
+io.write(args.output_csv, data, cols)

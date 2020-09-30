@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-__doc__ = """\
+"""\
 numerically integrate phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 
 NOTE: 
   reference_pressurec2 should be specified in g/cm^3. The integral is performed over all samples in phi.csv (we assign one value for energy_density for each pressure). Furthermore, we require phi.csv to have logpressurec2 and phi as columns.
 
 Stitching to set the initial condition is done by matching to a known crust from Douchin+Haensel, arXiv:0111092. The value of the energy density is matched to the crust's prediction at log(pressurec2) = N(log(reference_pressurec2), sigma_logpressurec2)."""
-__author__ = "reed.essick@ligo.org"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -96,4 +96,4 @@ if args.stitch_below_reference_pressure:
 # write output
 if args.verbose:
     print('writing: '+args.outpath)
-np.savetxt(args.outpath, np.array(zip(pressurec2, energy_densityc2, baryon_density), dtype=float), comments='', delimiter=',', header=','.join(['pressurec2', 'energy_densityc2', 'baryon_density']))
+io.write(args.outpath, np.array(zip(pressurec2, energy_densityc2, baryon_density), dtype=float), ['pressurec2', 'energy_densityc2', 'baryon_density'])

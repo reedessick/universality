@@ -3,12 +3,16 @@ __author__ = "reed.essick@ligo.org"
 
 #-------------------------------------------------
 
+import os
+import shutil
+
 import numpy as np
 
 from . import utils
 
 #-------------------------------------------------
 
+ALPHANUMERIC = 'a b c d e f g h i j k l m n o p q r s t u v w x y z A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9'.split()
 DEFAULT_MAX_NUM_SAMPLES = np.infty
 
 #-------------------------------------------------
@@ -95,3 +99,17 @@ def load_logweights(inpath, weight_columns, logweightcolumns=[], invweightcolumn
 
     # multiply weights across all samples, which is the same as adding the logs
     return np.sum(data, axis=1)
+
+def write(path, data, cols, footer='', tmpdir='.', tmpdigits=6, verbose=False):
+    """a standardized writing function that does an atomic write
+    """
+    path = os.path.abspath(path) ### make sure have the full path
+
+    tmppath = os.path.join(tmpdir, "."+os.path.basename(path)+'-'+''.join(np.random.choice(ALPHANUMERIC, size=tmpdigits)) ### save to a temporary file
+    if verbose:
+        print('writing to temporary file location: '+tmppath)
+    np.savetxt(tmppath, data, header=','.join(cols), comments='', delimiter=',')
+
+    if verbose:
+        print('moving to final location: '+path)
+    shutil.move(tmppath, path) ### move to the permanent location

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that prints the cross-validation likelihood associated with each of a sequence of bandwidths over whitened data. This is similar in spirit to investigate-bandwidth, but reports the output in a format more convenient for marginalization at a later time"
-__author__ = "reed.essick@ligo.org"
+"""a script that prints the cross-validation likelihood associated with each of a sequence of bandwidths over whitened data. This is similar in spirit to investigate-bandwidth, but reports the output in a format more convenient for marginalization at a later time
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -74,7 +75,7 @@ args.verbose |= args.Verbose
 
 if opts.verbose:
     print('reading samples from: '+args.inpath)
-data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+data, columns = io.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 
 ranges = []
 for i, col in enumerate(columns):
@@ -84,7 +85,7 @@ for i, col in enumerate(columns):
         ranges.append((np.min(data[:,i]), np.max(data[:,i])))
 
 if args.weight_column:
-    weights = utils.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
+    weights = io.load_weights(args.inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
 else:
     N = len(data)
@@ -144,4 +145,4 @@ with open(args.outpath, 'w') as outfile:
             print('    bandwidth = %.3e'%b)
         variances[:] = b**2
         loglike = utils.logleave1outLikelihood(data, variances, weights=weights, num_proc=args.num_proc)
-        print >> outfile, tmp%(b, loglike)
+        print >> outfile, tmp%(b, loglike) ### FIXME: make this Python3 compatible

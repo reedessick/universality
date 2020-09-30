@@ -2,7 +2,7 @@
 
 """read in Phil's csv files and add in columns for component masses and chirp mass. If outpath is not provided, will overwrite inpath in place
 """
-"Reed Essick (reed.essick@gmail.com)"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -54,4 +54,4 @@ atad[:,-3] = m1
 atad[:,-2] = m2
 atad[:,-1] = Mc
 
-np.savetxt(args.outpath, atad, comments='', header=','.join(fields+newfields), delimiter=',')
+io.write(args.outpath, atad, fields+newfields)

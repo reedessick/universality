@@ -111,7 +111,7 @@ if args.outpath is not None:
         print('saving parameters of %d identified stable branches to: %s'%(len(params), args.outpath))
 else:
     args.outpath = sys.stdout
-np.savetxt(args.outpath, params, delimiter=',', comments='', header=','.join(names))
+io.write(args.outpath, params, names)
 
 #-------------------------------------------------
 

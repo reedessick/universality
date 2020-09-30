@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv. This assumes a 1-Dimensional distribution within source_samples.csv and applies weights based on the cumulative distribution observed therein"
-__author__ = "reed.essick@ligo.org"
+"""a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv. This assumes a 1-Dimensional distribution within source_samples.csv and applies weights based on the cumulative distribution observed therein
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -124,8 +125,8 @@ if args.do_not_log_output_weights:
 if args.verbose:
     print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
 
-template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
-with open(args.output, 'w') as file_obj:
-    print >> file_obj, ','.join(tgtcolumns+[args.output_weight_column])
-    for sample, logweight in zip(tgtdata, logcdf):
-        print >> file_obj, template%tuple(list(sample)+[logweight])
+atad = np.empty((len(tgtdata), len(tgtcolumns)+1), dtype=float)
+atad[:,:-1] = tgtdata
+atad[:,-1] = logcdf
+
+io.write(args.output, atad, tgtcolumns+[args.output_weight_column])

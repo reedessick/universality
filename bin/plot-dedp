@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "generate some simple plots of the EOS to make sure they're reasonable. Assumes all columns are in g/cm^3, and converts to more standard units as appropriate"
-__author__ = "reed.essick@ligo.org"
+"""generate some simple plots of the EOS to make sure they're reasonable. Assumes all columns are in g/cm^3, and converts to more standard units as appropriate
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -12,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (units, io)
 from universality import plot
 
 #-------------------------------------------------
@@ -59,15 +60,15 @@ ax_pv = plot.plt.subplot(3,1,3)
 for path in args.inpaths:
     if args.verbose:
         print('reading EOS data from: '+path)
-    d = np.genfromtxt(path, names=True, delimiter=',')
+    d, c = io.load(path)
 
     if args.verbose:
         print('plotting')
 
     label = os.path.basename(path)[:-4]
-    p = d['pressurec2']*utils.c2
-    e = d['energy_densityc2']*utils.c2
-    dedp = d['denergy_densitydpressure']
+    p = d[:,c.index('pressurec2')]*units.c2
+    e = d[:,c.index('energy_densityc2')]*units.c2
+    dedp = d[:,c.index('denergy_densitydpressure')]
 
     truth = np.ones_like(p, dtype=bool)
     if argss.min_pressure!=None:
@@ -84,8 +85,8 @@ for path in args.inpaths:
     ax_pv.plot(p, 1./dedp, args.linestyle, label=label, color=color)
 
     ### check for error estimates on dedp
-    if d.dtype.fields.has_key('sigma_denergy_densitydpressure') and args.show_errors:
-        s = 3*d['sigma_denergy_densitydpressure'] ### plot 3-sigma confidence regions
+    if ('sigma_denergy_densitydpressure' in c) and args.show_errors:
+        s = 3*d[:,c.index('sigma_denergy_densitydpressure')] ### plot 3-sigma confidence regions
         s = s[truth]
         high = (dedp + s)
         low = (dedp - s)

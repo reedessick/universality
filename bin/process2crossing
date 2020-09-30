@@ -153,4 +153,4 @@ for column in args.columns:
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-np.savetxt(args.outpath, ans, comments='', delimiter=',', header=','.join(outcols))
+io.write(args.outpath, ans, outcols)

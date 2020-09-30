@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 
 #-------------------------------------------------
 
@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 if args.verbose:
     print('reading: '+args.source)
-d, c = utils.load(args.source)
+d, c = io.load(args.source)
 N = len(d)
 
 if args.verbose:
@@ -37,4 +37,4 @@ np.random.shuffle(d) ### modifies ths in-place
 
 if args.verbose:
     print('writing: '+args.target)
-np.savetxt(args.target, d, header=','.join(c), comments='', delimiter=',')
+io.write(args.target, d, c)

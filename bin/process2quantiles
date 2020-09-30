@@ -143,4 +143,4 @@ outcols = ['quantile'] + [col_template%val for val in x_test]
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-np.savetxt(args.outpath, ans, comments='', delimiter=',', header=','.join(outcols))
+io.write(args.outpath, ans, outcols)
