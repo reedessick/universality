@@ -13,8 +13,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (utils, io)
-from universality.gaussianprocess import gaussianprocess as gp
-from universality.properites import samples
+from universality.properties import samples
 
 #-------------------------------------------------
 

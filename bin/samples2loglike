@@ -142,8 +142,8 @@ for b in bandwidths:
     if args.Verbose:
         print('    bandwidth = %.3e'%b)
     variances[:] = b**2
-    loglike.append((b, kde.logleave2outLikelihood(data, variances, weights=weights, num_proc=args.num_proc))_
+    loglike.append((b, kde.logleave2outLikelihood(data, variances, weights=weights, num_proc=args.num_proc)))
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-io.write(args.outpath, loglike, ['bandwidth', 'logLike']
+io.write(args.outpath, loglike, ['bandwidth', 'logLike'])

@@ -5,6 +5,7 @@ __author__ = "Reed Essick (reed.essick@gmai.com)"
 #-------------------------------------------------
 
 from universality.utils import io
+from universality.gaussianprocess import gaussianprocess as gp
 
 #-------------------------------------------------
 

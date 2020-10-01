@@ -56,4 +56,4 @@ if args.target_if_false == "/dev/null":
 else:
     if args.verbose:
         print('writing: '+args.target_if_false)
-    io.write(args.target_if_false, data[np.logical_not(truth)], cols
+    io.write(args.target_if_false, data[np.logical_not(truth)], cols)

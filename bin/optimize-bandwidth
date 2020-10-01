@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space via Netwon's method
+"""finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space via Netwon's method
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
