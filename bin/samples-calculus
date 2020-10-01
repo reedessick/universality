@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+"""a script to add columns to a single CSV based on simple operations of existing columns
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+raise NotImplementedError
