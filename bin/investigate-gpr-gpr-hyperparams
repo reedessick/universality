@@ -14,7 +14,7 @@ import h5py
 from argparse import ArgumentParser
 
 ### non-standard
-from universality import utils
+from universality.utils import (utils, units, io)
 from universality.gaussianprocess import gaussianprocess as gp
 from universality.gaussianprocess import hyperparameters as hp
 from universality import plot
@@ -26,7 +26,7 @@ DEFAULT_MIN = 1e30 ### g/cm^3
 DEFAULT_MAX = 1e38
 
 DEFAULT_STITCH_MEAN = 6.0 ### chosen by eye...
-DEFAULT_STITCH_PRESSURE = 1e10*utils.c2 ### dyn/cm^2
+DEFAULT_STITCH_PRESSURE = 1e10*units.c2 ### dyn/cm^2
 DEFAULT_STITCH_INDEX = 5
 
 #-------------------------------------------------
@@ -196,7 +196,7 @@ if args.stitch: ### set up stitching conditions
         np.log(args.stitch_pressure_bounds[1]),
         args.stitch_num_points,
     )
-    x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
+    x_stitch -= 2*np.log(units.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
     f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index)
     stitch = [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
 else:
@@ -271,12 +271,8 @@ logL = %.3e'''%tuple(grid[grid['logLike'].argmax()]))
     path = "%s/investigate-gpr-gpr-hyperparams-grid%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
-    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
-    with open(path, 'w') as file_obj:
-        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
-        for tup in zip(grid['sigma'], grid['l'], grid['sigma_obs'], grid['model_multiplier'], grid['logLike']):
-            if tup[-1]==tup[-1]: ### logLike is not nan
-                print >> file_obj, tmp%tup
+    grid = grid[grid[:,-1]==grid[:,-1]]
+    io.write(path, grid, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'multiplier', 'logLike'])
 
     if args.plot:
         if args.include_logL:
@@ -355,12 +351,8 @@ logL = %.3e'''%tuple(mc[mc['logLike'].argmax()]))
     path = "%s/investigate-gpr-gpr-hyperparams-mc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
-    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
-    with open(path, 'w') as file_obj:
-        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
-        for tup in zip(mc['sigma'], mc['l'], mc['sigma_obs'], mc['model_multiplier'], mc['logLike']):
-            if tup[-1]==tup[-1]: ### logLike is not nan
-                print >> file_obj, tmp%tup
+    mc = mc[mc[:,-1]==mc[:,-1]]
+    io.write(path, mc, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'multiplier', 'logLike'])
 
     if args.plot:
         if args.include_logL:
@@ -435,11 +427,8 @@ logL = %.3e'''%tuple(mcmc[mcmc['logLike'].argmax()]))
     path = "%s/investigate-gpr-gpr-hyperparams-mcmc%s.csv"%(args.output_dir, args.tag)
     if args.verbose:
         print('writing: '+path)
-    tmp = '%d,'%args.poly_degree + ','.join('%.9e' for _ in xrange(5)) # s, l, S, m, logLike
-    with open(path, 'w') as file_obj:
-        print >> file_obj, 'poly_degree,sigma,l,sigma_obs,multiplier,logLike'
-        for tup in zip(mcmc['sigma'], mcmc['l'], mcmc['sigma_obs'], mcmc['model_multiplier'], mcmc['logLike']):
-            print >> file_obj, tmp%tup
+    mcmc = mcmc[mcmc[:,-1]==mcmc[:,-1]]
+    io.write(path, mcmc, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'multiplier', 'logLike'])
 
     if args.plot:
         if args.include_logL:

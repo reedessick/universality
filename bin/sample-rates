@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.priors import rates
-from universality import utils
+from universality.utils import utils
 
 #-------------------------------------------------
 

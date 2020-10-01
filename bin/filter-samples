@@ -13,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -38,7 +38,7 @@ for target in [args.target_if_true, args.target_if_false]:
 
 if args.verbose:
     print('loading: '+args.source)
-data, cols = utils.load(args.source)
+data, cols = io.load(args.source)
 
 if args.verbose:
     print('identifying subset of samples')

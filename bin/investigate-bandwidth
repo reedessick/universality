@@ -12,8 +12,9 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import plot
+from universality import kde
 
 #-------------------------------------------------
 
@@ -80,7 +81,7 @@ args.verbose |= args.Verbose
 ### read in data from csv
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+data, columns = io.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 Nsamp = len(data)
 
 if args.verbose:
@@ -102,7 +103,7 @@ data, means, stds = utils.whiten(data, verbose=args.verbose)
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath)
-    weights = utils.load_weights(
+    weights = io.load_weights(
         args.inpath,
         args.weight_column,
         logweightcolumns=args.weight_column_is_log,
@@ -127,7 +128,7 @@ for b in args.bandwidth:
 
     v[:] = b**2 ### convert standard deviation into variances. 
                 ### Assume diagonal covariance matrix with the same value throughout
-    mlogL, vlogL, mdlogLdvp, vdlogLdvp = utils.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
+    mlogL, vlogL, mdlogLdvp, vdlogLdvp = kde.logleavekoutLikelihood(data, v, k=args.num_withheld, weights=weights, num_proc=args.num_proc)
     metrics[b] = {
         'mean_logL' : mlogL,
         'stdv_logL' : vlogL**0.5,

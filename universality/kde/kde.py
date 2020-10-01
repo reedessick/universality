@@ -146,12 +146,6 @@ def _cumulative_gaussian_distribution(z):
 # KDE and cross-validation likelihood
 #-------------------------------------------------
 
-def data2range(data, pad=0.1):
-    m = np.min(data)
-    M = np.max(data)
-    delta = (M-m)*pad
-    return (m-delta, M+delta)
-
 def vects2flatgrid(*vects):
     return np.transpose([_.flatten() for _ in np.meshgrid(*vects, indexing='ij')])
 

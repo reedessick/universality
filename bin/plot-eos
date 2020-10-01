@@ -13,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 from universality import plot
 
 #-------------------------------------------------
@@ -107,7 +107,7 @@ curves = []
 for label, path in args.samples:
     if args.verbose:
         print('reading EOS data from: '+path)
-    d, cols = utils.load(path, columns)
+    d, cols = io.load(path, columns)
 
     truth = np.ones(len(d), dtype=bool)
     if ranges.has_key(args.xcolumn):

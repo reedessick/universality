@@ -165,3 +165,11 @@ def process2quantiles(
         med[i] = stats.quantile(_y, [0.5], weights=_w)[0] ### compute median
 
     return qs, med
+
+#-------------------------------------------------
+
+def calculus(*args, **kwargs):
+    raise NotImplementedError
+
+def process_calculus(*args, **kwargs):
+    raise NotImplementedError

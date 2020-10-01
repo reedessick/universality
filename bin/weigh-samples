@@ -149,8 +149,7 @@ for column in args.logcolumn:
     tgtcolumns[i] = column
 
 ### now actually write stuff to disk
-template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
-with open(args.output, 'w') as file_obj:
-    print >> file_obj, ','.join(tgtcolumns+[args.output_weight_column])
-    for sample, logweight in zip(tgtdata, logkde):
-        print >> file_obj, template%tuple(list(sample)+[logweight])
+atad = np.empty((len(tgtdata), len(tgtcolumns)+1), dtype=float)
+atad[:,:-1] = data
+atad[:,-1] = logkde
+io.write(args.output, atad, tgtcolumns+[args.output_weight_column])

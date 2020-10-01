@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import plot
 from universality import stats
 
@@ -156,7 +156,7 @@ global_ranges = [(np.infty, -np.infty) for _ in range(Ncol)]
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from: %s'%(label, path))
-    data, columns = utils.load(path, args.columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+    data, columns = io.load(path, args.columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
 
     ranges = []
     for i, col in enumerate(args.columns):
@@ -175,7 +175,7 @@ for ind, (label, path) in enumerate(args.samples):
     if weight_columns[label][0]: ### at least one column specified
         if args.verbose:
             print('reading in non-trivial weights from: '+path)
-        weights = utils.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
+        weights = io.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
 
     else:
         N = len(data)

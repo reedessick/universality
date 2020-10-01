@@ -13,8 +13,9 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import kde
+from universality import stats
 from universality import plot
 
 #-------------------------------------------------
@@ -79,7 +80,7 @@ if not args.level:
 ### load data
 if args.verbose:
     print('reading: '+args.samples)
-data, columns = utils.load(args.samples)
+data, columns = io.load(args.samples)
 Nsamp = len(data)
 if args.verbose:
     print('found %d samples for %d columns'%(Nsamp, len(columns)))
@@ -87,7 +88,7 @@ if args.verbose:
 if args.weight_column:
     if args.verbose:
         print('reading weights as %s from: %s'%(args.weight_column, args.samples))
-    weights = utils.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log)[0][:,0]
+    weights = io.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log)[0][:,0]
 
     truth = weights>0
     data = data[truth,:]
@@ -123,7 +124,7 @@ if args.verbose:
 
 ### whiten and define ranges
 data, means, std = utils.whiten(data, verbose=args.Verbose)
-vect = [np.linspace(*utils.data2range(data[:,i]), num=args.num_points) for i in xrange(len(columns))]
+vect = [np.linspace(*stats.samples2range(data[:,i]), num=args.num_points) for i in xrange(len(columns))]
 variance = args.bandwidth**2
 variances = np.array([variance, variance], dtype=float)
 
@@ -157,14 +158,14 @@ for ind in xrange(1, N):
         if args.verbose:
             print(tmp%(i, key1, key2))
 
-        kde1[:] = utils.logkde(vect[ind], data[:,ind], variance, weights=weights)
-        kde2[:] = utils.logkde(vect[jnd], data[:,jnd], variance, weights=weights)
+        kde1[:] = kde.logkde(vect[ind], data[:,ind], variance, weights=weights)
+        kde2[:] = kde.logkde(vect[jnd], data[:,jnd], variance, weights=weights)
 
         X1, X2 = np.meshgrid(vect[ind], vect[jnd], indexing='ij')
         truth[:] = False
         truth[ind] = truth[jnd] = True
         bigvect[:] = zip(X2.flatten(), X1.flatten())
-        kdej[:] = utils.logkde(bigvect, data[:,truth], variances, weights=weights)
+        kdej[:] = kde.logkde(bigvect, data[:,truth], variances, weights=weights)
 
         # compute MID, approximating KDE as a discrete distribution on the grid
         kde1[:] = np.exp(kde1-np.max(kde1))
@@ -271,7 +272,7 @@ if args.plot_stats:
     vals = vals[vals==vals] ### reject nans
 
     # basic histogram
-    bins = np.logspace(*np.log10(utils.data2range(vals, pad=0)), num=max(10, (N*(N-1)/2)**0.5))
+    bins = np.logspace(*np.log10(stats.samples2range(vals, pad=0)), num=max(10, (N*(N-1)/2)**0.5))
 
     ax.hist(vals, bins=bins, histtype='step', normed=True, color='b')
     AX.hist(vals, bins=bins, histtype='step', normed=True, cumulative=1, color='r')

@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import utils, io
+from universality.utils import (utils, io)
 from universality import kde
 from universality import plot
 

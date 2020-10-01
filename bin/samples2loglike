@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (utils, io)
+from universality import kde
 
 #-------------------------------------------------
 
@@ -134,15 +135,15 @@ else:
 Ndim = len(columns)
 if args.verbose:
     print('evaluating logLike for whitened %d-dimensional data'%Ndim)
-    print('writing samples to: '+args.outpath)
 
 variances = np.empty(Ndim, dtype=float)
-tmp = '%.9e,%.9e'
-with open(args.outpath, 'w') as outfile:
-    print >> outfile, 'bandwidth,logLike'
-    for b in bandwidths:
-        if args.Verbose:
-            print('    bandwidth = %.3e'%b)
-        variances[:] = b**2
-        loglike = utils.logleave1outLikelihood(data, variances, weights=weights, num_proc=args.num_proc)
-        print >> outfile, tmp%(b, loglike) ### FIXME: make this Python3 compatible
+loglikes = []
+for b in bandwidths:
+    if args.Verbose:
+        print('    bandwidth = %.3e'%b)
+    variances[:] = b**2
+    loglike.append((b, kde.logleave2outLikelihood(data, variances, weights=weights, num_proc=args.num_proc))_
+
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+io.write(args.outpath, loglike, ['bandwidth', 'logLike']

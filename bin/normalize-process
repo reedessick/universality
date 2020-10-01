@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard imports
-from universality import gaussianprocess as gp
+from universality.gaussianprocess import gaussianprocess as gp
 
 #-------------------------------------------------
 

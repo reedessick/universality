@@ -14,9 +14,10 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import plot
 from universality import stats
+from universality.properties import samples
 
 #-------------------------------------------------
 
@@ -278,12 +279,12 @@ if args.legend and args.include_neff:
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
-    data, cols = utils.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
+    data, cols = io.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
 
     if weight_columns[label][0]:
         if args.verbose:
             print('reading in non-trivial weights from: '+path)
-        weights = utils.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
+        weights = io.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
 
     else:
         N = len(data)
@@ -312,7 +313,8 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('computing confidence intervals from %d samples'%N)
 
-    qs, med = utils.process2quantiles(
+    raise RuntimeError('''FIXME''')
+    qs, med = samples.process2quantiles(
         data,
         eos_temps[label],
         eos_num_per_dir[label],
@@ -336,7 +338,7 @@ if args.reference:
     for label, path in args.reference:
         if args.verbose:
             print('reading reference curve from: '+path)
-        d, _ = utils.load(path, columns)
+        d, _ = io.load(path, columns)
         d[:,0] *= args.x_multiplier
         d[:,1] *= args.y_multiplier
         reference.append((label, d)) ### just grab the data, not the column names
