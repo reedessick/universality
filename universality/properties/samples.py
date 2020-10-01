@@ -99,8 +99,60 @@ def process_calculus(
 # utility functions for processing process directory structures
 #-------------------------------------------------
 
-def data2samples(*args, **kwargs):
-    raise NotImplementedError
+def data2samples(x, data, static, dynamic, nearest_neighbor=False):
+    """logic for exactly how we extract samples from (possibly non-monotonic) data
+    """
+    Nref, static_x_test = static
+    Ndyn, dynamic_x_test = dynamic
+
+    Ndata, Ncols = data.shape
+    ans = np.empty((Nref+Ndyn)*Ncols, dtype=float)
+
+    if nearest_neighbor:
+        if Nref > 0:
+            truth = np.zeros(len(data), dtype=bool)
+            for X in static_x_test:
+                truth[np.argmin(np.abs(x-X))] = True
+
+        if Ndyn > 0:
+            dyn_truth = np.zeros(len(data), dtype=bool)
+            for X in dynamic_x_test[i]:
+                dyn_truth[np.argmin(np.abs(x-X))] = True
+
+    if (Nref > 0) and (Ndyn > 0):
+        for j in range(Ncols):
+            if nearest_neighbor:
+                ans[j*Ntot:j*Ntot+Nref] = data[:,j][truth]
+                ans[j*Ntot+Nref:(j+1)*Ntot] = data[:,j][dyn_truth]
+            else:
+                ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, x, data[:,j])
+                ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], x, data[:,j])
+
+    elif Nref > 0:
+        for j in range(Ncols):
+            if nearest_neighbor:
+                ans[i,j*Nref:(j+1)*Nref] = data[:,j][truth]
+            else:
+                ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, x, data[:,j])
+
+    else: ### Ndyn > 0
+        for j in range(Ncols):
+            if nearest_neighbor:
+                ans[i,j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_truth]
+            else:
+                ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], x, data[:,j])
+
+    return ans
+
+COL_TEMPLATE = '%s(%s=%s)' ### add columns corresponding to a specific value
+REF_TEMPLATE = '%s(%s@%s)' ### add columns corresponding to reference values read dynamically from columns
+
+def outputcolumns(columns, reference, reference_values=[], reference_columns=[]):
+    outcols = []
+    for column in columns:
+        outcols += [COL_TEMPLATE%(column, reference, val) for val in reference_values]
+        outcols += [REF_TEMPLATE%(column, reference, col) for col in reference_value_columns]
+    return outcols
 
 def process2samples(
         data,
@@ -139,40 +191,10 @@ def process2samples(
         if verbose:
             print('    '+path)
         d, c = load(path, loadcolumns)
+        x = d[:,c.index(xcolumn)]
+        d = d[:,1:]
 
-        if nearest_neighbor:
-            if Nref > 0:
-                truth = np.zeros(len(d), dtype=bool)
-                for x in static_x_test:
-                    truth[np.argmin(np.abs(d[:,0]-x))] = True
-
-            if Ndyn > 0:
-                dyn_truth = np.zeros(len(d), dtype=bool)
-                for x in dynamic_x_test[i]:
-                    dyn_truth[np.argmin(np.abs(d[:,0]-x))] = True
-
-        if (Nref > 0) and (Ndyn > 0):
-            for j, column in enumerate(c[1:]):
-                if nearest_neighbor:
-                    ans[i,j*Ntot:j*Ntot+Nref] = d[:,1+j][truth]
-                    ans[i,j*Ntot+Nref:(j+1)*Ntot] = d[:,1+j][dyn_truth]
-                else:
-                    ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
-                    ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
-
-        elif Nref > 0:
-            for j, column in enumerate(c[1:]):
-                if nearest_neighbor:
-                    ans[i,j*Nref:(j+1)*Nref] = d[:,1+j][truth]
-                else:
-                    ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, d[:,0], d[:,1+j])
-
-        else: ### Ndyn > 0
-            for j, column in enumerate(c[1:]):
-                if nearest_neighbor:
-                    ans[i,j*Ndyn:(j+1)*Ndyn] = d[:,1+j][dyn_truth]
-                else:
-                    ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], d[:,0], d[:,1+j])
+        ans[i] = data2samples(x, d, (Nref, static_x_test), (Ndyn, dynamic_x_test), nearest_neighbor=nearest_neighbor)
 
     return ans
 

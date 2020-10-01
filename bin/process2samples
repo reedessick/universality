@@ -110,13 +110,7 @@ ans[:,Nkeep:] = samples.process2samples(
 )
 
 ### set up output columns
-outcols = [col for col in args.copy_column]
-
-col_template = '%s(%s=%s)' ### add columns corresponding to a specific value
-ref_template = '%s(%s@%s)' ### add columns corresponding to reference values read dynamically from columns
-for column in args.columns:
-    outcols += [col_template%(column, args.reference, val) for val in args.reference_value] 
-    outcols += [ref_template%(column, args.reference, col) for col in args.reference_value_column]
+outcols = args.copy_columns + samples.output_columns(args.columns, args.reference, reference_values=args.reference_value, reference_value_columns=args.reference_value_column)
 
 #------------------------
 
