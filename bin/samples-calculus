@@ -8,12 +8,57 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 from argparse import ArgumentParser
 
+### non-standard libraries
+from universality.utils import io
+from universality.properties import samples
+
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
 
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('action', type=str,
+    help='must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS)))
+
+rgroup.add_argument('xcolumn', type=str,
+    help='the abscissa, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+rgroup.add_argument('fcolumn', type=str,
+    help='the ordinate, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+
+rgroup.add_argument('--new-column', type=str, default=None,
+    help='the name of the new column that will be added to each file')
+rgroup.add_argument('--overwrite', default=False, action='store_true',
+    help='if specified, will overwrite new-column if it already exists')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
 args = parser.parse_args()
+
+### finish parsing
+
+assert args.action in samples.KNOWN_ACTIONS, 'action must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS))
+foo = samples.FUNCTIONS[args.action] ### look up the function handle only once
+
+if args.new_column is None:
+    args.new_column = samples.DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
+
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
-raise NotImplementedError
+if args.verbose:
+    print('reading data from: '+args.inpath)
+data, cols = io.oad(args.inpath)
+
+data, cols = samples.calculus(data, cols, args.xcolumn, args.fcolumn, foo, args.new_column, overwrite=args.overwrite)
+
+if args.verbose:
+    print('writing augmented data to: '+args.outpath)
+io.write(args.outpath, data, cols)

@@ -1,5 +1,98 @@
-__doc__ = "a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations"
-__author__ = "reed.essick@ligo.org"
+"""a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations
+"""
+__author__ = "Reed Essick (reed.essick@gmai.com)"
+
+#-------------------------------------------------
+
+from universality.utils import io
+
+#-------------------------------------------------
+
+DEFAULT_COLUMN_NAME = {
+    'add': '(%(fcolumn)s)+(%(xcolumn)s)',
+    'subtract': '(%(fcolumn)s)-(%(xcolumn)s)',
+    'multiply': '(%(fcolumn)s)*(%(xcolumn)s)',
+    'divide': '(%(fcolumn)s)/(%(xcolumn)s)',
+    'logarithmic differentiate': 'd(ln_%(fcolumn)s)/d(ln_%(xcolumn)s)',
+    'differentiate': 'd(%(fcolumn)s)/d(%(xcolumn)s)',
+    'integrate': 'int(%(fcolumn)s)d(%(xcolumn)s)',
+}
+
+FUNCTIONS = {
+    'add': (lambda x, f : x+f),
+    'subtract': (lambda x, f : f-x),
+    'multiply': (lambda x, f : x*f),
+    'divide': (lambda x, f : f/x),
+    'logarithmic differentiate': (lambda x,y : gp.num_dfdx(x,f)*x/f),
+    'differentiate': gp.num_dfdx,
+    'integrate': gp.num_intfdx,
+}
+
+KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())
+
+#-------------------------------------------------
+
+def calculus(data, cols, xcolumn, fcolumn, foo, newcolumn, overwrite=False):
+    """perform basic operations on a data set
+    """
+    npts, ncol = data.shape
+    if overwrite:
+        if new_column in c:
+            ans = data
+            ind = cols.index(args.new_column)
+            header = cols
+        
+        else:
+            ans = np.empty((npts, ncol+1), dtype=float)
+            ans[:,:-1] = data
+            ind = -1
+            header = cols+[newcolumn]
+        
+    else:
+        assert new_column not in cols, "column=%s already exists!"%newcolumn
+        ans = np.empty((npts, ncol+1), dtype=float)
+        ans[:,:-1] = data
+        ind = -1
+        header = cols+[newcolumn]
+
+    ans[:,ind] = foo(data[:,cols.index(xcolumn)], data[:,cols.index(fcolumn)]) ### compute the integral or derivative
+    return ans, cols
+
+def process_calculus(
+        data,
+        input_tmp,
+        mod,
+        output_tmp,
+        xcolumn,
+        fcolumn,
+        foo,
+        newcolumn,
+        overwrite=False,
+        verbose=False,
+    ):
+    """manages I/O for performing calculations on a large number of files
+    """
+    for eos in data:
+        tmp = {'moddraw':eos//mod, 'draw':eos}
+        path = path_template%tmp
+        if verbose:
+            print('    '+path)
+        d, c = io.load(path)
+
+        ans, cols = calculus(d, c, xcolumn, ycolumn, foo, newcolumn, overwrite=overwrite)
+
+        new = output_tmp%tmp
+        if verbose:
+            print('        writing: '+new)
+
+        newdir = os.path.dirname(new)
+        if not os.path.exists(newdir):
+            try:
+                os.makedirs(newdir)
+            except OSError:
+                pass ### directory already exists
+
+        io.write(new, ans, header) ### save the result to the same file
 
 #-------------------------------------------------
 # utility functions for processing process directory structures
@@ -165,11 +258,3 @@ def process2quantiles(
         med[i] = stats.quantile(_y, [0.5], weights=_w)[0] ### compute median
 
     return qs, med
-
-#-------------------------------------------------
-
-def calculus(*args, **kwargs):
-    raise NotImplementedError
-
-def process_calculus(*args, **kwargs):
-    raise NotImplementedError

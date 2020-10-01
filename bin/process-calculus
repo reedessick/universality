@@ -18,30 +18,6 @@ from universality.properites import samples
 
 #-------------------------------------------------
 
-DEFAULT_COLUMN_NAME = {
-    'add': '(%(fcolumn)s)+(%(xcolumn)s)',
-    'subtract': '(%(fcolumn)s)-(%(xcolumn)s)',
-    'multiply': '(%(fcolumn)s)*(%(xcolumn)s)',
-    'divide': '(%(fcolumn)s)/(%(xcolumn)s)',
-    'logarithmic differentiate': 'd(ln_%(fcolumn)s)/d(ln_%(xcolumn)s)',
-    'differentiate': 'd(%(fcolumn)s)/d(%(xcolumn)s)',
-    'integrate': 'int(%(fcolumn)s)d(%(xcolumn)s)',
-}
-
-FUNCTIONS = {
-    'add': (lambda x, f : x+f),
-    'subtract': (lambda x, f : f-x),
-    'multiply': (lambda x, f : x*f),
-    'divide': (lambda x, f : f/x),
-    'logarithmic differentiate': (lambda x,y : gp.num_dfdx(x,f)*x/f),
-    'differentiate': gp.num_dfdx,
-    'integrate': gp.num_intfdx,
-}
-
-KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())
-
-#-------------------------------------------------
-
 parser = ArgumentParser(description=__doc__)
 
 # required arguments
@@ -49,7 +25,7 @@ rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('inpath', type=str)
 
 rgroup.add_argument('action', type=str,
-    help='must be one of: %s'%(', '.join(KNOWN_ACTIONS)))
+    help='must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS)))
 
 rgroup.add_argument('xcolumn', type=str,
     help='the abscissa, such that taking the derivative means computeing "dfcolumn / dxcolum"')
@@ -88,11 +64,11 @@ args = parser.parse_args()
 
 ### finish parsing
 
-assert args.action in KNOWN_ACTIONS, 'action must be one of: %s'%(', '.join(KNOWN_ACTIONS))
-foo = FUNCTIONS[args.action] ### look up the function handle only once
+assert args.action in samples.KNOWN_ACTIONS, 'action must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS))
+foo = samples.FUNCTIONS[args.action] ### look up the function handle only once
 
 if args.new_column is None:
-    args.new_column = DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
+    args.new_column = samples.DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
 
 if args.output_eos_dir is None:
     args.output_eos_dir = args.eos_dir
@@ -122,44 +98,15 @@ path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(
 newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
 new_template = os.path.join(newdir_template, args.eos_basename)
 
-for eos in data:
-    tmp = {'moddraw':eos//args.eos_num_per_dir, 'draw':eos}
-    path = path_template%tmp
-    if args.Verbose:
-        print('    '+path)
-    d, c = io.load(path)
-
-    npts, ncol = d.shape
-    if args.overwrite:
-        if args.new_column in c:
-            ans = d
-            ind = c.index(args.new_column)
-            header = c
-
-        else:
-            ans = np.empty((npts, ncol+1), dtype=float)
-            ans[:,:-1] = d
-            ind = -1
-            header = c+[args.new_column]
-
-    else:
-        assert args.new_column not in c, "column=%s already exists in %s!"%(args.new_column, path)
-        ans = np.empty((npts, ncol+1), dtype=float)
-        ans[:,:-1] = d
-        ind = -1
-        header = c+[args.new_column]
-    
-    ans[:,ind] = foo(d[:,c.index(args.xcolumn)], d[:,c.index(args.fcolumn)]) ### compute the integral or derivative
-
-    new = new_template%tmp
-    if args.Verbose:
-        print('        writing: '+new)
-
-    newdir = newdir_template%tmp
-    if not os.path.exists(newdir):
-        try:
-            os.makedirs(newdir)
-        except OSError:
-            pass ### directory already exists
-
-    io.write(new, ans, header) ### save the result to the same file
+samples.process_calculus(
+    data,
+    path_template,
+    args.eos_num_per_dir,
+    new_template,
+    args.xcolumn,
+    args.fcolumn,
+    foo,
+    args.new_column,
+    overwrite=args.overwrite,
+    verbose=args.Verbose,
+)
