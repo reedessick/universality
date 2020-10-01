@@ -1,5 +1,6 @@
-__doc__ = "a module for basic I/O operations"
-__author__ = "reed.essick@ligo.org"
+"""a module for basic I/O operations
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

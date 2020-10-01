@@ -1,5 +1,6 @@
-__doc__ = "a module that houses utilities that compute statistics based on KDEs"
-__author__ = "reed.essick@ligo.org"
+"""a module that houses utilities that compute statistics based on KDEs
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

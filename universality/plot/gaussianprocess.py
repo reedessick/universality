@@ -1,5 +1,6 @@
-__doc__ = "a module that houses plotting routines to visualize gaussian processes"
-__author__ = "reed.essick@ligo.org"
+"""a module that houses plotting routines to visualize gaussian processes
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

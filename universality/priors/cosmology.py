@@ -1,6 +1,6 @@
 """a simple module that implements cosmological functionality
 """
-__author__ = "reed.essick@ligo.org"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

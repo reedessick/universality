@@ -1,5 +1,6 @@
-__doc__ = "a module for general utility functions when applying \"rapid sampling\" based on monte carlo samples"
-__author__ = "reed.essick@ligo.org"
+"""a module for general utility functions when applying \"rapid sampling\" based on monte carlo samples
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

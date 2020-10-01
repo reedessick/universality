@@ -1,5 +1,6 @@
-__doc__ = "a module for custom (Gaussian) kernel density estimation (KDE)"
-__author__ = "reed.essick@ligo.org"
+"""a module for custom (Gaussian) kernel density estimation (KDE)
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

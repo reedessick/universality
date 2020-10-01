@@ -1,5 +1,6 @@
-__doc__ = "definitions of units used throughout the library. Most calculations assume CGS"
-__author__ = "reed.essick@ligo.org"
+"""definitions of units used throughout the library. Most calculations assume CGS
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

@@ -1,5 +1,6 @@
-__doc__ = "a module that houses plotting routines for common uses, defining common parameters for plotting logic"
-__author__ = "reed.essick@ligo.org"
+"""a module that houses plotting routines for common uses, defining common parameters for plotting logic
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

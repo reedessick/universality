@@ -1,7 +1,7 @@
-__doc__ = """a module for generating prior weights based on known sampling priors within lalinference. 
+"""a module for generating prior weights based on known sampling priors within lalinference. 
 **NOTE**, we assume LALInference samples uniformly in *detector-frame* component masses (m1, m2) assuming m1>=m2, with a prior on the luminosity distance p(D) ~ D**2, and uniformly in the tidal deformabilities (Lambda1, Lambda2). All priors computed herein are the analytic prior weights in the requested parameters induced by this sampling procedure. Dividing by these prior weights in a monte-carlo sampling procedure will therefore induce uniform priors on the specified parameters (e.g., weighing each sample by the inverse of msrc_Vcov will produce samples drawn with a uniform prior in the source-frame masses and a uniform prior in the comoving volume).
 """
-__author__ = "reed.essick@ligo.org"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 

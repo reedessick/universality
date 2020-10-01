@@ -1,5 +1,6 @@
-__doc__ = "a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations"
-__author__ = "reed.essick@ligo.org"
+"""a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
