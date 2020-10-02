@@ -28,9 +28,6 @@ DEFAULT=[]')
 rgroup.add_argument('--nearest-neighbor', default=False, action='store_true',
     help='if supplied, we take the nearest neighbor when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
 
-rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
-    help='copy over the values from this column')
-
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -43,7 +40,6 @@ if not args.reference_value:
 ### finish parsing
 Ncol = len(args.columns)
 Nref = len(args.reference_value)
-Nkeep = len(args.copy_column)
 args.reference_value.sort()
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
@@ -53,11 +49,10 @@ if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.ou
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = io.load(args.inpath, [args.reference]+args.copy_column+args.columns)
+data, _ = io.load(args.inpath, [args.reference]+args.columns)
 
 x = data[:,0]
-keep = data[:,1:1+Nkeep]
-data = data[:,1+Nkeep:1+Nkeep]
+data = data[:,1:]
 
 N = len(data)
 
@@ -66,10 +61,9 @@ N = len(data)
 if args.verbose:
     print('extacting data at reference values')
 
-ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
-ans[:,:Nkeep] = keep ### fill in existing data
+ans = np.empty((N, Nref*Ncol), dtype=float)
 
-ans[:,Nkeep:] = samples.data2samples(
+ans = samples.data2samples(
     x,
     data,
     (Nref, args.reference_value),
@@ -77,7 +71,7 @@ ans[:,Nkeep:] = samples.data2samples(
     nearest_neighbor=args.nearest_neighbor,
 )
 
-outcols = args.copy_columns + samples.output_columns(args.columns, args.reference, reference_values=args.reference_value)
+outcols = samples.output_columns(args.columns, args.reference, reference_values=args.reference_value)
 
 #------------------------
 

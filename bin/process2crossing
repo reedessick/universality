@@ -135,19 +135,14 @@ ans[:,Nkeep:] = crossing.process2crossing(
     verbose=args.Verbose,
 )
 
-if args.reference_column_value_is_column:
-    col_first = '(first_%s@%s)'
-    col_last = '(last_%s@%s)'
-else:
-    col_first = '(first_%s=%s)'
-    col_last = '(last_%s=%s)'
-
-col_first = col_first%(args.reference_column, args.reference_column_value)
-col_last = col_last%(args.reference_column, args.reference_column_value)
-
-outcols = [col for col in args.copy_column]
-for column in args.columns:
-    outcols += new_columns.get(column, [column+col_first, column+col_last])
+outcols = args.copy_column
+outcols += crossing.outputcolumns(
+    args.columns,
+    args.reference_column,
+    args.reference_column_value,
+    reference_is_column=args.reference_column_value_is_column,
+    custom_names=new_columns,
+)
 
 #------------------------
 

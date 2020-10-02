@@ -119,11 +119,8 @@ ans[:,Nkeep:] = extrema.process2extrema(
     verbose=args.Verbose,
 )
 
-col_max = 'max(%s)'
-col_min = 'min(%s)'
 outcols = [col for col in args.copy_column]
-for column in args.columns:
-    outcols += new_columns.get(column, [col_max%column, col_min%column])
+outcols += extrema.outputcolumns(args.columns, custom_names=new_columns)
 
 #------------------------
 

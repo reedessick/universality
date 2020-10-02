@@ -4,8 +4,43 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
-def data2extrema(*args, **kwargs):
-    raise NotImplementedError
+def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxima=None):
+    truth = np.ones(len(d), dtype=bool)
+
+    if static_ranges is not None:
+        for j, (m, M) in static_ranges:
+            truth *= (m<=d[:,j])*(d[:,j]<=M)
+
+    if dynamic_minima is not None:
+        for j, minima in dynamic_minima:
+            truth *= d[:,j] >= minima[i]
+
+    if dynamic_maxima is not None:
+        for j, maxima in dynamic_maxima:
+            truth *= d[:,j] <= maxima[i]
+
+    if not np.any(truth):
+        raise RuntimeError('could not find any samples within all specified ranges!')
+    d = d[truth]
+
+    ans = np.empty(Ncol, dtype=float) ### note, Ncol may not be the same as len(d[0]) because of the ranges arguments
+    for j in range(Ncol):
+        ans[2*j] = np.max(d[:,j])
+        ans[2*j+1] = np.min(d[:,j])
+
+    return ans
+
+MAX_TEMPLATE = 'max(%s)'
+MIN_TEMPLATE = 'min(%s)'
+def outputcolumns(columns, custom_names=None):
+    if custom_names is None:
+        custom_names = dict()
+
+    outcols = []
+    for column in args.column:
+        outcols += custom_names.get(column, [MAX_TEMPLATE%column, MIN_TEMPLATE%column])
+
+    return outcols
 
 def process2extrema(
         data,
@@ -20,6 +55,7 @@ def process2extrema(
     """manages I/O and extracts max, min for the specified columns
     """
     N = len(data)
+    Ncol = len(columns)
     loadcolumns = columns[:]
 
     if static_ranges is not None:
@@ -51,22 +87,6 @@ def process2extrema(
             print('    '+path)
         d, _ = load(path, loadcolumns)
 
-        truth = np.ones(len(d), dtype=bool)
-        for j, (m, M) in static_ranges:
-            truth *= (m<=d[:,j])*(d[:,j]<=M)
-
-        for j, minima in dynamic_minima:
-            truth *= d[:,j] >= minima[i]
-
-        for j, maxima in dynamic_maxima:
-            truth *= d[:,j] <= maxima[i]
-
-        if not np.any(truth):
-            raise RuntimeError('could not find any samples within all specified ranges!')
-        d = d[truth]
-
-        for j, column in enumerate(columns):
-            ans[i,2*j] = np.max(d[:,j])
-            ans[i,2*j+1] = np.min(d[:,j])
+        ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=dynamic_minima, dynamic_maxima=dynamic_maxima)
 
     return ans
