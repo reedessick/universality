@@ -9,7 +9,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import io
+from universality.utils import (io, units)
 from universality.properties import samples
 
 #-------------------------------------------------
@@ -23,6 +23,10 @@ rgroup.add_argument('outpath', type=str)
 
 rgroup.add_argument('action', type=str,
     help='must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS)))
+rgroup.add_argument('--shift', type=str, default=samples.DEFAULT_SHIFT,
+    help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
+rgroup.add_argument('--scale', type=str, default=samples.DEFAULT_SCALE,
+    help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
 
 rgroup.add_argument('xcolumn', type=str,
     help='the abscissa, such that taking the derivative means computeing "dfcolumn / dxcolum"')
@@ -51,13 +55,24 @@ if args.new_column is None:
 
 args.verbose |= args.Verbose
 
+### figure out if we want to scale or shift by a default unit
+if hasattr(units, args.scale):
+    args.scale = getattr(units. args.scale)
+else:
+    args.scale = float(args.scale)
+
+if hasattr(units, args.shift):
+    args.shift = getattr(units, args.shift)
+else:
+    args.shift = float(args.shift)
+
 #-------------------------------------------------
 
 if args.verbose:
     print('reading data from: '+args.inpath)
 data, cols = io.oad(args.inpath)
 
-data, cols = samples.calculus(data, cols, args.xcolumn, args.fcolumn, foo, args.new_column, overwrite=args.overwrite)
+data, cols = samples.calculus(data, cols, args.xcolumn, args.fcolumn, foo, args.new_column, scale=args.scale, shift=args.shift, overwrite=args.overwrite)
 
 if args.verbose:
     print('writing augmented data to: '+args.outpath)

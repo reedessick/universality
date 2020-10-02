@@ -10,6 +10,7 @@ from universality.gaussianprocess import gaussianprocess as gp
 #-------------------------------------------------
 
 DEFAULT_COLUMN_NAME = {
+    'identity': '%(fcolumn)s',
     'add': '(%(fcolumn)s)+(%(xcolumn)s)',
     'subtract': '(%(fcolumn)s)-(%(xcolumn)s)',
     'multiply': '(%(fcolumn)s)*(%(xcolumn)s)',
@@ -20,6 +21,7 @@ DEFAULT_COLUMN_NAME = {
 }
 
 FUNCTIONS = {
+    'identity': (lambda x, f: f),
     'add': (lambda x, f : x+f),
     'subtract': (lambda x, f : f-x),
     'multiply': (lambda x, f : x*f),
@@ -31,10 +33,15 @@ FUNCTIONS = {
 
 KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())
 
+#------------------------
+
+DEFAULT_SCALE = 1.0
+DEFAULT_SHIFT = 0.0
+
 #-------------------------------------------------
 
-def calculus(data, cols, xcolumn, fcolumn, foo, newcolumn, overwrite=False):
-    """perform basic operations on a data set
+def calculus(data, cols, xcolumn, fcolumn, foo, newcolumn, scale=DEFAULT_SCALE, shift=DEFAULT_SHIFT, overwrite=False):
+    """perform basic operations on a data set: scale*(foo(xcolumn, fcolumn) + shift)
     """
     npts, ncol = data.shape
     if overwrite:
@@ -68,6 +75,8 @@ def process_calculus(
         fcolumn,
         foo,
         newcolumn,
+        scale=DEFAULT_SCALE,
+        shift=DEFAULT_SHIFT,
         overwrite=False,
         verbose=False,
     ):
@@ -80,7 +89,7 @@ def process_calculus(
             print('    '+path)
         d, c = io.load(path)
 
-        ans, cols = calculus(d, c, xcolumn, ycolumn, foo, newcolumn, overwrite=overwrite)
+        ans, cols = calculus(d, c, xcolumn, ycolumn, foo, newcolumn, scale=scale, shift=shift, overwrite=overwrite)
 
         new = output_tmp%tmp
         if verbose:
