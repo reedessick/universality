@@ -87,8 +87,8 @@ Ndyn = len(dynamic_columns)
 
 data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
 
-N = 1+len(args.copy_column)
-keep = data[:,1:N] ### the stuff we want to transfer over to the final file
+N = 2+Nkeep
+keep = data[:,:N] ### the stuff we want to transfer over to the final file
 
 dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_minimum)) ### the values defining the dynamic minima
 
@@ -104,11 +104,11 @@ if args.verbose:
     print('extracting maxima and minima')
 
 ans = np.empty((N, Nkeep+2*Ncol), dtype=float)
-ans[:,:Nkeep] = keep ### fill in existing data
+ans[:,:Nkeep+2] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = extrema.process2extrema(
+ans[:,Nkeep+2:] = extrema.process2extrema(
     data,
     path_template,
     args.eos_num_per_dir,
@@ -119,7 +119,7 @@ ans[:,Nkeep:] = extrema.process2extrema(
     verbose=args.Verbose,
 )
 
-outcols = [col for col in args.copy_column]
+outcols = [args.eos_column] + args.copy_column
 outcols += extrema.outputcolumns(args.columns, custom_names=new_columns)
 
 #------------------------

@@ -81,9 +81,9 @@ if args.verbose:
     print('reading samples from: '+args.inpath)
 data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
 
-ind = 1+len(args.copy_column)
+ind = 1+Nkeep
 ref = data[:,ind:] ### the columns from which we extract refernce values
-keep = data[:,1:ind] ### the stuff we want to transfer over to the final file
+keep = data[:,:ind+1] ### the stuff we want to transfer over to the final file
 data = data[:,0]
 N = len(data)
 
@@ -93,11 +93,11 @@ if args.verbose:
     print('extacting data at reference values')
 
 ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
-ans[:,:Nkeep] = keep ### fill in existing data
+ans[:,:Nkeep+1] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = samples.process2samples(
+ans[:,Nkeep+1:] = samples.process2samples(
     data,
     path_template,
     args.eos_num_per_dir,
@@ -110,7 +110,8 @@ ans[:,Nkeep:] = samples.process2samples(
 )
 
 ### set up output columns
-outcols = args.copy_columns + samples.output_columns(args.columns, args.reference, reference_values=args.reference_value, reference_value_columns=args.reference_value_column)
+outcols = [args.eos_column] + args.copy_columns
+outcols += samples.output_columns(args.columns, args.reference, reference_values=args.reference_value, reference_value_columns=args.reference_value_column)
 
 #------------------------
 

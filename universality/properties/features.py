@@ -142,6 +142,8 @@ def smooth(x, y, width):
 
 ### functions to extract parameters
 
+DEFAULT_MOI_FEATURE_NAME = 'moi_feature'
+
 def data2moi_features(
         rhoc,
         M,
@@ -162,7 +164,7 @@ def data2moi_features(
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
     returns the corresponding values from data along with names based on cols
     """
-    names = ['transition']
+    names = [DEFAULT_MOI_FEATURE_NAME]
     for tmp in [
             MIN_CS2C2_TEMPLATE,
             MAX_CS2C2_TEMPLATE,

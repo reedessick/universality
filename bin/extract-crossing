@@ -48,7 +48,6 @@ args = parser.parse_args()
 
 ### finish parsing
 Ncol = len(args.columns)
-Nkeep = len(args.copy_column)
 
 new_columns = dict((a, [b, c]) for a, b, c in args.new_column)
 

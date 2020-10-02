@@ -9,14 +9,79 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 from argparse import ArgumentParser
 
 ### non-standard libraries
+from universality.utils import io
 from universality.properties import count
 
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
 
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('reference', type=str,
+    help='the reference column in the file for which we want to count the rows')
+
+rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
+    help='copy over the values from this column')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+# lookup arguments
+lgroup = parser.add_argument_group('look-up arguments')
+lgroup.add_argument('--eos-column', default='EoS', type=str)
+lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
+lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames.')
+
 args = parser.parse_args()
+
+Nkeep = len(args.copy_column)
+
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
-raise NotImplementedError
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+N = len(data)
+
+#------------------------
+
+if args.verbose:
+    print('extacting counts')
+
+ans = np.empty((N, Nkeep+1), dtype=float)
+ans[:,:-1] = data ### fill in existing data
+
+path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+
+ans[:,Nkeep:], col = count.process2samples(
+    data[:,0],
+    path_template,
+    args.eos_num_per_dir,
+    args.reference,
+    verbose=args.Verbose,
+)
+
+### set up output columns
+outcols = [args.eos_column] + args.copy_columns + [col]
+
+#------------------------
+
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+io.write(args.outpath, ans, outcols)
+
