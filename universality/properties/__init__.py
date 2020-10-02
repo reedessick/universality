@@ -9,3 +9,4 @@ from .crossing import *
 from .extrema import *
 from .features import *
 from .samples import *
+from .count import *

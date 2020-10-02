@@ -1,4 +1,4 @@
-"""a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations
+"""a module housing logic to identify cruves' extrema
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 

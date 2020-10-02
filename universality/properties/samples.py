@@ -1,4 +1,4 @@
-"""a module housing logic to identify separate stable branches from sequences of solutions to the TOV equations
+"""a module housing logic to manipulate samples within large sets of EoS realizations
 """
 __author__ = "Reed Essick (reed.essick@gmai.com)"
 
