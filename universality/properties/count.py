@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmai.com)"
 
 #-------------------------------------------------
 
+import numpy as np
+
 from universality.utils import io
 
 #-------------------------------------------------
@@ -32,4 +34,4 @@ def process2count(
         d, _ = io.load(path, [reference_column])
         ans[i] = data2count(d)
 
-    return ans, [COUNT_TEMPLATE%referenc_column]
+    return ans, COUNT_TEMPLATE%reference_column

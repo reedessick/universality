@@ -6,6 +6,10 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import os
+
+import numpy as np
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -47,15 +51,28 @@ lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
 
 args = parser.parse_args()
 
-Nkeep = len(args.copy_column)
-
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+
+if not args.copy_column: ### copy everything
+    data, cols = io.load(args.inpath, max_num_samples=args.max_num_samples)
+    args.copy_column = [col for col in cols if (col != args.eos_column)]
+
+    ind = cols.index(args.eos_column)
+    atad = np.empty_like(data, dtype=float)
+    atad[:,0] = data[:,ind]
+    for i, col in enumerate(args.copy_column, 1):
+        atad[:,i] = data[:,cols.index(col)]
+    data = atad
+
+else:
+    data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+
+Nkeep = len(args.copy_column)
 N = len(data)
 
 #------------------------
@@ -63,12 +80,12 @@ N = len(data)
 if args.verbose:
     print('extacting counts')
 
-ans = np.empty((N, Nkeep+1), dtype=float)
+ans = np.empty((N, Nkeep+2), dtype=float)
 ans[:,:-1] = data ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:], col = count.process2samples(
+ans[:,-1], col = count.process2count(
     data[:,0],
     path_template,
     args.eos_num_per_dir,
@@ -77,11 +94,10 @@ ans[:,Nkeep:], col = count.process2samples(
 )
 
 ### set up output columns
-outcols = [args.eos_column] + args.copy_columns + [col]
+outcols = [args.eos_column] + args.copy_column + [col]
 
 #------------------------
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
 io.write(args.outpath, ans, outcols)
-
