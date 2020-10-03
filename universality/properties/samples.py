@@ -4,6 +4,10 @@ __author__ = "Reed Essick (reed.essick@gmai.com)"
 
 #-------------------------------------------------
 
+import os
+
+import numpy as np
+
 from universality.utils import io
 from universality.gaussianprocess import gaussianprocess as gp
 
@@ -45,9 +49,9 @@ def calculus(data, cols, xcolumn, fcolumn, foo, newcolumn, scale=DEFAULT_SCALE, 
     """
     npts, ncol = data.shape
     if overwrite:
-        if new_column in c:
+        if newcolumn in cols:
             ans = data
-            ind = cols.index(args.new_column)
+            ind = cols.index(newcolumn)
             header = cols
         
         else:
@@ -57,14 +61,14 @@ def calculus(data, cols, xcolumn, fcolumn, foo, newcolumn, scale=DEFAULT_SCALE, 
             header = cols+[newcolumn]
         
     else:
-        assert new_column not in cols, "column=%s already exists!"%newcolumn
+        assert newcolumn not in cols, "column=%s already exists!"%newcolumn
         ans = np.empty((npts, ncol+1), dtype=float)
         ans[:,:-1] = data
         ind = -1
         header = cols+[newcolumn]
 
-    ans[:,ind] = foo(data[:,cols.index(xcolumn)], data[:,cols.index(fcolumn)]) ### compute the integral or derivative
-    return ans, cols
+    ans[:,ind] = scale*(foo(data[:,cols.index(xcolumn)], data[:,cols.index(fcolumn)]) + shift) ### compute the integral or derivative
+    return ans, header
 
 def process_calculus(
         data,
@@ -84,12 +88,12 @@ def process_calculus(
     """
     for eos in data:
         tmp = {'moddraw':eos//mod, 'draw':eos}
-        path = path_template%tmp
+        path = input_tmp%tmp
         if verbose:
             print('    '+path)
         d, c = io.load(path)
 
-        ans, cols = calculus(d, c, xcolumn, ycolumn, foo, newcolumn, scale=scale, shift=shift, overwrite=overwrite)
+        ans, cols = calculus(d, c, xcolumn, fcolumn, foo, newcolumn, scale=scale, shift=shift, overwrite=overwrite)
 
         new = output_tmp%tmp
         if verbose:
@@ -102,7 +106,7 @@ def process_calculus(
             except OSError:
                 pass ### directory already exists
 
-        io.write(new, ans, header) ### save the result to the same file
+        io.write(new, ans, cols) ### save the result to the same file
 
 #-------------------------------------------------
 # utility functions for processing process directory structures

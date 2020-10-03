@@ -25,9 +25,9 @@ rgroup.add_argument('inpath', type=str)
 
 rgroup.add_argument('action', type=str,
     help='must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS)))
-rgroup.add_argument('--shift', type=str, default=samples.DEFAULT_SHIFT,
+rgroup.add_argument('--shift', type=str, default=str(samples.DEFAULT_SHIFT),
     help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
-rgroup.add_argument('--scale', type=str, default=samples.DEFAULT_SCALE,
+rgroup.add_argument('--scale', type=str, default=str(samples.DEFAULT_SCALE),
     help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
 
 rgroup.add_argument('xcolumn', type=str,
@@ -80,7 +80,7 @@ args.verbose |= args.Verbose
 
 ### figure out if we want to scale or shift by a default unit
 if hasattr(units, args.scale):
-    args.scale = getattr(units. args.scale)
+    args.scale = getattr(units, args.scale)
 else:
     args.scale = float(args.scale)
 
