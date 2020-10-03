@@ -33,7 +33,7 @@ lgroup.add_argument('--macro2eos-central-baryon-density', nargs=2, default=('rho
 This is used to look up EoS parameters associated with the central densities of interesting stellar configurations. \
 e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
 
-parser.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
+lgroup.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
 
 lgroup.add_argument('--eos-dir', default='.', type=str)
 lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
@@ -177,7 +177,7 @@ features.process2moi_features(
     macro_rhoc,
     args.mass_column,
     args.moi_column,
-    output_eos_columns=args.output_eos_columns,
+    output_eos_columns=args.output_eos_column,
     output_macro_columns=args.output_macro_column,
     flatten_thr=args.flatten_thr,
     smoothing_width=args.smoothing_width,

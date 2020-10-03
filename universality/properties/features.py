@@ -9,7 +9,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 from universality import gaussianprocess as gp
 
 #-------------------------------------------------
@@ -227,14 +227,14 @@ def data2moi_features(
             datum = []
 
             if verbose:
-                print('    processing end=%d/%d at rhoc=%.6e'%(end, len(rhoc), r))
+                print('        processing end=%d/%d at rhoc=%.6e'%(end, len(rhoc), r))
 
             ### min sound speed preceeding "end"
             try:
                 ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('    WARNING! coult not find preceeding minimum in cs2c2')
+                    print('            WARNING! coult not find preceeding minimum in cs2c2')
                 continue
 
             min_r = baryon_density[ind]
@@ -248,7 +248,7 @@ def data2moi_features(
                 ind = find_preceeding(min_r, max_cs2c2_baryon_density, max_cs2c2) ### look for local max before the local min
             except RuntimeError:
                 if verbose:
-                    print('    WARNING! could not find preceeding maximum in cs2c2')
+                    print('            WARNING! could not find preceeding maximum in cs2c2')
                 continue
 
             max_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
@@ -256,17 +256,17 @@ def data2moi_features(
 
             if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(max_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
-                    print('    WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
+                    print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
                 continue
 
             if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
                 if verbose:
-                    print('    WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
+                    print('            WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
                 continue
 
             if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind]: ### recovery occurs at a larger sound speed than the onset...
                 if verbose:
-                    print('    WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
+                    print('            WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
                 continue
 
             datum += [np.interp(max_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -341,11 +341,11 @@ def process2moi_features(
             print('    loading macro: %s'%mac_path)
         mac_data, mac_cols = io.load(mac_path, [macro_rhoc, macro_mass, macro_moi]+output_macro_columns) ### NOTE: we load all columns because we're going to re-write them all into subdir as separate branches
 
-        if args.verbose:
+        if verbose:
             print('    loading eos: %s'%eos_path)
         eos_data, eos_cols = io.load(eos_path, [eos_rho, eos_cs2c2]+output_eos_columns) ### NOTE: this guarantees that eos_rho is the first column!
         baryon_density = eos_data[:,eos_cols.index(eos_rho)] ### separate this for convenience
-        cs2c2 = eos_data[:eos_cols.index(eos_cs2c2)]
+        cs2c2 = eos_data[:,eos_cols.index(eos_cs2c2)]
 
         # use macro data to identify separate stable branches
         # NOTE: we expect this to be ordered montonically in rhoc
@@ -359,8 +359,8 @@ def process2moi_features(
             I,
             baryon_density,
             cs2c2,
-            macro_data,
-            macro_cols,
+            mac_data,
+            mac_cols,
             eos_data,
             eos_cols,
             flatten_thr=flatten_thr,
@@ -371,5 +371,5 @@ def process2moi_features(
         )
 
         if verbose:
-            print('    writing summary into: %s'%sum_path)
-        np.savetxt(sum_path, summary, comments='', header=sum_header, delimiter=',')
+            print('    writing summary of %d identified moi-features into: %s'%(len(params), sum_path))
+        io.write(sum_path, params, names)
