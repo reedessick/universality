@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "downselect a csv based on it's weights to generate a smaller, representative set"
-__author__ = "Reed Essick <reed.essick@ligo.org>"
+"""downselect a csv based on it's weights to generate a smaller, representative set
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -46,10 +47,10 @@ args = parser.parse_args()
 
 if args.verbose:
     print('reading samples from: '+args.sourcepath)
-data, columns = utils.load(args.sourcepath)
+data, columns = io.load(args.sourcepath)
 
 if args.weight_column:
-    weights = utils.load_weights(args.sourcepath, args.weight_column, logweightcolumns=args.weight_column_is_log)
+    weights = io.load_weights(args.sourcepath, args.weight_column, logweightcolumns=args.weight_column_is_log)
 
 else:
     N = len(data)
@@ -80,8 +81,4 @@ new[:,columns.index(args.weight_column)] = 1 ### set this so all weights are equ
 
 if args.verbose:
     print('writing representative set to: '+args.targetpath)
-with open(args.targetpath, 'w') as obj:
-    print >> obj, ','.join(columns)
-    tmp = ','.join('%.9e' for _ in xrange(new.shape[1]))
-    for sample in new:
-        print >> obj, tmp%tuple(sample)
+io.write(args.targetpath, new, columns)

@@ -1,13 +1,13 @@
 """a simple module that implements cosmological functionality
 """
-__author__ = "reed.essick@ligo.org"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
 import numpy as np
 
 ### non-standard libraries
-from universality.utils import c ### speed of light in cm/s
+from universality.utils.units import c ### speed of light in cm/s
 
 #-------------------------------------------------
 

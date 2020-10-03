@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import gaussianprocess as gp
+from universality.gaussianprocess import gaussianprocess as gp
 
 #-------------------------------------------------
 
@@ -68,4 +68,3 @@ with h5py.File(args.outpath, 'w') as out_obj:
             weight=process['weight'],
             model_multiplier=process['hyperparams']['model_multiplier'],
         )
-

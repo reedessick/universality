@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+
+"""a script to add columns to a single CSV based on simple operations of existing columns
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import (io, units)
+from universality.properties import samples
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('action', type=str,
+    help='must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS)))
+rgroup.add_argument('--shift', type=str, default=samples.DEFAULT_SHIFT,
+    help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
+rgroup.add_argument('--scale', type=str, default=samples.DEFAULT_SCALE,
+    help='we compute: scale*(foo(x, f) + shift). One can pass a string for default units (eg Mnuc, Msun, c, G) or a float')
+
+rgroup.add_argument('xcolumn', type=str,
+    help='the abscissa, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+rgroup.add_argument('fcolumn', type=str,
+    help='the ordinate, such that taking the derivative means computeing "dfcolumn / dxcolum"')
+
+rgroup.add_argument('--new-column', type=str, default=None,
+    help='the name of the new column that will be added to each file')
+rgroup.add_argument('--overwrite', default=False, action='store_true',
+    help='if specified, will overwrite new-column if it already exists')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+### finish parsing
+
+assert args.action in samples.KNOWN_ACTIONS, 'action must be one of: %s'%(', '.join(samples.KNOWN_ACTIONS))
+foo = samples.FUNCTIONS[args.action] ### look up the function handle only once
+
+if args.new_column is None:
+    args.new_column = samples.DEFAULT_COLUMN_NAME[args.action]%{'fcolumn':args.fcolumn, 'xcolumn':args.xcolumn}
+
+args.verbose |= args.Verbose
+
+### figure out if we want to scale or shift by a default unit
+if hasattr(units, args.scale):
+    args.scale = getattr(units. args.scale)
+else:
+    args.scale = float(args.scale)
+
+if hasattr(units, args.shift):
+    args.shift = getattr(units, args.shift)
+else:
+    args.shift = float(args.shift)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading data from: '+args.inpath)
+data, cols = io.oad(args.inpath)
+
+data, cols = samples.calculus(data, cols, args.xcolumn, args.fcolumn, foo, args.new_column, scale=args.scale, shift=args.shift, overwrite=args.overwrite)
+
+if args.verbose:
+    print('writing augmented data to: '+args.outpath)
+io.write(args.outpath, data, cols)

@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+"""an executable to extract crossings from a single CSV
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import io
+from universality.properties import crossing
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('reference_column', type=str)
+rgroup.add_argument('reference_column_value', type=float)
+
+rgroup.add_argument('columns', nargs='+', type=str,
+    help='columns to extract')
+
+rgroup.add_argument('--new-column', type=str, default=[], action='append', nargs=3,
+    help='the name of the new column that will be added to each file. \
+Supply the name of the column original and then the names of the new columns for max and min. \
+eg, "--new-column old_column max_old_column min_old_column"')
+
+rgroup.add_argument('--column-range', nargs=3, type=str, default=[], action='append',
+    help='restrict the extremization to within this range for this column. \
+e.g.: "--column-range baryon_density 2.8e14 2.8e15". Can be repeated to specify multiple ranges')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+### finish parsing
+Ncol = len(args.columns)
+
+new_columns = dict((a, [b, c]) for a, b, c in args.new_column)
+
+if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
+    os.makedirs(os.path.dirname(args.outpath))
+
+loadcolumns = [col for col in args.columns]
+ranges = dict()
+for column, m, M in args.column_range:
+    if key not in loadcolumns:
+        loadcolumns.append(key)
+    ranges[loadcolumns.index(column)] = (float(m), float(M))
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+
+data, _ = io.load(args.inpath, [args.reference]+loadcolumns)
+
+N = len(data)
+
+#------------------------
+
+if args.verbose:
+    print('extracting first and last crossings')
+
+ans = crossing.data2crossing(
+    data[:,0],
+    data[:,1:],
+    reference_column_value,
+    Ncol,
+    static_ranges=ranges,
+)
+
+outcols = crossing.outputcolumns(
+    args.columns,
+    args.reference_column,
+    args.reference_column_value,
+    reference_is_column=False,
+    custom_names=new_columns,
+)
+
+#------------------------
+
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+io.write(args.outpath, ans, outcols)

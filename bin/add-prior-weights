@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that computes the prior weight based on a set of samples (and a few known priors), adding them to a CSV file so they can be properly accounted for within KDEs developed within, e.g., weigh-samples"
-__author__ = "reed.essick@ligo.org"
+"""a script that computes the prior weight based on a set of samples (and a few known priors), adding them to a CSV file so they can be properly accounted for within KDEs developed within, e.g., weigh-samples
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,8 +11,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
-from universality import priors
+from universality.utils import io
+from universality.priors import priors
 
 #-------------------------------------------------
 
@@ -44,7 +45,7 @@ kwargs.update(dict(args.column_name)) ### include name mapping
 
 if args.verbose:
     print('reading source samples from: '+args.source)
-data, columns = utils.load(args.source) ### read in all columns as-is
+data, columns = io.load(args.source) ### read in all columns as-is
 
 if args.verbose:
     print('computing prior weights with prior='+args.prior)
@@ -56,9 +57,8 @@ logweights = priors.logprior(
 
 if args.verbose:
     print('writing output samples to: '+args.output)
+atad = np.empty((len(data),len(columns)+1), dtype=float)
+atad[:,:-1] = data
+atad[:,-1] = logweights
 
-template = ','.join('%.9e' for _ in xrange(len(columns)+1))
-with open(args.output, 'w') as file_obj:
-    print >> file_obj, ','.join(columns+['logprior'])
-    for sample, logweight in zip(data, logweights):
-        print >> file_obj, template%tuple(list(sample)+[logweight])
+io.write(args.output, atad, columns+['logprior'])

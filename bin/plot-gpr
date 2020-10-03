@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that plots the result of gpr_*"
-__author__ = "reed.essick@ligo.org"
+"""a script that plots the result of gpr_*
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -13,7 +14,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
 from universality import gaussianprocess as gp
 from universality import plot
 
@@ -136,7 +137,7 @@ if args.csvpaths:
     for path in args.csvpaths:
         if args.verbose:
             print('loading csv from: '+path)
-        data, _ = utils.load(path, columns, logcolumns=args.logcolumn)
+        data, _ = io.load(path, columns, logcolumns=args.logcolumn)
         x = data[:,0]
         y = data[:,1]
         curves.append((x, y, os.path.basename(path)[:-4]))

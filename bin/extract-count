@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+"""a script that manages I/O and other lookup to count the number of stable branches and/or features associated with EoS
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import io
+from universality.properties import count
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('inpath', type=str)
+
+parser.add_argument('reference', type=str,
+    help='the column name we use for lookup (and counting the number of rows)')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading data from: '+args.inpath)
+d, _ = io.load(args.inpath, [args.reference])
+
+print('%s = %d'%(count.COUNT_TEMPLATE%args.reference, count.data2count(d)))

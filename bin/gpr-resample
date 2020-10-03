@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a one-stop shop for the full GPR regression for phi = log(denergy_density/dpressure -1) as a function of pressurec2."
-__author__ = "reed.essick@ligo.org"
+"""a one-stop shop for the full GPR regression for phi = log(denergy_density/dpressure -1) as a function of pressurec2.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -13,7 +14,7 @@ import h5py
 from argparse import ArgumentParser
 
 ### non-standard
-from universality import utils
+from universality.utils import (units, io)
 from universality import gaussianprocess as gp
 from universality import plot
 
@@ -108,7 +109,7 @@ args.verbose |= args.Verbose
 
 # figure out the hyperparameters we'll use
 if args.hyperparampath:
-    polydeg, sigma, length_scale, sigma_obs, weights = utils.load(args.hyperparampath, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'logLike'])[0].transpose()
+    polydeg, sigma, length_scale, sigma_obs, weights = io.load(args.hyperparampath, ['poly_degree', 'sigma', 'l', 'sigma_obs', 'logLike'])[0].transpose()
     polydeg = polydeg.astype(int)
 
     if args.max_num_models is not None: ### truncate the number of models considered
@@ -145,12 +146,12 @@ logp_resample = np.linspace(
     np.log(args.pressure_bounds[1]),
     args.num_points,
 )
-logp_resample -= 2*np.log(utils.c)
+logp_resample -= 2*np.log(units.c)
 
 for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resample, and fill in data structures
     if args.verbose:
         print('reading: '+path)
-    data, _ = utils.load(path, ['pressurec2', 'energy_densityc2'])
+    data, _ = io.load(path, ['pressurec2', 'energy_densityc2'])
     logp_obs = np.log(data[:,0])
     loge_obs = np.log(data[:,1])
 

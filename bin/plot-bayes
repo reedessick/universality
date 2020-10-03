@@ -1,22 +1,19 @@
 #!/usr/bin/env python
 
 """make plots of the bayes factors for different numbers of stable branches"""
-__author__ = "reed.essick@gmail.com"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
 import os
 
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-plt.rcParams['text.usetex'] = True
 
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import plot as plt
 
 #-------------------------------------------------
 
@@ -50,13 +47,13 @@ if args.tag:
 
 if args.verbose:
     print('loading prior data from: '+args.prior_inpath)
-prior_data, prior_columns = utils.load(args.prior_inpath, [args.column], max_num_samples=args.prior_max_num_samples)
+prior_data, prior_columns = io.load(args.prior_inpath, [args.column], max_num_samples=args.prior_max_num_samples)
 Nprior = len(prior_data)
 
 if args.prior_weight_column:
     if args.verbose:
         print('loading non-trivial weights from: '+args.prior_inpath)
-    prior_weights = utils.load_weights(args.prior_inpath, args.prior_weight_column, args.prior_weight_column_is_log)
+    prior_weights = io.load_weights(args.prior_inpath, args.prior_weight_column, args.prior_weight_column_is_log)
 else:
     prior_weights = np.ones(Nprior, dtype=float)/Nprior
 
@@ -68,12 +65,12 @@ prior_data, prior_columns = utils.marginalize(prior_data, np.log(prior_weights),
 
 if args.verbose:
     print('loading posterior data from: '+args.posterior_inpath)
-posterior_data, posterior_columns = utils.load(args.posterior_inpath, [args.column], max_num_samples=args.posterior_max_num_samples)
+posterior_data, posterior_columns = io.load(args.posterior_inpath, [args.column], max_num_samples=args.posterior_max_num_samples)
 
 if args.posterior_weight_column:
     if args.verbose:
         print('loading non-trivial weights from: '+args.posterior_inpath)
-    posterior_weights = utils.load_weights(args.posterior_inpath, args.posterior_weight_column, args.posterior_weight_column_is_log)
+    posterior_weights = io.load_weights(args.posterior_inpath, args.posterior_weight_column, args.posterior_weight_column_is_log)
 else:
     posterior_weights = np.ones(Nposterior, dtype=float)/Nposterior
 
@@ -147,8 +144,4 @@ bayes_ax.set_ylabel('Bayes Factor')
 
 ### save
 for fig, name in [(prior_fig, 'prior'), (posterior_fig, 'posterior'), (bayes_fig, 'bayes')]:
-    figname = os.path.join(args.output_dir, 'plot-bayes-%s-%s%s.png'%(args.column, name, args.tag))
-    if args.verbose:
-        print('saving: '+figname)
-    fig.savefig(figname)
-    plt.close(fig)
+    plt.save('plot-bayes-%s-%s%s'%(args.column, name, args.tag), fig, figtype=['png'], directory=args.output_dir, verbose=args.verbose)

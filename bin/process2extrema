@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "extremize the values of a column from a set of EOS (a process)"
-__author__ = "reed.essick@ligo.org"
+"""extremize the values of a column from a set of EOS (a process)
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -11,7 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
+from universality.properties import extrema
 
 #-------------------------------------------------
 
@@ -49,7 +51,7 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -83,10 +85,10 @@ if args.verbose:
 dynamic_columns = [col for _, col in args.dynamic_minimum + args.dynamic_maximum]
 Ndyn = len(dynamic_columns)
 
-data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
+data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
 
-N = 1+len(args.copy_column)
-keep = data[:,1:N] ### the stuff we want to transfer over to the final file
+N = 2+Nkeep
+keep = data[:,:N] ### the stuff we want to transfer over to the final file
 
 dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_minimum)) ### the values defining the dynamic minima
 
@@ -102,11 +104,11 @@ if args.verbose:
     print('extracting maxima and minima')
 
 ans = np.empty((N, Nkeep+2*Ncol), dtype=float)
-ans[:,:Nkeep] = keep ### fill in existing data
+ans[:,:Nkeep+2] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = utils.process2extrema(
+ans[:,Nkeep+2:] = extrema.process2extrema(
     data,
     path_template,
     args.eos_num_per_dir,
@@ -117,14 +119,11 @@ ans[:,Nkeep:] = utils.process2extrema(
     verbose=args.Verbose,
 )
 
-col_max = 'max(%s)'
-col_min = 'min(%s)'
-outcols = [col for col in args.copy_column]
-for column in args.columns:
-    outcols += new_columns.get(column, [col_max%column, col_min%column])
+outcols = [args.eos_column] + args.copy_column
+outcols += extrema.outputcolumns(args.columns, custom_names=new_columns)
 
 #------------------------
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-np.savetxt(args.outpath, ans, comments='', delimiter=',', header=','.join(outcols))
+io.write(args.outpath, ans, outcols)

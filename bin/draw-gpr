@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__description__ = "draw realizations of the process stored in process.pkl and write them into separate CSV files"
-__author__ = "reed.essick@ligo.org"
+"""draw realizations of the process stored in process.pkl and write them into separate CSV files
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -25,8 +26,6 @@ DEFAULT_NUM_DRAWS = 1
 DEFAULT_NUM_PER_DIRECTORY = 1000
 
 #-------------------------------------------------
-
-HEADER = '%s,%s'
 
 FOOTER = '''\
 # poly_degree = %(poly_degree)d
@@ -103,7 +102,7 @@ if args.plot:
 directory = os.path.join(args.output_dir, 'DRAWmod%d'%args.num_per_directory+'-%(moddraw)06d')
 path = os.path.join(directory, 'draw-gpr'+args.tag+'-%(draw)06d.csv') # for generating filenames
 
-header = HEADER%(model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ### assume the mixture model is sane... 
+header = (model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ### assume the mixture model is sane... 
 
 if args.verbose:
     tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
@@ -128,14 +127,7 @@ for i, (ind, color) in enumerate(zip(\
     y_tst = np.random.multivariate_normal(m['f'], m['cov'])
 
     # write the realization to disk
-    np.savetxt(
-        csvpath,
-        zip(x_tst, y_tst),
-        header=header,
-        footer=footer(m['hyperparams']),
-        comments='',
-        delimiter=',',
-    )
+    io.write(csvpath, zip(x_tst, y_tst), header, footer=footer(m['hyperparams']))
 
     # add to plot
     if args.plot:

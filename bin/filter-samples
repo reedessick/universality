@@ -13,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -38,7 +38,7 @@ for target in [args.target_if_true, args.target_if_false]:
 
 if args.verbose:
     print('loading: '+args.source)
-data, cols = utils.load(args.source)
+data, cols = io.load(args.source)
 
 if args.verbose:
     print('identifying subset of samples')
@@ -47,7 +47,7 @@ truth = eval(args.conditional)
 if args.verbose:
     print('identified %d / %d samples'%(np.sum(truth), len(truth)))
     print('writing: '+args.target_if_true)
-np.savetxt(args.target_if_true, data[truth], comments='', delimiter=',', header=','.join(cols))
+io.write(args.target_if_true, data[truth], cols)
 
 if args.target_if_false == "/dev/null":
     if args.verbose:
@@ -56,4 +56,4 @@ if args.target_if_false == "/dev/null":
 else:
     if args.verbose:
         print('writing: '+args.target_if_false)
-    np.savetxt(args.target_if_false, data[np.logical_not(truth)], comments='', delimiter=',', header=','.join(cols))
+    io.write(args.target_if_false, data[np.logical_not(truth)], cols)

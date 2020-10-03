@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "generate statistics based on the KDE over these samples"
-__author__ = "reed.essick@ligo.org"
+"""generate statistics based on the KDE over these samples
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,7 +11,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import kde
 from universality import stats
 from universality import plot
 
@@ -25,7 +27,7 @@ vgroup = parser.add_argument_group('verbosity options')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 
 sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 sgroup.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
 sgroup.add_argument('--weight-column-is-log', default=[], type=str, action='append',
@@ -45,7 +47,7 @@ Can specify ranges for multiple columns by repeating this option. \
 DEFAULT will use the minimum and maximum observed sample points.')
 cgroup.add_argument('--column-bandwidth', nargs=2, default=[], type=str, action='append',
     help='the bandwidths used for each column specified. We assume diagonal covariance matricies in the Gaussian kernel. \
-If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%utils.DEFAULT_BANDWIDTH)
+If you do not specify a bandwidth for a column, the default value (%.3f) will be used.'%kde.DEFAULT_BANDWIDTH)
 
 cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action='append',
     help='multiply the column by this number before computing statistics. This is applied when data is first read in \
@@ -94,7 +96,7 @@ args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
 args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
 
 bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
-variances = np.array([bandwidthdict.get(col, utils.DEFAULT_BANDWIDTH) for col in args.columns])**2
+variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in args.columns])**2
 multiplierdict = dict((col, float(val)) for col, val in args.column_multiplier)
 
 #-------------------------------------------------
@@ -102,7 +104,7 @@ multiplierdict = dict((col, float(val)) for col, val in args.column_multiplier)
 ### read in data from csv
 if args.verbose:
     print('reading samples from: '+args.samples)
-data, columns = utils.load(args.samples, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+data, columns = io.load(args.samples, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 
 ### multiplying
 for i, column in enumerate(columns):
@@ -119,7 +121,7 @@ for i, col in enumerate(columns):
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.samples)
-    weights = utils.load_weights(
+    weights = io.load_weights(
         args.samples,
         args.weight_column,
         logweightcolumns=args.weight_column_is_log,
@@ -193,7 +195,7 @@ if args.one_dim_confidence_region:
 
     args.one_dim_confidence_region.sort()
     for i, col in enumerate(columns):
-        _logkde = utils.logkde(vects[i], data[:,i], variances[i], weights=weights)
+        _logkde = kde.logkde(vects[i], data[:,i], variances[i], weights=weights)
         argmax = vects[i][_logkde.argmax()]
         print('%s x %.3e argmax : %.3e'%(col, multiplierdict.get(col, 1), argmax))
         for level, (low, high) in zip(args.one_dim_confidence_region, stats.logkde2crbounds(vects[i], _logkde, args.one_dim_confidence_region)):
@@ -209,8 +211,8 @@ if args.confidence_region_size or args.entropy or args.information or args.argma
     if args.verbose:
         print('computing %dD kde'%Ncol)
 
-    logkde = utils.logkde(
-        utils.vects2flatgrid(*vects),
+    logkde = kde.logkde(
+        kde.vects2flatgrid(*vects),
         data,
         variances,
         weights=weights,
@@ -236,7 +238,7 @@ if args.confidence_region_size or args.entropy or args.information or args.argma
     if args.dlogL:
         maxlogL = np.max(logkde)
         for point in args.dlogL:
-            print('dlogL(%s) = %.6e'%(point, utils.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
+            print('dlogL(%s) = %.6e'%(point, kde.logkde(np.array([point]), data, variances, weights=weights) - maxlogL))
 
     if args.dtheta:
         for point in args.dtheta:
@@ -244,5 +246,5 @@ if args.confidence_region_size or args.entropy or args.information or args.argma
 
     if args.confidence_level:
         for point in args.confidence_level:
-            thr = utils.logkde(np.array([point]), data, variances, weights=weights)
+            thr = kde.logkde(np.array([point]), data, variances, weights=weights)
             print('confidence level(%s) = %.6e'%(point, 1.*np.sum(logkde>=thr)/len(logkde)))

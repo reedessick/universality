@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv."
-__author__ = "reed.essick@ligo.org"
+"""a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -10,7 +11,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import kde
 
 #-------------------------------------------------
 
@@ -72,7 +74,7 @@ for column, _min, _max in args.column_range:
 ### read in source samples
 if args.verbose:
     print('reading source samples from: '+args.source)
-srcdata, columns = utils.load(args.source, args.columns, logcolumns=args.logcolumn)
+srcdata, columns = io.load(args.source, args.columns, logcolumns=args.logcolumn)
 if not len(srcdata):
     raise RuntimeError('no samples present in %s!'%args.source)
 srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=args.verbose) ### whiten data
@@ -80,7 +82,7 @@ srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=args.verbose) ### whi
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.source)
-    weights = utils.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, invweightcolumns=args.invert_weight_column)
+    weights = io.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, invweightcolumns=args.invert_weight_column)
 
 else:
     N = len(srcdata)
@@ -106,8 +108,8 @@ if args.reflect:
 ### read in target samples
 if args.verbose:
     print("reading in target samples from: "+args.target)
-tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
-utils.check_columns(tgtcolumns, args.columns, logcolumns=args.logcolumn) ### make sure we have the columns we need to
+tgtdata, tgtcolumns = io.load(args.target, logcolumns=args.logcolumn) ### load in all the columns!
+io.check_columns(tgtcolumns, args.columns, logcolumns=args.logcolumn) ### make sure we have the columns we need to
 
 if len(tgtdata): ### we need to weigh things
 
@@ -120,7 +122,7 @@ if len(tgtdata): ### we need to weigh things
     if args.verbose:
         print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%\
             (len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
-    logkde = utils.logkde(
+    logkde = kde.logkde(
         tgtsamples,
         srcdata,
         np.ones(Ncol, dtype=float)*args.bandwidth**2,
@@ -142,13 +144,12 @@ if args.verbose:
 
 ### undo logcolumn formatting if needed
 for column in args.logcolumn:
-    i = tgtcolumns.index(utils.column2logcolumn(column))
+    i = tgtcolumns.index(io.column2logcolumn(column))
     tgtdata[:,i] = np.exp(tgtdata[:,i])
     tgtcolumns[i] = column
 
 ### now actually write stuff to disk
-template = ','.join('%.9e' for _ in xrange(len(tgtcolumns)+1))
-with open(args.output, 'w') as file_obj:
-    print >> file_obj, ','.join(tgtcolumns+[args.output_weight_column])
-    for sample, logweight in zip(tgtdata, logkde):
-        print >> file_obj, template%tuple(list(sample)+[logweight])
+atad = np.empty((len(tgtdata), len(tgtcolumns)+1), dtype=float)
+atad[:,:-1] = data
+atad[:,-1] = logkde
+io.write(args.output, atad, tgtcolumns+[args.output_weight_column])

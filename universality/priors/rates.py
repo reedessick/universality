@@ -1,14 +1,13 @@
 """a module that houses logic to perform rates and populations inferences based on weighted samples contained. \
 We approximate integrals over individual events' observables via weighted monte-carlo sums and dynamically adjust the weights to reflect the prior odds associated with the population parameters
 """
-__author__ = "reed.essick@ligo.org"
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
 import numpy as np
 
-### non-standard libraries
-from . import utils
+from universality import utils
 from . import priors
 
 #-------------------------------------------------

@@ -12,7 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import kde
 from universality import stats
 from universality import plot
 
@@ -26,7 +27,7 @@ parser.add_argument('--multiplier', type=float, default=1.)
 parser.add_argument('--logcolumn', default=False, action='store_true')
 parser.add_argument('--column-label', default=None, type=str)
 parser.add_argument('--column-range', nargs=2, type=float)
-parser.add_argument('--column-bandwidth', default=utils.DEFAULT_BANDWIDTH, type=float)
+parser.add_argument('--column-bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float)
 parser.add_argument('--column-truth', default=None, type=float)
 
 parser.add_argument('--level', default=[], action='append', type=float,
@@ -151,13 +152,13 @@ xmax = -np.infty
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading in samples for %s from: %s'%(label, path))
-    data, _ = utils.load(path, [args.column], logcolumns=logcolumns, max_num_samples=max_num_samples[label])
+    data, _ = io.load(path, [args.column], logcolumns=logcolumns, max_num_samples=max_num_samples[label])
     data *= args.multiplier ### apply this before pruning and all that jazz...
 
     if weight_columns[label][0]:
         if args.verbose:
             print('reading in non-trivial weights from: '+path)
-        weights = utils.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
+        weights = io.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
 
     else:
         N = len(data)
@@ -179,18 +180,18 @@ for ind, (label, path) in enumerate(args.samples):
 
     if not args.no_violin:
         samples = np.linspace(m, M, args.num_points)
-        kde = utils.logkde(
+        _kde = kde.logkde(
             samples,
             data,
             variance,
             weights=weights,
             num_proc=args.num_proc,
         )
-        kde = np.exp(kde - np.max(kde))
-        kde *= dx ### normalize to be half the spacing between things
+        _kde = np.exp(_kde - np.max(_kde))
+        _kde *= dx ### normalize to be half the spacing between things
 
-        ax.plot(x_value*ones + kde, samples, color=colors[label]) ### make a violin plot
-        ax.plot(x_value*ones - kde, samples, color=colors[label])
+        ax.plot(x_value*ones + _kde, samples, color=colors[label]) ### make a violin plot
+        ax.plot(x_value*ones - _kde, samples, color=colors[label])
 
     if args.level:
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):

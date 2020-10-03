@@ -1,5 +1,6 @@
-__doc__ = "a module to help select hyper paramters. Delegates a lot to gaussianprocess.py"
-__author__ = "reed.essick@ligo.org"
+"""a module to help select hyper paramters. Delegates a lot to gaussianprocess.py
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -19,7 +20,7 @@ except ImportError:
 import multiprocessing as mp
 
 ### non-standard libraries
-from universality import gaussianprocess as gp
+from . import gaussianprocess as gp
 from universality import utils
 
 #-------------------------------------------------

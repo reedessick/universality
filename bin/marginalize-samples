@@ -14,7 +14,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -26,7 +26,7 @@ parser.add_argument('columns', nargs="+", type=str,
 
 parser.add_argument('--weight-column', default=[], type=str, action='append')
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
-parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-o', '--output-path', default=None, type=str,
@@ -38,12 +38,12 @@ args = parser.parse_args()
 
 if args.verbose:
     print('reading samples from: '+args.samples)
-data, columns = utils.load(args.samples, args.columns, max_num_samples=args.max_num_samples)
+data, columns = io.load(args.samples, args.columns, max_num_samples=args.max_num_samples)
 
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.samples)
-    logweights = utils.load_logweights(
+    logweights = io.load_logweights(
         args.samples,
         args.weight_column,
         logweightcolumns=args.weight_column_is_log,
@@ -71,4 +71,4 @@ if args.output_path is not None:
 else:
     args.output_path = sys.stdout ### write to STDOUT
 
-np.savetxt(args.output_path, results, header=','.join(columns), comments='', delimiter=',')
+io.write(args.output_path, results, columns)

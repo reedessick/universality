@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a corner plot based on fancy KDEs to make them prettier"
-__author__ = "reed.essick@ligo.org"
+"""a corner plot based on fancy KDEs to make them prettier
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -11,7 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import kde
 from universality import plot
 from universality import stats
 
@@ -257,7 +259,7 @@ global_ranges = [(np.infty, -np.infty) for _ in range(Ncol+Ncond)]
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from: %s'%(label, path))
-    data, columns = utils.load(path, load_columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+    data, columns = io.load(path, load_columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
 
     for i, column in enumerate(load_columns): ### apply multiplicative factor based on the original column names
         if column in multiplierdict:
@@ -279,7 +281,7 @@ for ind, (label, path) in enumerate(args.samples):
     if weight_columns[label][0]:
         if args.verbose:
             print('reading in non-trivial weights from: '+path)
-        weights = utils.load_weights(
+        weights = io.load_weights(
             path,
             weight_columns[label][0],
             logweightcolumns=weight_columns[label][1],
@@ -315,11 +317,11 @@ for ind, (label, path) in enumerate(args.samples):
         ### compute update to weights based on the type of condition
         if cond_type == 'point':
             ### this way will run faster thru the loop w/in the delegation
-            logcond += utils.logkde(data[:,Ncol+i], np.array([val]), b**2, num_proc=args.num_proc)
+            logcond += kde.logkde(data[:,Ncol+i], np.array([val]), b**2, num_proc=args.num_proc)
 
         else:
             z = (val - data[:,Ncol+i])/b
-            phi = utils._cumulative_gaussian_distribution(z) ### integrate from -infty up to val for each data separately
+            phi = kde._cumulative_gaussian_distribution(z) ### integrate from -infty up to val for each data separately
 
             if cond_type == 'upper-bound': ### integrate from val down for each sample
                 truth = phi > 0
@@ -383,7 +385,7 @@ for ind, (label, path) in enumerate(args.samples):
 for i, (label, path) in enumerate(args.reference):
     if args.verbose:
         print('reading reference curve from: '+path)
-    data, _ = utils.load(path, args.columns, logcolumns=args.logcolumn)
+    data, _ = io.load(path, args.columns, logcolumns=args.logcolumn)
     if args.whiten:
         for i, (m, s) in enumerate(zip(means, stds)):
             data[i,:] = (data[:,i]-m)/s

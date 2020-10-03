@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -32,7 +32,7 @@ args = parser.parse_args()
 
 if args.verbose:
     print('loading weights from: '+args.source)
-weights = utils.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, normalize=False)
+weights = io.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, normalize=False)
 
 if args.column_range: ### need to determine which samples to keep
     columns = []
@@ -43,7 +43,7 @@ if args.column_range: ### need to determine which samples to keep
 
     if args.verbose:
         print('loading data from: '+args.source)
-    d, c = utils.load(source, columns)
+    d, c = io.load(source, columns)
     if args.verbose:
         print('pruning data based on:')
         for c, tup in zip(columns, bounds):

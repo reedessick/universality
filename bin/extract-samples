@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+"""an executable to extract samples from a single CSV
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('inpath', type=str)
+rgroup.add_argument('outpath', type=str)
+
+rgroup.add_argument('reference', type=str,
+    help='the reference column')
+rgroup.add_argument('columns', nargs='+', type=str,
+    help='columns to extract')
+
+rgroup.add_argument('-r', '--reference-value', default=[], type=float, action='append',
+    help='the reference values at which we extract values from the EOS parameters. \
+DEFAULT=[]')
+rgroup.add_argument('--nearest-neighbor', default=False, action='store_true',
+    help='if supplied, we take the nearest neighbor when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+if not args.reference_value:
+    raise RuntimeError('must supply at least one --reference-value')
+
+### finish parsing
+Ncol = len(args.columns)
+Nref = len(args.reference_value)
+args.reference_value.sort()
+
+if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
+    os.makedirs(os.path.dirname(args.outpath))
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, _ = io.load(args.inpath, [args.reference]+args.columns)
+
+x = data[:,0]
+data = data[:,1:]
+
+N = len(data)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('extacting data at reference values')
+
+ans = np.empty((N, Nref*Ncol), dtype=float)
+
+ans = samples.data2samples(
+    x,
+    data,
+    (Nref, args.reference_value),
+    (0, None), ### not used
+    nearest_neighbor=args.nearest_neighbor,
+)
+
+outcols = samples.output_columns(args.columns, args.reference, reference_values=args.reference_value)
+
+#------------------------
+
+if args.verbose:
+    print('writing samples to: '+args.outpath)
+io.write(args.outpath, ans, outcols)

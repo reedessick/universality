@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space via Netwon's method"
-__author__ = "reed.essick@ligo.org"
+"""finds the optimal bandwidth for a KDE representation of samples in an N-dimensional space via Netwon's method
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -11,7 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
+from universality import kde
 from universality import plot
 
 #-------------------------------------------------
@@ -40,7 +42,7 @@ Larger values should result in faster run-times (fewer sets to evaluate), but ma
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
     help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 
-parser.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+parser.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 parser.add_argument('--weight-column', default=[], type=str, action='append',
     help='if provided, thie numerical values from this column will be used as weights in the KDE')
@@ -76,7 +78,7 @@ args.verbose |= args.Verbose
 ### read in data from csv
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, columns = utils.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
+data, columns = io.load(args.inpath, args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 Nsamp = len(data)
 
 if args.verbose:
@@ -98,7 +100,7 @@ data, means, stds = utils.whiten(data, verbose=args.verbose)
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.inpath)
-    weights = utils.load_weights(
+    weights = io.load_weights(
         args.inpath,
         args.weight_column,
         logweightcolumns=args.weight_column_is_log,
@@ -114,7 +116,7 @@ else:
 ### perform bisection search
 if args.verbose:
     print('optimizing bandwidth')
-b, (mlogL, vlogL, mdlogLdvp, vdlogLdvp) = utils.optimize_bandwidth(
+b, (mlogL, vlogL, mdlogLdvp, vdlogLdvp) = kde.optimize_bandwidth(
     data,
     args.bandwidth_range,
     rtol=args.rtol,
@@ -140,6 +142,8 @@ if args.verbose:
     stdv_logL = %(stdv_logL)+.6e
     mean_dlogLdlogb = %(mean_dlogLdlogb)+.6e
     stdv_dlogLdlogb = %(stdv_dlogLdlogb)+.6e'''%metrics)
+
+### FIXME: write the result into a CSV for ease of use later?
 
 #------------------------
 ### generate plots/visualizations representing results

@@ -1,0 +1,187 @@
+#!/usr/bin/env python
+
+"""an executable to extract moment-of-inertia (MoI) features from a process
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import (utils, io)
+from universality.properties import features
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+# required arguments
+rgroup = parser.add_argument_group('required argumets')
+rgroup.add_argument('inpath', type=str)
+
+# lookup arguments
+lgroup = parser.add_argument_group('look-up arguments')
+lgroup.add_argument('--eos-column', default='EoS', type=str)
+
+lgroup.add_argument('--macro2eos-central-baryon-density', nargs=2, default=('rhoc', 'baryon_density'), type=str,
+    help='the mapping between a column name in the macro file to a column name in the eos file. \
+This is used to look up EoS parameters associated with the central densities of interesting stellar configurations. \
+e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
+
+parser.add_argument("--eos-sound-speed-column", default="cs2c2", type=str)
+
+lgroup.add_argument('--eos-dir', default='.', type=str)
+lgroup.add_argument('--eos-num-per-dir', default=1000, type=int,
+    help='the number of samples per directory')
+lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames for eos files.')
+
+lgroup.add_argument('--mass-column', default='M', type=str,
+    help='column name for gravitational mass in the macro file')
+lgroup.add_argument('--moi-column', default='I', type=str,
+    help='column name for moment of inertia in the macro file')
+
+lgroup.add_argument('--macro-dir', default=None, type=str,
+    help='if not specified, will use the value assigned to --eos-dir')
+lgroup.add_argument('--macro-num-per-dir', default=None, type=int,
+    help='if not specified, will use the value assigned to --eos-num-per-dir')
+lgroup.add_argument('--macro-basename', default='draw-macro-%d.csv', type=str,
+    help='a string into which the EOS number can be substituted when building filenames for macro files.')
+
+# samples arguments
+sgroup = parser.add_argument_group('samples-specific argument')
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
+
+# workflow arguments
+wgroup = parser.add_argument_group('workflow arguments')
+
+wgroup.add_argument('--flatten-thr', default=0.0, type=float,
+    help='the threshold on |dlnX/dlnrho| below which we set this to zero')
+wgroup.add_argument('--smoothing-width', default=None, type=float,
+    help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
+The kernel is defined over log(rhoc), and 0.02 seems to work well.')
+wgroup.add_argument('--diff-thr', type=float, default=0.0,
+    help='a threshold on how big the "dip" in arctan(dlnI/dlnM) must be for us to record the possible phase transition. \
+This is useful for removing small numerical noise (likely from the somewhat "coarse grained" TOV solutions)')
+wgroup.add_argument('--cs2c2-cofactor', type=float, default=1.0,
+    help='a threshold on how big the ratio of sound speeds can be between the local minimum in arctan(dlnI/dlnM) and the preceeding running maximum in cs2c2. \
+There are cases in which this helps reject things that stall the final collapse to a BH but do not look like obvious "classic" phase transitions in the sound speed.')
+
+# output arguments
+ogroup = parser.add_argument_group('output arguments')
+ogroup.add_argument('--output-eos-dir', default=None, type=str,
+    help='if specified, we will write the updated files into this directory instead of overwriting them')
+ogroup.add_argument('--output-eos-column', default=[], type=str, action='append',
+    help='the columns from the EoS files that we want to extract at the central densities of the interesting stellar configurations. \
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(features.DEFAULT_EOS_COLUMNS)))
+ogroup.add_argument('--output-macro-column', default=[], type=str, action='append',
+    help='the columns from the macro files that we want to extract at the central densities of the interesting stellar configurations. \
+Can be repeated to specify multiple columns. If this is not specified, we will pick up the default columns: %s'%(', '.join(features.DEFAULT_MACRO_COLUMNS)))
+
+# verbosity arguments
+vgroup = parser.add_argument_group('verbosity arguments')
+vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
+vgroup.add_argument('-V', '--Verbose', default=False, action="store_true")
+
+args = parser.parse_args()
+
+macro_rhoc, eos_rho = args.macro2eos_central_baryon_density ### assign these to handy names
+
+args.verbose |= args.Verbose
+
+### check to see if we want to use a different directory for macro files
+if args.macro_dir is None:
+    if args.verbose:
+        print('setting --macro-dir to --eos-dir=%s'%args.eos_dir)
+    args.macro_dir = args.eos_dir
+
+if args.macro_num_per_dir is None:
+    if args.verbose:
+        print('setting --macro-num-per-dir to --eos-num-per-dir=%d'%args.eos_num_per_dir)
+    args.macro_num_per_dir = args.eos_num_per_dir
+
+# make sure we know where we're going to write the output
+if args.output_eos_dir is None:
+    args.output_eos_dir = args.eos_dir
+
+# parse the EoS columns we want to extract
+if not args.output_eos_column:
+    if args.verbose:
+        print('setting --output-eos-column to default values: %s'%(', '.join(features.DEFAULT_EOS_COLUMNS)))
+    args.output_eos_column = features.DEFAULT_EOS_COLUMNS
+
+if eos_rho in args.output_eos_column:
+    args.output_eos_column.remove(eos_rho) ### remove this so we don't load it twice
+
+# parse the macro columns we want to extract
+if not args.output_macro_column:
+    if args.verbose:
+        print('setting --output-macro-column to default values: %s'%(', '.join(features.DEFAULT_MACRO_COLUMNS)))
+    args.output_macro_column = features.DEFAULT_MACRO_COLUMNS
+
+if macro_rhoc not in args.output_macro_column:
+    if args.verbose:
+        print('adding required column for baryon_density to --output-macro-column: '+macro_rhoc)
+    args.output_macro_column.append(macro_rhoc)
+
+if args.mass_column not in args.output_macro_column:
+    if args.verbose:
+        print('adding required column for mass to --output-macro-column: '+args.mass_column)
+    args.output_macro_column.append(args.mass_column)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('reading samples from: '+args.inpath)
+data, cols = io.load(args.inpath, [args.eos_column], max_num_samples=args.max_num_samples)
+
+### marginalize to avoid reading in the same EOS more than once
+if args.verbose:
+    print('marginalizing samples to avoid repeated work processing the same EoS multiple times')
+data, cols = utils.marginalize(data, np.zeros(len(data), dtype=float), cols)
+
+data = data[:,0]
+N = len(data)
+
+#------------------------
+
+# build templates to predict filenames based on an EoS number
+eos_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+mac_template = os.path.join(args.macro_dir, 'DRAWmod%d'%args.macro_num_per_dir+'-%(moddraw)06d', args.macro_basename)
+
+# build output templates for resulting summary and individual-branch files 
+newdir_template = os.path.join(args.output_eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d')
+
+assert args.macro_basename[-4:]==".csv", 'do not understand suffix of the macro basename! Expected it to end in ".csv"'
+basename = args.macro_basename[:-4] ### expect macro basename to end in ".csv"
+summary_template = os.path.join(newdir_template, basename+'-moi-features.csv') #
+
+### iterate to touch all EoS
+if args.verbose:
+    print('iterating over files and extracting branch parameters')
+
+features.process2moi_features(
+    data,
+    eos_template,
+    args.eos_num_per_dir,
+    mac_template,
+    args.macro_num_per_dir,
+    summary_template,
+    eos_rho,
+    args.eos_sound_speed_column,
+    macro_rhoc,
+    args.mass_column,
+    args.moi_column,
+    output_eos_columns=args.output_eos_columns,
+    output_macro_columns=args.output_macro_column,
+    flatten_thr=args.flatten_thr,
+    smoothing_width=args.smoothing_width,
+    diff_thr=args.diff_thr,
+    cs2c2_cofactor=args.cs2c2_cofactor,
+    verbose=args.Verbose,
+)

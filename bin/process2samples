@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "generate samples from a set of EOS (a process)"
-__author__ = "reed.essick@ligo.org"
+"""generate samples from a set of EOS (a process)
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -11,7 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import io
+from universality.properties import samples
 
 #-------------------------------------------------
 
@@ -46,7 +48,7 @@ vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('--max-num-samples', default=utils.DEFAULT_MAX_NUM_SAMPLES, type=int)
+sgroup.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 
 # lookup arguments
 lgroup = parser.add_argument_group('look-up arguments')
@@ -77,11 +79,11 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = utils.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
+data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
 
-ind = 1+len(args.copy_column)
+ind = 1+Nkeep
 ref = data[:,ind:] ### the columns from which we extract refernce values
-keep = data[:,1:ind] ### the stuff we want to transfer over to the final file
+keep = data[:,:ind+1] ### the stuff we want to transfer over to the final file
 data = data[:,0]
 N = len(data)
 
@@ -91,11 +93,11 @@ if args.verbose:
     print('extacting data at reference values')
 
 ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
-ans[:,:Nkeep] = keep ### fill in existing data
+ans[:,:Nkeep+1] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
-ans[:,Nkeep:] = utils.process2samples(
+ans[:,Nkeep+1:] = samples.process2samples(
     data,
     path_template,
     args.eos_num_per_dir,
@@ -108,16 +110,11 @@ ans[:,Nkeep:] = utils.process2samples(
 )
 
 ### set up output columns
-outcols = [col for col in args.copy_column]
-
-col_template = '%s(%s=%s)' ### add columns corresponding to a specific value
-ref_template = '%s(%s@%s)' ### add columns corresponding to reference values read dynamically from columns
-for column in args.columns:
-    outcols += [col_template%(column, args.reference, val) for val in args.reference_value] 
-    outcols += [ref_template%(column, args.reference, col) for col in args.reference_value_column]
+outcols = [args.eos_column] + args.copy_columns
+outcols += samples.output_columns(args.columns, args.reference, reference_values=args.reference_value, reference_value_columns=args.reference_value_column)
 
 #------------------------
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-np.savetxt(args.outpath, ans, comments='', delimiter=',', header=','.join(outcols))
+io.write(args.outpath, ans, outcols)

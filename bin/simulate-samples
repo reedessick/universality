@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-__doc__ = "a script that simulates LALInference samples for GW170817 using the product of marginal distributions, each modeled as a (truncated) Gaussian distribution; all parameters are required to be non-negative. NOTE: this means all parameters are assumed to be independent, which is not strictly correct."
-__author__ = "reed.essick@ligo.org"
-__usage__ = "simulate_samples [--options] outpath.csv column,mean,std,min,max [column,mean,std,min,max column,mean,std,min,max ...]"
+"""a script that simulates LALInference samples for GW170817 using the product of marginal distributions, each modeled as a (truncated) Gaussian distribution; all parameters are required to be non-negative. NOTE: this means all parameters are assumed to be independent, which is not strictly correct.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 
 #-------------------------------------------------
 
@@ -48,7 +48,4 @@ for i, (col, mean, std, m, M) in enumerate(columns):
 ### write to outpath.csv
 if args.verbose:
     print('writing samples to: '+args.outpath)
-with open(args.outpath,'w') as file_obj:
-    print >> file_obj, ','.join(col[0] for col in columns)
-    for sample in data:
-        print >> file_obj, ','.join('%.9e'%_ for _ in sample)
+io.write(args.outpath, data, columns)

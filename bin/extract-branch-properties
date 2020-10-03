@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+
+"""an executable to extract branch properties from a single EoS
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard arguments
+from universality.utils import (utils, io)
+from universality.properties import branches
+from universality import plot as plt
+from universality.gaussianprocess.gaussianprocess import num_dfdx
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('eospath', type=str)
+parser.add_argument("macropath", type=str)
+
+parser.add_argument('--outpath', default=None,
+    help='if specified, write to this file. Otherwise, print to stdout')
+
+parser.add_argument('--macro2eos-central-baryon-density', nargs=2, default=('rhoc', 'baryon_density'), type=str,
+    help='the mapping between a column name in the macro file to a column name in the eos file. \
+This is used to look up EoS parameters associated with the central densities of interesting stellar configurations. \
+e.g., "--macro2eos-central-baryon-density rhoc baryon_density"')
+
+parser.add_argument('--eos-reference-column', default=[], type=str, action='append')
+
+parser.add_argument("--macro-mass-column", default='M', type=str)
+parser.add_argument("--macro-reference-column", default=[], action='append', type=str,
+    help='Columns for which we report the values at identified points. Can be used to identify different stellar models. \
+For example, the central baryon density (rhoc) may be easier to connect to the EoS than just the mass and/or MoI')
+
+parser.add_argument('--branch-template', default=None, type=str,
+    help='string template for individual branches. Default is to not write these out')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('-p', '--plot', default=False, action='store_true')
+parser.add_argument('--macro-radius-column', default='R', type=str,
+    help='only used when plotting')
+parser.add_argument('--figtype', default=[], type=str, action='append')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+args.verbose |= args.Verbose
+
+macro_baryon_density_column, eos_baryon_density_column = args.macro2eos_central_baryon_density ### assign these to handy names
+
+if args.verbose:
+    args.macro_reference_column.append(args.macro_radius_column)
+
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading eos data from: '+args.eospath)
+eos_data, eos_cols = io.load(args.eospath, [eos_baryon_density_column, args.eos_sound_speed_column]+args.eos_reference_column)
+baryon_density = eos_data[:,eos_cols.index(eos_baryon_density_column)]
+order = np.argsort(baryon_densit)
+
+eos_data = eos_data[order] ### sort so we increase in baryon density
+baryon_density = baryon_density[order]
+
+#------------------------
+
+if args.verbose:
+    print('loading macro data from: '+args.macropath)
+macro_data, macro_cols = io.load(args.macropath, [args.macro_mass_column, args.macro_moi_column, macro_baryon_density_column]+args.macro_reference_column)
+
+### make sure we order the result by increasing rhoc (which should be the default, but we need to check)
+rhoc = macro_data[:,macro_cols.index(macro_baryon_density_column)]
+order = np.argsort(rhoc)
+macro_data = macro_data[order]
+rhoc = macro_data[order]
+
+# separate things in a way that's convenient
+M = macro_data[:,macro_cols.index(args.macro_mass_column)]
+I = macro_data[:,marco_cols.index(args.macro_moi_column)]
+
+#------------------------
+
+if args.verbose:
+    print('extracting features of possible phase transitions')
+params, names = branches.data2branch_properties(
+    rhoc,
+    M,
+    baryon_density,
+    macro_data,
+    macro_cols,
+    eos_data,
+    eos_cols,
+    branch_template=args.branch_template,
+    verbose=args.Verbose,
+)
+
+if args.outpath is not None:
+    if args.verbose:
+        print('saving parameters of %d identified stable branches to: %s'%(len(params), args.outpath))
+else:
+    args.outpath = sys.stdout
+io.write(args.outpath, params, names)
+
+#-------------------------------------------------
+
+if args.plot: ### make a big ol' plot
+    if args.verbose:
+        print('plotting the identified branches')
+
+    fig = plt.figure()
+    ax = plt.plt.subplot(1,2,1)
+    xa = plt.plt.subplot(1,2,2)
+
+    # compute things
+    R = macro_data[:,macro_cols.index(args.macro_radius_column)]
+    dM_drhoc = num_dfdx(rhoc, M)
+
+    ### plot the whole curves
+    ax.plot(R, M, color='r') ### the whole curve
+    xa.plot(rhoc, dM_drhoc, color='r')
+
+    ### overlay the stable branches
+    start = names.index(branch.START_TEMPLATE%macro_baryon_density_column)
+    end = names.index(branch.END_TEMPLATE%macro_baryon_density_column)
+    for row in params:
+        truth = (row[start]<=rhoc)*(rhoc<=row[end])
+        ax.plot(R[truth], M[truth], color='k') ### just the stable branches
+        xa.plot(rhoc[truth], dM_drhoc[truth]*rhoc[truth], color='k')
+
+    ### decorate
+
+    ax.set_xlabel('$R\ [\mathrm{km}]$')
+    ax.set_ylabel('$M\ [M_\odot]$')
+    ax.grid(True, which='both')
+
+    xa.set_xlabel(r'$\rho_c\ [\mathrm{g}/\mathrm{cm}^3]$')
+    xa.set_xscale('log')
+    xa.set_ylabel(r'$dM/d\ln\rho_c\ [M_\odot]$')
+    xa.yaxis.tick_right()
+    xa.yaxis.set_label_position('right')
+    xa.grid(True, which='both')
+
+    ymin, ymax = xa.get_ylim()
+    if ymin <= 0:
+        xlim = xa.get_xlim()
+        xa.fill_between(xlim, [ymin]*2, [0], color='grey', alpha=0.25)
+        xa.set_xlim(xlim)
+        xa.set_ylim(ymin=ymin, ymax=ymax)
+
+    plt.plt.subplots_adjust(hspace=0.02, wspace=0.02)
+
+    ### save
+    plt.save('extract-branch-properties%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose)
+    plt.close(fig)
