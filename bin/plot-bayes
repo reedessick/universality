@@ -32,6 +32,7 @@ parser.add_argument('--posterior-max-num-samples', default=np.infty, type=float)
 parser.add_argument('--log-y', default=False, action='store_true')
 
 parser.add_argument('--column', default='numbranches', type=str)
+parser.add_argument('--column-label', default=None, type=str)
 
 parser.add_argument('--verbose', default=False, action='store_true')
 
@@ -42,6 +43,9 @@ args = parser.parse_args()
 
 if args.tag:
     args.tag = '_'+args.tag
+
+if args.column_label is None:
+    args.column_label = args.column
 
 #-------------------------------------------------
 
@@ -66,6 +70,8 @@ prior_data, prior_columns = utils.marginalize(prior_data, np.log(prior_weights),
 if args.verbose:
     print('loading posterior data from: '+args.posterior_inpath)
 posterior_data, posterior_columns = io.load(args.posterior_inpath, [args.column], max_num_samples=args.posterior_max_num_samples)
+
+### FIXME? check to make sure there's something in the prior for everything that's in the posterior
 
 if args.posterior_weight_column:
     if args.verbose:
@@ -110,12 +116,17 @@ for branch in branches:
 
     ### extract prior odds
     posterior_truth = posterior_data[:,posterior_columns.index(args.column)] == branch
-    lnposterior = posterior_data[posterior_truth][0][posterior_columns.index('logmargweight')]
-    lnvar_posterior = posterior_data[posterior_truth][0][posterior_columns.index('logvarmargweight')]
+    if np.any(posterior_truth):
+        lnposterior = posterior_data[posterior_truth][0][posterior_columns.index('logmargweight')]
+        lnvar_posterior = posterior_data[posterior_truth][0][posterior_columns.index('logvarmargweight')]
+
+    else:
+        lnposterior = -np.infty
+        lnvar_posterior = -np.infty ### FIXME? can we do better than this? put some upper bound on the posterior instead of just calling it zero?
 
     posterior = np.exp(lnposterior)
     var_posterior = np.exp(lnvar_posterior)
-
+    
     ### compute bayes factor
     bayes = np.exp(lnposterior - lnprior)
     var_bayes = (1./prior)**2 * var_posterior + (posterior/prior**2)**2 * var_prior
@@ -131,7 +142,7 @@ xmin = np.min(branches)
 dx = (xmax-xmin)*0.05
 xlim = (xmin-dx, xmax+dx)
 for ax in [prior_ax, posterior_ax, bayes_ax]:
-    ax.set_xlabel(args.column)
+    ax.set_xlabel(args.column_label)
     ax.set_xlim(xlim)
     ax.grid(True, which='both')
 
