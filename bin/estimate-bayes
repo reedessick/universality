@@ -95,10 +95,12 @@ V1 = np.var(weights1)/N1
 Z2 = np.mean(weights2)
 V2 = np.var(weights2)/N2
 
+### NOTE!
+###     this does not account for the covariance between samples!
 B = Z1/Z2
-V = (1./Z2)**2 * V1 + (Z1/Z2**2) * V2
+V = (1./Z2)**2 * V1 + (Z1/Z2**2)**2 * V2
 print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label1, label2, B, V**0.5))
 
 B = Z2/Z1
-V = (1./Z1)**2 * V2 + (Z2/Z1**2) * V1
+V = (1./Z1)**2 * V2 + (Z2/Z1**2)**2 * V1
 print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label2, label1, B, V**0.5))
