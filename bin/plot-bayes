@@ -148,6 +148,8 @@ for ax in [prior_ax, posterior_ax, bayes_ax]:
 
     if args.log_y:
         ax.set_yscale('log')
+    else:
+        ax.set_ylim(ymin=max(0, ax.get_ylim()[0]))
 
 prior_ax.set_ylabel('Prior')
 posterior_ax.set_ylabel('Posterior')
