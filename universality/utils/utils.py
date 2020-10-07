@@ -112,6 +112,9 @@ def marginalize(data, logweights, columns):
         lmw = logmargweight[key]
         lmw2 = logmargweight2[key]
 
+        ### this is the variance of the sum, not the mean
+        ### V[sum] = N*V[w] = N*E[w**2] - N*(E{w})**2
+        ###                 ~ lmw2 - N*(lmw/N)**2 = lmw2 * (1 - lmw**2/(lmw2*N))
         logvar = lmw2 + np.log(1. - np.exp(2*lmw - lmw2 - np.log(cnt)))
 
         results[i,num_columns:] = lmw, logvar, cnt
