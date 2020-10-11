@@ -39,7 +39,11 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
     """
     integrate the first law of thermodynamics
         deps = (eps + p) (drho/rho)
+    from this expression, we solve for (eps/rho) because we can guarantee eps/rho >= 1
+        dlog(eps/rho) / dlog(eps) = p / (eps+p)
     """
+
+    ''' ### OLD IMPLEMENTATION, seemed to be unstable due to numerical errors in an exponent
     baryon_density = np.ones_like(pressurec2, dtype='float')
 
     integrand = 1./(energy_densityc2+pressurec2)
@@ -50,5 +54,28 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
 
     ### match at the lowest allowed energy density
     baryon_density *= eos.crust_baryon_density(reference_pressurec2)/np.interp(reference_pressurec2, pressurec2, baryon_density)
+    '''
 
+    ### NEW IMPLEMENTATION, should be more stable numerically
+    # compute the numeric integratoin
+    integrand = pressurec2/(energy_densityc2+pressurec2)
+    differential = np.log(energy_densityc2)
+
+    integral = np.empty_like(pressurec2, dtype=float)
+    integral[0] = 0.
+    integral[1:] = np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(differential[1:]-differential[:-1]))
+
+    # subtract out the reference value
+    integral -= np.interp(reference_pressurec2, pressurec2, integral)
+
+    # multiply by cofactor to get the baryon density
+    baryon_density = energy_densityc2 * (eos.crust_baryon_density(reference_pressurec2)/eos.crust_energy_densityc2(reference_pressurec2)) * np.exp(-integral)
+
+    ### fix an annoying issue with numerical stability at very low pressures (wiht sparse samples)
+    truth = energy_densityc2 < baryon_density
+    if np.any(truth):
+        print('WARNING: enforcing the requirement that baryon_density <= energy_densityc2 by hand below pressurec2=%.6e'%(pressurec2[truth][-1]))
+        baryon_density[truth] = energy_densityc2[truth]
+
+    ### return
     return baryon_density
