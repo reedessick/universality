@@ -14,9 +14,9 @@ from universality import eos
 
 def stitch_below_reference_pressure(energy_densityc2, pressurec2, reference_pressurec2):
     """reutrn energy_densityc2, pressurec2"""
-    sly_truth = eos.CRUST_PRESSUREC2 <= reference_pressurec2
+    crust_truth = eos.CRUST_PRESSUREC2 < reference_pressurec2
     eos_truth = reference_pressurec2 <= pressurec2
-    return np.concatenate((eos.CRUST_ENERGY_DENSITYC2[sly_truth], energy_densityc2[eos_truth])), np.concatenate((eos.CRUST_PRESSUREC2[sly_truth], pressurec2[eos_truth]))
+    return np.concatenate((eos.CRUST_ENERGY_DENSITYC2[crust_truth], energy_densityc2[eos_truth])), np.concatenate((eos.CRUST_PRESSUREC2[crust_truth], pressurec2[eos_truth]))
 
 ### integration routines
 def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
