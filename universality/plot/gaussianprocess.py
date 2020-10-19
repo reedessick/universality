@@ -116,11 +116,11 @@ def overlay(
     if figtup is None:
         fig = plt.figure(figsize=(figwidth, figheight))
         if subax:
-            ax = fig.add_axes(MAIN_AXES_POSITION)
-            rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+            ax = fig.add_axes(plt.MAIN_AXES_POSITION)
+            rs = fig.add_axes(plt.RESIDUAL_AXES_POSITION)
 
         else:
-            ax = fig.add_axes(AXES_POSITION)
+            ax = fig.add_axes(plt.AXES_POSITION)
     else:
         if subax:
             fig, ax, rs = figtup
@@ -231,11 +231,11 @@ def overlay_model(
     if figtup is None:
         fig = plt.figure(figsize=(figwidth, figheight))
         if subax:
-            ax = fig.add_axes(MAIN_AXES_POSITION)
-            rs = fig.add_axes(RESIDUAL_AXES_POSITION)
+            ax = fig.add_axes(plt.MAIN_AXES_POSITION)
+            rs = fig.add_axes(plt.RESIDUAL_AXES_POSITION)
 
         else:
-            ax = fig.add_axes(AXES_POSITION)
+            ax = fig.add_axes(plt.AXES_POSITION)
     else:
         if subax:
             fig, ax, rs = figtup
