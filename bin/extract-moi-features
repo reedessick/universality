@@ -12,9 +12,8 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import io
+from universality.utils import (io, utils)
 from universality.properties import features
-from universality.gaussianprocess import gaussianprocess as gp
 from universality import plot as plt
 
 #-------------------------------------------------
@@ -164,13 +163,13 @@ if args.plot: ### make a big ol' plot
     ### things that will be plotted against baryon_density
     pressurec2 = eos_data[:,eos_cols.index(args.pressurec2_column)]
 
-    dcs2c2_deps = gp.num_dfdx(energy_densityc2, cs2c2)
-    dcs2c2_dp = gp.num_dfdx(pressurec2, cs2c2)
+    dcs2c2_deps = utils.num_dfdx(energy_densityc2, cs2c2)
+    dcs2c2_dp = utils.num_dfdx(pressurec2, cs2c2)
 
-    d2cs2c2_dp2 = gp.num_dfdx(pressurec2, dcs2c2_dp) * pressurec2**2
+    d2cs2c2_dp2 = utils.num_dfdx(pressurec2, dcs2c2_dp) * pressurec2**2
 
-    d2cs2c2_deps2 = gp.num_dfdx(energy_densityc2, dcs2c2_deps) * energy_densityc2**2
-    d2cs2c2_dlneps2 = gp.num_dfdx(energy_densityc2, dcs2c2_deps * energy_densityc2) * energy_densityc2
+    d2cs2c2_deps2 = utils.num_dfdx(energy_densityc2, dcs2c2_deps) * energy_densityc2**2
+    d2cs2c2_dlneps2 = utils.num_dfdx(energy_densityc2, dcs2c2_deps * energy_densityc2) * energy_densityc2
 
     micro_y = [
         ('pressurec2', '$p/c^2\ [\mathrm{g}/\mathrm{cm}^2]$', pressurec2, 'log', (1e11, 1e16)),

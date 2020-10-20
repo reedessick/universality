@@ -113,38 +113,6 @@ def parse_process_group(group):
     return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs, m)
 
 #-------------------------------------------------
-# convenience functions for sanity checking
-#-------------------------------------------------
-
-def num_dfdx(x_obs, f_obs):
-    '''
-    estimate the derivative numerically
-    '''
-    df = f_obs[1:] - f_obs[:-1]
-    dx = x_obs[1:] - x_obs[:-1]
-
-    dfdx = np.empty_like(f_obs, dtype=float)
-
-    dfdx[0] = df[0]/dx[0]   # handle boundary conditions as special cases
-    dfdx[-1] = df[-1]/dx[-1]
-
-    dfdx[1:-1] = 0.5*(df[:-1]/dx[:-1] + df[1:]/dx[1:]) ### average in the bulk
-    ### NOTE: this is different than what numpy.gradient will yield...
-
-    return dfdx
-
-def num_intfdx(x_obs, f_obs):
-    '''
-    estimate the definite integral numerically
-    '''
-    F = np.empty_like(f_obs, dtype=float)
-
-    F[0] = 0 ### initial value is a special case
-    F[1:] = 0.5*(f_obs[1:] + f_obs[:-1]) * (x_obs[1:] - x_obs[:-1]) ### trapazoidal approximation
-
-    return F
-
-#-------------------------------------------------
 # covariance kernels
 #-------------------------------------------------
 

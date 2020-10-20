@@ -16,7 +16,6 @@ from argparse import ArgumentParser
 from universality.utils import (utils, io)
 from universality.properties import branches
 from universality import plot as plt
-from universality.gaussianprocess.gaussianprocess import num_dfdx
 
 #-------------------------------------------------
 
@@ -125,7 +124,7 @@ if args.plot: ### make a big ol' plot
 
     # compute things
     R = macro_data[:,macro_cols.index(args.macro_radius_column)]
-    dM_drhoc = num_dfdx(rhoc, M)
+    dM_drhoc = utils.num_dfdx(rhoc, M)
 
     ### plot the whole curves
     ax.plot(R, M, color='r') ### the whole curve

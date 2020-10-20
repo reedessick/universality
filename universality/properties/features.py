@@ -9,8 +9,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import io
-from universality import gaussianprocess as gp
+from universality.utils import (io, utils)
 
 #-------------------------------------------------
 
@@ -109,8 +108,8 @@ DEFAULT_CS2C2_COFACTOR = 3.0
 def arctan_transform(rhoc, M, I, flatten_thr=DEFAULT_FLATTEN_THR, smoothing_width=DEFAULT_SMOOTHING_WIDTH):
     """compute the special arctan function we use to feed into our feature identification function
     """
-    dlnI_drhoc = gp.num_dfdx(rhoc, I) / I
-    dlnM_drhoc = gp.num_dfdx(rhoc, M) / M
+    dlnI_drhoc = utils.num_dfdx(rhoc, I) / I
+    dlnM_drhoc = utils.num_dfdx(rhoc, M) / M
 
     if smoothing_width:
         dlnI_drhoc = smooth(np.log(rhoc), dlnI_drhoc, smoothing_width)

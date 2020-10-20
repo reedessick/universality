@@ -8,8 +8,7 @@ import os
 
 import numpy as np
 
-from universality.utils import io
-from universality.gaussianprocess import gaussianprocess as gp
+from universality.utils import (io, utils)
 
 #-------------------------------------------------
 
@@ -30,9 +29,9 @@ FUNCTIONS = {
     'subtract': (lambda x, f : f-x),
     'multiply': (lambda x, f : x*f),
     'divide': (lambda x, f : f/x),
-    'logarithmic differentiate': (lambda x,y : gp.num_dfdx(x,f)*x/f),
-    'differentiate': gp.num_dfdx,
-    'integrate': gp.num_intfdx,
+    'logarithmic differentiate': (lambda x,y : utils.num_dfdx(x,f)*x/f),
+    'differentiate': utils.num_dfdx,
+    'integrate': utils.num_intfdx,
 }
 
 KNOWN_ACTIONS = list(DEFAULT_COLUMN_NAME.keys())

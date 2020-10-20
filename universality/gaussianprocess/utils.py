@@ -24,11 +24,7 @@ def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
     integrate to obtain the energy density
     if stitch=True, map the lower pressures onto a known curst below the reference pressure instead of just matching at the reference pressure
     """
-    energy_densityc2 = np.empty_like(pressurec2, dtype='float')
-    energy_densityc2[0] = 0 # we start at 0, so handle this as a special case
-
-    # integrate in the bulk via trapazoidal approximation
-    energy_densityc2[1:] = np.cumsum(0.5*(denergy_densitydpressure[1:]+denergy_densitydpressure[:-1])*(pressurec2[1:] - pressurec2[:-1]))
+    energy_densityc2 = utils.num_intfdx(pressurec2, denergy_densitydpressure)
 
     ### match at reference pressure
     energy_densityc2 += eos.crust_energy_densityc2(reference_pressurec2) - np.interp(reference_pressurec2, pressurec2, energy_densityc2)
@@ -58,12 +54,7 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
 
     ### NEW IMPLEMENTATION, should be more stable numerically
     # compute the numeric integratoin
-    integrand = pressurec2/(energy_densityc2+pressurec2)
-    differential = np.log(energy_densityc2)
-
-    integral = np.empty_like(pressurec2, dtype=float)
-    integral[0] = 0.
-    integral[1:] = np.cumsum(0.5*(integrand[1:]+integrand[:-1])*(differential[1:]-differential[:-1]))
+    integral = utils.num_intfdx(np.log(energy_densityc2), pressurec2/(energy_densityc2+pressurec2))
 
     # subtract out the reference value
     integral -= np.interp(reference_pressurec2, pressurec2, integral)

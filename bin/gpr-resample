@@ -14,7 +14,7 @@ import h5py
 from argparse import ArgumentParser
 
 ### non-standard
-from universality.utils import (units, io)
+from universality.utils import (units, utils, io)
 from universality import gaussianprocess as gp
 from universality import plot
 
@@ -308,7 +308,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             fig, ax = plot.overlay_model(dfmodel)
             ymin1, ymax1 = ax.get_ylim()
             plot.overlay(
-                [(p_obs[truth], gp.num_dfdx(logp_obs, loge_obs)[truth], label)],
+                [(p_obs[truth], utils.num_dfdx(logp_obs, loge_obs)[truth], label)],
                 xlabel='$p/c^2$',
                 ylabel='$d\log\\varepsilon/d\log p$',
                 markers=['.'],
@@ -330,7 +330,7 @@ for ind, path in enumerate(args.eospaths): ### iterate over supplied EOS, resamp
             fig, ax = plot.overlay_model(pmodel)
             ymin1, ymax1 = ax.get_ylim()
             plot.overlay(
-                [(p_obs[truth], np.log(np.exp(loge_obs)/p_obs * gp.num_dfdx(logp_obs, loge_obs) - 1)[truth], label)],
+                [(p_obs[truth], np.log(np.exp(loge_obs)/p_obs * utils.num_dfdx(logp_obs, loge_obs) - 1)[truth], label)],
                 xlabel='$p/c^2$',
                 ylabel='$\phi$',
                 markers=['.'],
