@@ -34,6 +34,9 @@ FOURPI = 2*TWOPI
 def dmdr(r, epsc2):
     return FOURPI * r**2 * epsc2
 
+def dmbdr(r, m, dm_dr):
+    return dm_dr * (1 - 2*G*m/(r*c2))**-0.5
+
 def dpc2dr(r, pc2, m, epsc2):
     return - G * (epsc2 + pc2)*(m + FOURPI * r**3 * pc2)/(r * (r*c2 - 2*G*m))
 
@@ -43,7 +46,8 @@ def dvecdr(r, vec, eos):
     '''
     pc2, m = vec
     epsc2 = np.interp(pc2, *eos)
-    return dpc2dr(r, pc2, m, epsc2), dmdr(r, epsc2)
+    dm_dr = dmdr(r, epsc2)
+    return dpc2dr(r, pc2, m, epsc2), dm_dr, dmbdr(r, m, dm_dr)
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     """determines the initial conditions for a stellar model with central pressure pc
@@ -53,14 +57,15 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     
     pc2 = (1. - frac)*pc2i ### assume a constant slope over a small change in the pressure
     r = (frac*pc2i / ( G * (ec2i + pc2i) * (ec2i/3. + pc2i) * TWOPI ) )**0.5 ### solve for the radius that corresponds to that small change
-    m = FOURPI * r**3 * ec2i / 3.
+    m = mb = FOURPI * r**3 * ec2i / 3.
 
-    return r, [pc2, m]
+    return r, (pc2, m, mb)
 
 #------------------------
 
 ### the solver that yields macroscopic quantites
-MACRO_COLS = ['M', 'R'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'Mb'] ### the column names for what we compute
+
 def integrate(
         pc2i,
         eos,
@@ -92,6 +97,7 @@ def integrate(
     ### interpolate to find stellar surface
     p = [vec0[0], vec[0]]
     m = [vec0[1], vec[1]]
+    mb = [vec0[2], vec[2]]
     r = [r0, r]
 
-    return np.interp(0, p, m), np.interp(0, p, r)
+    return np.interp(0, p, m), np.interp(0, p, r), np.interp(0, p, mb)

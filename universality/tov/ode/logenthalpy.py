@@ -36,12 +36,16 @@ def drdlogh(r, m, pc2):
 def dmdlogh(r, epsc2, dr_dlogh):
     return FOURPI * epsc2 * r**2 * dr_dlogh
 
+def dmbdlogh(r, m, dm_dlogh):
+    return dm_dlogh * (1 - 2*G*m/(r*c2))**-0.5
+
 def dvecdlogh(logh, vec, eos):
     pc2 = np.interp(logh, eos[0], eos[1])
     ec2 = np.interp(logh, eos[0], eos[2])
-    r, m = vec
+    m, r = vec
     dr_dlogh = drdlogh(r, m, pc2)
-    return [dr_dlogh, dmdlogh(r, ec2, dr_dlogh)]
+    dm_dlogh = dmdlogh(r, ec2, dr_dlogh)
+    return [dm_dlogh, dr_dlogh, dmbdlogh(r, m, dm_dlogh)]
 
 def initial_condition(loghi, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
@@ -51,14 +55,14 @@ def initial_condition(loghi, eos, frac=DEFAULT_INITIAL_FRAC):
 
     r = ( 3.*frac / (TWOPI*(ec2 + 3.*pc2)) )**0.5
     logh = loghi * (1 - frac)
-    m = FOURPI * ec2 * r**3 / 3.
+    m = mb = FOURPI * ec2 * r**3 / 3.
 
-    return logh, (r, m)
+    return logh, (m, r, mb)
 
 #------------------------
 
 ### the solver that yields macroscopic quantites
-MACRO_COLS = ['M', 'R'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'Mb'] ### the column names for what we compute
 
 def integrate(
         pc2i,
@@ -84,4 +88,4 @@ def integrate(
     vec = odeint(dvecdlogh, (loghi, 0), vec, args=(eos,), method=method, rtol=rtol, hmax=max_dlogh)
 
     ### extract final values at the surface
-    return vec[-1,1], vec[-1,0] 
+    return vec[-1,:]
