@@ -7,6 +7,7 @@ from scipy.integrate import odeint
 
 from universality.utils import utils
 from universality.utils.units import (G, c2)
+from .standard import (dmdr, dmbdr)
 
 #-------------------------------------------------
 
@@ -34,10 +35,10 @@ def drdlogh(r, m, pc2):
     return - r*(r*c2 - 2*G*m) / (G*(m + FOURPI * r**3 * pc2))
 
 def dmdlogh(r, epsc2, dr_dlogh):
-    return FOURPI * epsc2 * r**2 * dr_dlogh
+    return dmdr(r, epsc2) * dr_dlogh
 
 def dmbdlogh(r, m, dm_dlogh):
-    return dm_dlogh * (1 - 2*G*m/(r*c2))**-0.5
+    return dmbdr(r, m, dm_dlogh) ### the functional form is the same for dmb/dr and dmb/dlogh, so we reuse code
 
 def dvecdlogh(logh, vec, eos):
     pc2 = np.interp(logh, eos[0], eos[1])
