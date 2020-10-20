@@ -60,10 +60,11 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 #------------------------
 
 ### the solver that yields macroscopic quantites
-def MR(
+MACRO_COLS = ['M', 'R'] ### the column names for what we compute
+def integrate(
         pc2i,
         eos,
-        min_dr=DEFUALT_MIN_DR,
+        min_dr=DEFAULT_MIN_DR,
         max_dr=DEFAULT_MAX_DR,
         guess_frac=DEFAULT_GUESS_FRAC,
         initial_frac=DEFAULT_INITIAL_FRAC,

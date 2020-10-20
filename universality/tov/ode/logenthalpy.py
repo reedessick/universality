@@ -58,7 +58,9 @@ def initial_condition(loghi, eos, frac=DEFAULT_INITIAL_FRAC):
 #------------------------
 
 ### the solver that yields macroscopic quantites
-def MR(
+MACRO_COLS = ['M', 'R'] ### the column names for what we compute
+
+def integrate(
         pc2i,
         eos,
         max_dlogh=DEFAULT_MAX_DLOGH,

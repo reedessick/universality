@@ -4,4 +4,5 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+from .sequences import *
 from .ode import *
