@@ -16,7 +16,7 @@ from universality.utils import io
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('eos', type=str)
+parser.add_argument('eospath', type=str)
 parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
@@ -42,7 +42,7 @@ args = parser.parse_args()
 assert args.formalism in sequenes.KNOWN_FORMALISMS, '--formalism=%s not understood; must be one of %s'%(args.formalism, ', '.join(sequences.KNOWN_FORMALISMS))
 
 if parser.outpath is None:
-    args.outpath = args.eos + '-macro'
+    args.outpath = args.eospath + '-macro'
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
 
@@ -58,8 +58,8 @@ args.verbose |= args.Verbose
 
 ### load EoS data from disk
 if args.verbose:
-    print('print loading EoS data from: '+args.eos)
-data, cols = io.load(args.eos, args.central_eos_column)
+    print('print loading EoS data from: '+args.eospath)
+data, cols = io.load(args.eospath, args.central_eos_column)
 
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
