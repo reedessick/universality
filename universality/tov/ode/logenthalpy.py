@@ -7,10 +7,11 @@ from scipy.integrate import odeint
 
 from universality.utils import utils
 from universality.utils.units import (G, c2, Msun)
+from .standard import dpc2dr
 
 #-------------------------------------------------
 
-DEFAULT_MIN_DLOGH = 1e-8
+DEFAULT_MIN_DLOGH = 1e-4
 DEFAULT_MAX_DLOGH = 1e-4 ### maximum step size allowed within the integrator (dimensionless)
 
 DEFAULT_INITIAL_FRAC = 1e-10 ### the initial change in pressure we allow when setting the intial conditions
@@ -27,7 +28,7 @@ FOURPI = 2*TWOPI
 #-------------------------------------------------
 
 def eos2logh(pc2, ec2):
-    return utils.num_intfdx(pc2, 1./(ec2+pc2))
+    return utils.num_intfdx(np.log(pc2), pc2/(ec2+pc2)) ### thought to be more numerically stable given sparse samples of pc2 in the crust
 
 #------------------------
 
@@ -86,14 +87,13 @@ def integrate(
         max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
+        termination_rtol=1e-3,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density)
     """
     ### define initial condition
-    logh0, vec0 = initial_condition(pc2i, eos, frac=initial_frac)
-    vec = vec0[:]
-    logh = logh0
+    logh, vec = initial_condition(pc2i, eos, frac=initial_frac)
 
     ### integrate out until we hit termination condition
     while logh > 0:
@@ -101,11 +101,15 @@ def integrate(
         vec0 = vec[:]
 
         ### guess the next step
-        ### FIXME:
-        ###     condition on whether (dvec = dvecdH * logh0) is << vec for termination?
-        ###     when that is satisfied, just make the final approximation as a single step and be done with it?
-        logh = max(0, logh0 - max(min_dlogh, min(max_dlogh, 0.1*logh)))
-        vec = odeint(dvecdH, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
+        dvec_dlogh = np.array(dvecdH(vec0, -logh, eos))
+        logh = logh0 - max(min_dlogh, termination_rtol*np.min(np.array(vec)/dvec_dlogh))
+
+        if logh < 0: ### the remaining contribution is small, so we terminate the integration
+            vec = np.array(vec) + dvec_dlogh * logh0
+            logh = 0
+
+        else:
+            vec = odeint(dvecdH, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
 
     ### extract final values at the surface
     logh = [logh, logh0]
