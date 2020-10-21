@@ -46,7 +46,7 @@ def dvecdlogh(vec, logh, eos):
 
     m, r, mb = vec
     dr_dlogh = drdlogh(r, m, pc2)
-    return [dm_dlogh, dmdlogh(r, ec2, dr_dlogh), dmbdlogh(r, m, dmdlogh(r, rho, dr_dlogh))]
+    return [dmdlogh(r, ec2, dr_dlogh), dmdlogh(r, ec2, dr_dlogh), dmbdlogh(r, m, dmdlogh(r, rho, dr_dlogh))]
 
 def initial_condition(loghi, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
@@ -84,7 +84,7 @@ def integrate(
     eos = (logh, pc2, ec2, rho)
 
     ### define initial condition
-    loghi, vec = initial_contitions(loghi, eos, frac=initial_frac)
+    loghi, vec = initial_condition(np.interp(pc2i, pc2, logh), eos, frac=initial_frac)
 
     ### integrate out until we hit termination condition
     vec = odeint(dvecdlogh, vec, (loghi, 0), args=(eos,), rtol=rtol, hmax=max_dlogh)

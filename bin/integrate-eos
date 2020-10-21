@@ -71,6 +71,19 @@ pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 baryon_density = data[:, cols.index(args.baryon_density_column)]
 
+### sanity check that our integration range is compatible with the EoS data available
+max_pressurec2 = np.max(pressurec2)
+if max_central_pressurec2 > max_pressurec2:
+    if args.verbose:
+        print('limitting central_pressurec2 <= %.6e based on EoS data\'s range'%max_pressurec2)
+    max_central_pressurec2 = max_pressurec2
+
+min_pressurec2 = np.min(pressurec2)
+if min_central_pressurec2 < min_pressurec2:
+    if args.verbose:
+        print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
+    min_central_pressurec2 = min_pressurec2
+
 ### now compute the stellar sequence
 if args.verbose:
     print('solving for sequence of stellar models')
