@@ -114,8 +114,11 @@ def bisection_stellar_sequence(
         if verbose:
             print('computing stellar model with central pressure/c2 = %.6e'%max_pc2)
         if R_ind is not None:
-            kwargs['max_dr'] = 0.1*min_pc2_macro[R_ind] * 1e5 ### scale max step size with what we expect for the radius
-                                                              ### convert from km -> cm
+            ### scale max step size with what we expect for the radius
+            ### we need this to be pretty conservative, as this loop is is primarily entered when
+            ### we are just starting a segment and there could be wild changes in the radius
+            kwargs['max_dr'] = 0.001*min_pc2_macro[R_ind] * 1e5 ### convert from km -> cm
+
         max_pc2_macro = foo(max_pc2, eos, rtol=integration_rtol, **kwargs)
     max_pc2_macro = np.array(max_pc2_macro)
 
@@ -128,8 +131,9 @@ def bisection_stellar_sequence(
     if verbose:
         print('computing stellar model with central pressure/c2 = %.6e'%mid_pc2)
     if R_ind is not None:
-        kwargs['max_dr'] = 0.1*min(min_pc2_macro[R_ind], max_pc2_macro[R_ind]) * 1e5 ### scale max step size with what we expect for the radius
-                                                                                     ### convert from km -> cm
+        ### here we can be less stringent with max_dr since we're interpolating between models and have a better idea of the behavior
+        kwargs['max_dr'] = 0.1*min(min_pc2_macro[R_ind], max_pc2_macro[R_ind]) * 1e5 ### convert from km -> cm
+
     mid_pc2_macro = np.array(foo(mid_pc2, eos, rtol=integration_rtol, **kwargs))
 
     ### condition on whether we are accurate enough to determine recursive termination condition
