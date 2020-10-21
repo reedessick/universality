@@ -6,6 +6,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import numpy as np
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -21,7 +23,7 @@ parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
 parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
-parser.add_argument('--baryon_density-column', default='baryon_denisty', type=str)
+parser.add_argument('--baryon_density-column', default='baryon_density', type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
@@ -40,9 +42,9 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
-assert args.formalism in sequenes.KNOWN_FORMALISMS, '--formalism=%s not understood; must be one of %s'%(args.formalism, ', '.join(sequences.KNOWN_FORMALISMS))
+assert args.formalism in sequences.KNOWN_FORMALISMS, '--formalism=%s not understood; must be one of %s'%(args.formalism, ', '.join(sequences.KNOWN_FORMALISMS))
 
-if parser.outpath is None:
+if args.outpath is None:
     args.outpath = args.eospath + '-macro'
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
@@ -53,8 +55,8 @@ if args.pressurec2_column not in args.central_eos_column:
 if args.energy_densityc2_column not in args.central_eos_column:
     args.central_eos_column.append(args.energy_densityc2_column)
 
-if args.baryon_density not in args.central_eos_column:
-    args.central_eos_column.append(args.baryon_density)
+if args.baryon_density_column not in args.central_eos_column:
+    args.central_eos_column.append(args.baryon_density_column)
 
 args.verbose |= args.Verbose
 
@@ -67,7 +69,7 @@ data, cols = io.load(args.eospath, args.central_eos_column)
 
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
-baryon_density = data[:, cols.index(args.baryon_density)]
+baryon_density = data[:, cols.index(args.baryon_density_column)]
 
 ### now compute the stellar sequence
 if args.verbose:
@@ -83,11 +85,14 @@ central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     verbose=args.Verbose,
 )
 
+if args.verbose:
+    print('    evaluated %d stellar models'%len(central_pressurec2))
+
 ### figure out the central values of all the EoS columns
 if args.verbose:
     print('extracting central values of all EoS parameters')
 Neos = len(args.central_eos_column)
-Nmac = len(macro_columns)
+Nmac = len(macro_cols)
 
 sequence = np.empty((len(central_pressurec2), Neos+Nmac), dtype=float)
 columns = []
@@ -95,11 +100,11 @@ columns = []
 # extract the central EoS parameters 
 for i in range(Neos):
     sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,i])
-    columns.append(args.column_template%cols[i])
+    columns.append(args.central_column_template%cols[i])
 
 # add in the macro properties
 sequence[:,Neos:] = macro
-columns += macr_cols
+columns += macro_cols
 
 ### write the output
 if args.verbose:

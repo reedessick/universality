@@ -7,18 +7,19 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import numpy as np
 from scipy.integrate import odeint
 
-from universality.utils.units import (G, c2)
+from universality.utils.units import (G, c2, Msun)
 
 #-------------------------------------------------
 
-DEFAULT_MAX_DR = 1e4 ### maximum step size allowed within the integrator (in standard units, which should be in cm)
+#DEFAULT_MAX_DR = 1e5 ### maximum step size allowed within the integrator (in standard units, which should be in cm)
+DEFAULT_MAX_DR = 1e6
 DEFAULT_MIN_DR = 1.0 ### the smallest step size we allow (in standard units, which should be cm)
+
 DEFAULT_GUESS_FRAC = 0.1 ### how much of the way to the vanishing pressure we guess via Newton's method
 
-DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
 
-DEFAULT_METHOD = 'RK45' ### integrator parameters
-DEFAULT_RTOL = 1e-6
+DEFAULT_RTOL = 1e-3
 
 #------------------------
 
@@ -40,11 +41,11 @@ def dmbdr(r, m, dm_dr):
 def dpc2dr(r, pc2, m, epsc2):
     return - G * (epsc2 + pc2)*(m + FOURPI * r**3 * pc2)/(r * (r*c2 - 2*G*m))
 
-def dvecdr(r, vec, eos):
+def dvecdr(vec, r, eos):
     '''returns d(p, m)/dr
     expects: pressurec2, energy_densityc2 = eos
     '''
-    pc2, m = vec
+    pc2, m, mb = vec
     epsc2 = np.interp(pc2, eos[0], eos[1])
     rho = np.interp(pc2, eos[0], eos[2])
 
@@ -60,7 +61,7 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     pc2 = (1. - frac)*pc2i ### assume a constant slope over a small change in the pressure
     r = (frac*pc2i / ( G * (ec2i + pc2i) * (ec2i/3. + pc2i) * TWOPI ) )**0.5 ### solve for the radius that corresponds to that small change
     m = FOURPI * r**3 * ec2i / 3.
-    mb = FOURPI * r**3 * rho / 3.
+    mb = FOURPI * r**3 * rhoi / 3.
 
     return r, (pc2, m, mb)
 
@@ -76,7 +77,6 @@ def integrate(
         max_dr=DEFAULT_MAX_DR,
         guess_frac=DEFAULT_GUESS_FRAC,
         initial_frac=DEFAULT_INITIAL_FRAC,
-        method=DEFAULT_METHOD,
         rtol=DEFAULT_RTOL,
     ):
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
@@ -92,15 +92,16 @@ def integrate(
         r0 = r
 
         ### estimate the radius at which this p will vanish via Newton's method
-        r = r0 + max(min_dr, guess_frac * vec[0]/dvecdr(r, vec, eos)[0])
+        r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec = odeint(dvecdr, (r0, r), vec, args=(eos,), method=method, rtol=rtol, hmax=max_dr)
+        vec = odeint(dvecdr, vec, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1, :] ### retain only the last point
 
     ### interpolate to find stellar surface
     p = [vec0[0], vec[0]]
-    m = [vec0[1], vec[1]]
-    mb = [vec0[2], vec[2]]
-    r = [r0, r]
 
-    return np.interp(0, p, m), np.interp(0, p, r), np.interp(0, p, mb)
+    m = np.interp(0, p, [vec0[1], vec[1]]) / Msun
+    mb = np.interp(0, p, [vec0[2], vec[2]]) / Msun
+    r = np.interp(0, p, [r0, r]) * 1e-5 ### convert from cm to km
+
+    return m, r, mb

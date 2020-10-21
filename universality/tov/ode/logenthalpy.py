@@ -6,7 +6,7 @@ import numpy as np
 from scipy.integrate import odeint
 
 from universality.utils import utils
-from universality.utils.units import (G, c2)
+from universality.utils.units import (G, c2, Msun)
 from .standard import (dmdr, dmbdr)
 
 #-------------------------------------------------
@@ -16,7 +16,6 @@ DEFAULT_GUESS_FRAC = 0.1 ### how much of the way to the vanishing pressure we gu
 
 DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
 
-DEFAULT_METHOD = 'RK45' ### integrator parameters
 DEFAULT_RTOL = 1e-6
 
 #------------------------
@@ -40,11 +39,12 @@ def dmdlogh(r, epsc2, dr_dlogh):
 def dmbdlogh(r, m, dm_dlogh):
     return dmbdr(r, m, dm_dlogh) ### the functional form is the same for dmb/dr and dmb/dlogh, so we reuse code
 
-def dvecdlogh(logh, vec, eos):
+def dvecdlogh(vec, logh, eos):
     pc2 = np.interp(logh, eos[0], eos[1])
     ec2 = np.interp(logh, eos[0], eos[2])
     rho = np.interp(logh, eos[0], eos[3])
-    m, r = vec
+
+    m, r, mb = vec
     dr_dlogh = drdlogh(r, m, pc2)
     return [dm_dlogh, dmdlogh(r, ec2, dr_dlogh), dmbdlogh(r, m, dmdlogh(r, rho, dr_dlogh))]
 
@@ -72,7 +72,6 @@ def integrate(
         eos,
         max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
-        method=DEFAULT_METHOD,
         rtol=DEFAULT_RTOL,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
@@ -88,7 +87,12 @@ def integrate(
     loghi, vec = initial_contitions(loghi, eos, frac=initial_frac)
 
     ### integrate out until we hit termination condition
-    vec = odeint(dvecdlogh, (loghi, 0), vec, args=(eos,), method=method, rtol=rtol, hmax=max_dlogh)
+    vec = odeint(dvecdlogh, vec, (loghi, 0), args=(eos,), rtol=rtol, hmax=max_dlogh)
 
     ### extract final values at the surface
-    return vec[-1,:]
+    vec = vec[-1]
+    vec[0] /= Msun
+    vec[1] *= 1e-5 # convert from cm to km
+    vec[2] /= Msun
+
+    return vec
