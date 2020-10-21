@@ -15,7 +15,7 @@ DEFAULT_MIN_NUM_MODELS = 10
 DEFAULT_INTERPOLATOR_RTOL = 1e-2 ### used to determine accuracy of interpolator for macroscopic properties
 DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space central pressures
 
-DEFAULT_INTEGRATION_RTOL = 1e-6
+DEFAULT_INTEGRATION_RTOL = 1e-4
 
 KNOWN_FORMALISMS = ['logenthalpy', 'standard']
 DEFAULT_FORMALISM = KNOWN_FORMALISMS[0]
@@ -41,6 +41,11 @@ def stellar_sequence(
         integrate = logenthalpy.integrate
         macro_cols = logenthalpy.MACRO_COLS
         R_ind = None ### don't pass max_dr to integrate
+
+        ### compute the log(enthalpy per rest mass). Do this here so we only have to do it once
+        pc2, ec2, rho = eos
+        logh = logenthalpy.eos2logh(pc2, ec2)
+        eos = (logh, pc2, ec2, rho)
 
     elif formalism == 'standard':
         integrate = standard.integrate

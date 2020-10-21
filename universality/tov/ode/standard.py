@@ -19,7 +19,7 @@ DEFAULT_GUESS_FRAC = 0.1 ### how much of the way to the vanishing pressure we gu
 
 DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
 
-DEFAULT_RTOL = 1e-3
+DEFAULT_RTOL = 1e-4
 
 #------------------------
 
@@ -95,7 +95,7 @@ def integrate(
         r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec = odeint(dvecdr, vec, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1, :] ### retain only the last point
+        vec = odeint(dvecdr, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
 
     ### interpolate to find stellar surface
     p = [vec0[0], vec[0]]
