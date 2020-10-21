@@ -5,4 +5,4 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 ### by default, we use the log(enthalpy per rest mass) formalism
-from .logenthalpy import (integrate, MACRO_COLS)
+from .standard import (integrate, MACRO_COLS)

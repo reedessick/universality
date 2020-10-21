@@ -11,11 +11,11 @@ from universality.utils.units import (G, c2, Msun)
 #-------------------------------------------------
 
 DEFAULT_MIN_DLOGH = 1e-8
-DEFAULT_MAX_DLOGH = 1e-3 ### maximum step size allowed within the integrator (dimensionless)
+DEFAULT_MAX_DLOGH = 1e-4 ### maximum step size allowed within the integrator (dimensionless)
 
-DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-10 ### the initial change in pressure we allow when setting the intial conditions
 
-DEFAULT_RTOL = 1e-4
+DEFAULT_RTOL = 1e-6
 
 #------------------------
 
@@ -28,6 +28,8 @@ FOURPI = 2*TWOPI
 
 def eos2logh(pc2, ec2):
     return utils.num_intfdx(pc2, 1./(ec2+pc2))
+
+#------------------------
 
 def drdlogh(r, m, pc2):
     return - r * (r*c2 - 2*G*m) / (G*(m + FOURPI * r**3 * pc2))
@@ -52,12 +54,14 @@ def dvecdlogh(vec, logh, eos):
 def initial_condition(pc2, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
     '''
-    loghi = np.interp(pc2, eos[1], eos[0])
-    ec2 = np.interp(pc2, eos[1], eos[2])
-    rho = np.interp(pc2, eos[1], eos[3])
+    eos1 = eos[1]
+    loghi = np.interp(pc2, eos1, eos[0])
+    ec2 = np.interp(pc2, eos1, eos[2])
+    rho = np.interp(pc2, eos1, eos[3])
 
     logh = loghi * (1 - frac)
-    r = ( 3.*frac*loghi*c2 / (TWOPI*(ec2 + 3.*pc2)) )**0.5
+
+    r = ( 3.*frac*loghi*c2 / (TWOPI*G*(ec2 + 3.*pc2)) )**0.5
     m = FOURPI * ec2 * r**3 / 3.
     mb = FOURPI * rho * r**3 / 3.
 
@@ -68,17 +72,7 @@ def initial_condition(pc2, eos, frac=DEFAULT_INITIAL_FRAC):
 def dvecdH(vec, H, eos):
     """defines the derivative in terms of H = -logh
     """
-    logh = -H
-
-    eos0 = eos[0]
-    pc2 = np.interp(logh, eos0, eos[1])
-    ec2 = np.interp(logh, eos0, eos[2])
-    rho = np.interp(logh, eos0, eos[3])
-
-    m, r, mb = vec
-    dr_dlogh = - drdlogh(r, m, pc2)
-
-    return [dmdlogh(r, ec2, dr_dlogh), dr_dlogh, dmbdlogh(r, m, dmdlogh(r, rho, dr_dlogh))]
+    return -np.array(dvecdlogh(vec, -H, eos))
 
 #------------------------
 
@@ -114,7 +108,7 @@ def integrate(
         vec = odeint(dvecdH, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
 
     ### extract final values at the surface
-    logh = [0, logh0]
+    logh = [logh, logh0]
 
     m = np.interp(0, logh, [vec[0], vec0[0]]) / Msun
     r = np.interp(0, logh, [vec[1], vec0[1]]) * 1e-5 ### cm -> km
