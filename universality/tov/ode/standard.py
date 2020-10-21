@@ -45,19 +45,22 @@ def dvecdr(r, vec, eos):
     expects: pressurec2, energy_densityc2 = eos
     '''
     pc2, m = vec
-    epsc2 = np.interp(pc2, *eos)
-    dm_dr = dmdr(r, epsc2)
-    return dpc2dr(r, pc2, m, epsc2), dm_dr, dmbdr(r, m, dm_dr)
+    epsc2 = np.interp(pc2, eos[0], eos[1])
+    rho = np.interp(pc2, eos[0], eos[2])
+
+    return dpc2dr(r, pc2, m, epsc2), dmdr(r, epsc2), dmbdr(r, m, dmdr(r, rho))
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     """determines the initial conditions for a stellar model with central pressure pc
     this is done by analytically integrating the TOV equations over very small radii to avoid the divergence as r->0
     """
-    ec2i = np.interp(pc2i, *eos)
-    
+    ec2i = np.interp(pc2i, eos[0], eos[1])
+    rhoi = np.interp(pc2i, eos[0], eos[2])
+
     pc2 = (1. - frac)*pc2i ### assume a constant slope over a small change in the pressure
     r = (frac*pc2i / ( G * (ec2i + pc2i) * (ec2i/3. + pc2i) * TWOPI ) )**0.5 ### solve for the radius that corresponds to that small change
-    m = mb = FOURPI * r**3 * ec2i / 3.
+    m = FOURPI * r**3 * ec2i / 3.
+    mb = FOURPI * r**3 * rho / 3.
 
     return r, (pc2, m, mb)
 

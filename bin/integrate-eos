@@ -20,7 +20,8 @@ parser.add_argument('eospath', type=str)
 parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
-parser.add_argument('--energy_densityc2-column', default='pressurec2', type=str)
+parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
+parser.add_argument('--baryon_density-column', default='baryon_denisty', type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
@@ -52,6 +53,9 @@ if args.pressurec2_column not in args.central_eos_column:
 if args.energy_densityc2_column not in args.central_eos_column:
     args.central_eos_column.append(args.energy_densityc2_column)
 
+if args.baryon_density not in args.central_eos_column:
+    args.central_eos_column.append(args.baryon_density)
+
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
@@ -61,8 +65,9 @@ if args.verbose:
     print('print loading EoS data from: '+args.eospath)
 data, cols = io.load(args.eospath, args.central_eos_column)
 
-energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
+energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
+baryon_density = data[:, cols.index(args.baryon_density)]
 
 ### now compute the stellar sequence
 if args.verbose:
@@ -70,7 +75,7 @@ if args.verbose:
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
-    (pressurec2, energy_densityc2),
+    (pressurec2, energy_densityc2, baryon_density),
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,
