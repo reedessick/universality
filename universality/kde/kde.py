@@ -169,7 +169,7 @@ def logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     else:
         Nsamp, Ndim = samples.shape
 
-    if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
+    if weights is None:
         Ndata = len(data)
         weights = np.ones(Ndata, dtype='float')/Ndata
 
@@ -247,7 +247,7 @@ def grad_logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PRO
     grad_logkdes = np.empty(Nsamp, dtype=float)
 
     Ndata = len(data)
-    if np.any(weights==None): ### needed because modern numpy performs element-wise comparison here
+    if weights is None: ### needed because modern numpy performs element-wise comparison here
         weights = np.ones(Ndata, dtype='float')/Ndata
 
     if num_proc==1:
@@ -334,7 +334,7 @@ def logcovkde(samples1, samples2, data, variances, weights=None, num_proc=DEFAUL
         Nsamp, Ndim = samples1.shape
 
     Ndata = len(data)
-    if np.any(weights==None):
+    if weights is None:
         weights = np.ones(Ndata, dtype=float)/Ndata
 
     # compute first moments
@@ -420,7 +420,7 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
     """
     Nsamples, Ndim = data.shape
 
-    if weights==None:
+    if weights is None:
         weights = np.ones(Nsamples, dtype='float')/Nsamples
 
     sets = [[] for _ in range(max(int(np.ceil(Nsamples/k)),2))]
