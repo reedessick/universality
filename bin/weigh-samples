@@ -150,6 +150,6 @@ for column in args.logcolumn:
 
 ### now actually write stuff to disk
 atad = np.empty((len(tgtdata), len(tgtcolumns)+1), dtype=float)
-atad[:,:-1] = data
+atad[:,:-1] = tgtdata
 atad[:,-1] = logkde
 io.write(args.output, atad, tgtcolumns+[args.output_weight_column])
