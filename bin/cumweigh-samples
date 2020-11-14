@@ -63,8 +63,8 @@ DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 
 args = parser.parse_args()
 
-assert args.cumulative_integral_direction in utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS, \
-    '--cumulative-integral-direction=%s not understood! must be one of: %s'%(', '.join(utils.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS))
+assert args.cumulative_integral_direction in kde.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS, \
+    '--cumulative-integral-direction=%s not understood! must be one of: %s'%(', '.join(kde.KNOWN_CUMULATIVE_INTEGRAL_DIRECTIONS))
 
 args.logcolumn_source = [args.source_column] if args.logcolumn_source else []
 args.logcolumn_target = [args.source_target] if args.logcolumn_target else []
