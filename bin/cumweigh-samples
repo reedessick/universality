@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (utils, io)
 from universality import kde
 
 #-------------------------------------------------
@@ -74,12 +74,12 @@ args.logcolumn_target = [args.source_target] if args.logcolumn_target else []
 ### read in source samples
 if args.verbose:
     print('reading source samples from: '+args.source)
-srcdata, columns = utils.load(args.source, [args.source_column], logcolumns=args.logcolumn_source)
+srcdata, columns = io.load(args.source, [args.source_column], logcolumns=args.logcolumn_source)
 
 if args.weight_column:
     if args.verbose:
         print('reading in non-trivial weights from: '+args.source)
-    weights = utils.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, invweightcolumns=args.invert_weight_column)
+    weights = io.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, invweightcolumns=args.invert_weight_column)
 
 else:
     N = len(srcdata)
@@ -101,15 +101,15 @@ srcdata = srcdata.flatten() ### make this a 1-D array
 ### read in target samples
 if args.verbose:
     print("reading in target samples from: "+args.target)
-tgtdata, tgtcolumns = utils.load(args.target, logcolumns=args.logcolumn_target) ### load in all the columns!
-utils.check_columns(tgtcolumns, [args.target_column]) ### make sure we have the columns we need to
+tgtdata, tgtcolumns = io.load(args.target, logcolumns=args.logcolumn_target) ### load in all the columns!
+io.check_columns(tgtcolumns, [args.target_column]) ### make sure we have the columns we need to
 
 #-------------------------------------------------
 
 if args.verbose:
     print('computing weights from cumulative distribution at %d samples from %s based on %d samples from %s with %d cores'%\
         (len(tgtdata), args.target, len(srcdata), args.source, args.num_proc))
-logcdf = utils.logcdf(
+logcdf = kde.logcdf(
     tgtdata[:,tgtcolumns.index(args.target_column)],
     srcdata,
     args.prior_bounds,
