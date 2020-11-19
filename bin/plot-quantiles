@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""generate plots of processes from CSV files which refer to EOS tables (other csv files)
+"""generate plots of quantiles extracted via process2quantiles
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
@@ -18,13 +18,6 @@ from universality.utils import (utils, io)
 from universality import plot
 from universality import stats
 from universality.properties import samples
-
-#-------------------------------------------------
-
-DEFAULT_EOS_COLUMN = 'EoS'
-DEFAULT_EOS_DIR = '.'
-DEFAULT_EOS_NUM_PER_DIR = 1000
-DEFAULT_EOS_BASENAME = 'draw-foo-%d.csv'
 
 #-------------------------------------------------
 
@@ -51,32 +44,6 @@ vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
 vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
 
-# samples arguments
-sgroup = parser.add_argument_group('samples-specific argument')
-sgroup.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append',
-    help='label max-num-samples pairs')
-sgroup.add_argument('-w', '--weight-column', nargs=2, default=[], type=str, action='append',
-    help='label column pairs. if provided, thie numerical values from this column will be used as weights in the KDE')
-sgroup.add_argument('-W', '--weight-column-is-log', nargs=2, default=[], type=str, action='append',
-    help='the label and column for samples for which this is true')
-
-# lookup arguments
-lgroup = parser.add_argument_group('look-up arguments')
-lgroup.add_argument('--eos-column', nargs=2, default=[], type=str, action='append',
-    help='e.g.: "--eos-column label EoS')
-
-lgroup.add_argument('--eos-dir', nargs=2, default=[], type=str, action='append',
-    help='e.g.: "--eos-dir label path/to/directory"')
-lgroup.add_argument('--eos-num-per-dir', nargs=2, default=[], type=str, action='append',
-    help='a label and a string for the number of samples per directory')
-lgroup.add_argument('--eos-basename', nargs=2, default=[], type=str, action='append',
-    help='a label and a string into which the EOS number can be substituted when building filenames. NOTE, we glob for filenames, so if you wish to specify a subdirectory you can just provide the appropriate glob string and pick up everything underneath (useful for macroscopic properies of EOS).')
-
-# workflow argumnets
-wgroup = parser.add_argument_group('workflow arguments')
-wgroup.add_argument('--num-points', default=101, type=int,
-    help='the number of interpolation points used when plotting')
-
 # column arguments
 cgroup = parser.add_argument_group('column-specific arguments')
 cgroup.add_argument('-l', '--logcolumn', default=[], type=str, action='append',
@@ -86,6 +53,11 @@ DEFAULT=[]')
 cgroup.add_argument('-L', '--column-label', nargs=2, default=[], type=str, action='append',
     help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
 DEFAULT=[]')
+
+# workflow argumnets
+wgroup = parser.add_argument_group('workflow arguments')
+wgroup.add_argument('--num-points', default=101, type=int,
+    help='the number of interpolation points used when plotting')
 
 # plotting options
 pgroup = parser.add_argument_group('plotting options')
@@ -156,42 +128,6 @@ columns = [args.xcolumn, args.ycolumn]
 names = [label for label, path in args.samples]
 reference_names = [label for label, path in args.reference]
 Nsamples = len(names)
-
-# samples arguments
-max_num_samples = dict((label, np.infty) for label in names)
-for label, num in args.max_num_samples:
-    assert label in names, 'specifying --max-num-sample for unknown sample set: '+label
-    max_num_samples[label] = int(num)
-
-weight_columns = dict((label, ([], [])) for label in names)
-for label, column in args.weight_column:
-    assert label in names, 'specifying --weight-column for unknown sample set: '+label
-    weight_columns[label][0].append(column)
-for label, column in args.weight_column_is_log:
-    assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
-    weight_columns[label][1].append(column)
-
-eos_dirs = dict((label, DEFAULT_EOS_DIR) for label in names)
-for label, directory in args.eos_dir:
-    assert label in names, 'specifying --eos-dir for unknown sample set: '+label
-    eos_dirs[label] = directory
-
-eos_num_per_dir = dict((label, DEFAULT_EOS_NUM_PER_DIR) for label in names)
-for label, num in args.eos_num_per_dir:
-    assert label in names, 'specifying --eos-num-per-dir for unknown sample set: '+label
-    eos_num_per_dir[label] = int(num)
-
-eos_basenames = dict((label, DEFAULT_EOS_BASENAME) for label in names)
-for label, basename in args.eos_basename:
-    assert label in names, 'specigying --eos-basename for unknown sample set: '+label
-    eos_basenames[label] = basename
-
-eos_temps = dict((label, os.path.join(eos_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', eos_basenames[label])) for label in names)
-
-eos_columns = dict((label, DEFAULT_EOS_COLUMN) for label in names)
-for label, column in args.eos_column:
-    assert label in names, 'specifying --eos-column for unknown sample set: '+label
-    eos_columns[label] = column
 
 # verbosity options
 args.verbose |= args.Verbose
@@ -278,58 +214,22 @@ if args.legend and args.include_neff:
 
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
-        print('reading samples for %s from %s in: %s'%(label, eos_columns[label], path))
-    data, cols = io.load(path, [eos_columns[label]], max_num_samples=max_num_samples[label])
-
-    if weight_columns[label][0]:
-        if args.verbose:
-            print('reading in non-trivial weights from: '+path)
-        weights = io.load_weights(path, weight_columns[label][0], logweightcolumns=weight_columns[label][1], max_num_samples=max_num_samples[label])
-
-    else:
-        N = len(data)
-        weights = np.ones(N, dtype='float')/N
-
-    ### marginalize to avoid reading in the same EOS more than once
-    if args.verbose:
-        print('marginalizing samples to avoid repeated work reading the same EoS multiple times')
-    data, cols = utils.marginalize(data, np.log(weights), cols)
-    weights = utils.exp_weights(data[:,cols.index('logmargweight')])
-    data = data[:,0]
-
-    ### prune samples to get rid of vanishing weights
-    truth = weights > 0
-    data = data[truth]
-    weights = weights[truth]
-    N = len(data)
-
-    if args.legend and args.include_neff:
-        neff.append(stats.neff(weights))
-        nkde.append(stats.nkde(weights))
+        print('reading quantiles for %s from: %s'%(label, path))
+    quantiles, cols = io.load(path)
 
     #--------------------
 
     ### compute confidence regions
     if args.verbose:
-        print('computing confidence intervals from %d samples'%N)
+        print('computing confidence intervals')
 
-    qs, med = samples.process2quantiles(
-        data,
-        eos_temps[label],
-        eos_num_per_dir[label],
-        args.xcolumn,
-        args.ycolumn,
-        x_test,
-        quantiles,
-        quantile_type=args.quantile_type,
-        x_multiplier=args.x_multiplier,
-        y_multiplier=args.y_multiplier,
-        weights=weights,
-        verbose=args.Verbose,
-    )
+    raise NotImplementedError('compute confidence regions from quantiles')
 
     y[ind,:,:] = qs
     y_median[ind,:] = med
+
+
+raise Exception('''unify the rest of this with plot-process?''')
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -491,5 +391,5 @@ else:
     ax.set_xlabel(labels[args.xcolumn])
 
 # save
-plot.save('plot-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+plot.save('plot-quantiles%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.close(fig)
