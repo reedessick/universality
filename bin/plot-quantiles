@@ -188,14 +188,7 @@ if not args.figtype:
 
 #-------------------------------------------------
 
-# set up figure object
-fig = plot.plt.figure(figsize=(args.figwidth, args.figheight))
-if args.residuals or args.ratios:
-    ax = fig.add_axes(plot.MAIN_AXES_POSITION)
-    ax_res = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
-else:
-    ax = fig.add_axes(plot.AXES_POSITION)
-
+# set up data
 if args.xcolumn in args.logcolumn:
     x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
 else:
@@ -203,9 +196,6 @@ else:
 
 y = np.empty((Nsamples, Nquantiles, args.num_points), dtype='float')
 y_median = np.empty((Nsamples, args.num_points), dtype='float')
-x_cent = dict()
-y_cent = dict()
-w_cent = dict()
 
 ### iterate and plot
 if args.legend and args.include_neff:
@@ -228,8 +218,6 @@ for ind, (label, path) in enumerate(args.samples):
     y[ind,:,:] = qs
     y_median[ind,:] = med
 
-
-raise Exception('''unify the rest of this with plot-process?''')
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -256,140 +244,37 @@ if args.residuals or args.ratios:
 if args.verbose:
     print('plotting')
 
-for ind, label in enumerate(names):
-    # add quantiles
-    for i in xrange(Nquantiles/2): ### fill between pairs of quantiles
-        if args.filled: ### fill in inter-quantile regions
-            ax.fill_between(x_test, y[ind,2*i,:], y[ind,2*i+1,:], alpha=args.alpha, color=colors[label])
-            if args.residuals:
-                ax_res.fill_between(x_test, y[ind,2*i,:]-y_reference, y[ind,2*i+1,:]-y_reference, alpha=args.alpha, color=colors[label])
-            elif args.ratios:
-                ax_res.fill_between(x_test, y[ind,2*i,:]/y_reference, y[ind,2*i+1,:]/y_reference, alpha=args.alpha, color=colors[label])
+fig, ax = plot.envelope(
+        x_tst,
+        y,
+        y_median,
+        names,
+        colors,
+        labels[args.xcolumn],
+        labels[args.ycolumn],
+        [args.xmin, args.xmax],
+        legend=args.legend,
+        neff_nkde=(neff, nkde) if args.include_neff else None,
+        logxcolumn=args.xcolumn in args.logcolumn,
+        logycolumn=args.ycolumn in args.logcolumn,
+        grid=args.grid,
+        ymin=args.ymin,
+        ymax=args.ymax,
+        res_ymin=args.res_ymin,
+        res_ymax=args.res_ymax,
+        xsignposts=signposts[args.xcolumn],
+        ysignposts=signposts[args.ycolumn],
+        signpost_color=args.signpost_color,
+        reference=reference,
+        reference_colors=reference_colors,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        y_reference=y_reference if args.residuals or args.ratios else None,
+        filled=args.filled,
+        alpha=args.alpha,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+)
 
-        ### plot quantile boundaries
-        ax.plot(x_test, y[ind,2*i,:], alpha=args.alpha, color=colors[label])
-        ax.plot(x_test, y[ind,2*i+1,:], alpha=args.alpha, color=colors[label])
-        if args.residuals:
-            ax_res.plot(x_test, y[ind,2*i,:]-y_reference, alpha=args.alpha, color=colors[label])
-            ax_res.plot(x_test, y[ind,2*i+1,:]-y_reference, alpha=args.alpha, color=colors[label])
-        elif args.ratios:
-            ax_res.plot(x_test, y[ind,2*i,:]/y_reference, alpha=args.alpha, color=colors[label])
-            ax_res.plot(x_test, y[ind,2*i+1,:]/y_reference, alpha=args.alpha, color=colors[label])
-
-    # add median
-    ax.plot(x_test, y_median[ind,:], color=colors[label], alpha=1.0) ### plot the median
-    if args.residuals:
-        ax_res.plot(x_test, y_median[ind,:]-y_reference, color=colors[label], alpha=1.0)
-    elif args.ratios:
-        ax_res.plot(x_test, y_median[ind,:]/y_reference, color=colors[label], alpha=1.0)
-
-# add reference curves
-for ref_label, curve in reference:
-    X = curve[:,0]
-    Y = curve[:,1]
-    color = reference_colors[ref_label]
-    ax.plot(X, Y, color=color, alpha=0.5)
-
-    if args.residuals:
-        ax_res.plot(x_test, np.interp(x_test, X, Y)-y_reference, color=color, alpha=0.5)
-    elif args.ratios:
-        ax_res.plot(x_test, np.interp(x_test, X, Y)/y_reference, color=color, alpha=0.5)
-
-### decorate
-
-# add legend
-if args.legend:
-    if Nsamples==1:
-        placement = [0.5]
-    else:
-        placement = np.linspace(plot.MAIN_AXES_POSITION[0], plot.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], Nsamples)
-    center = plot.MAIN_AXES_POSITION[0]+0.5*plot.MAIN_AXES_POSITION[2]
-    for i, (placement, label) in enumerate(zip(placement, names)):
-        legend = label
-        if args.include_neff:
-            legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(neff[i], nkde[i])
-        if placement < center:
-            ha='left'
-        elif placement==center:
-            ha='center'
-        else:
-            ha='right'
-#        ha = 'center'
-        fig.text(placement, 0.5*(1+plot.MAIN_AXES_POSITION[1]+plot.MAIN_AXES_POSITION[3]), legend, color=colors[label], ha=ha, va='center')
-
-# scaling, etc
-if args.xcolumn in args.logcolumn:
-    ax.set_xscale('log')
-    for key, val in x_cent.items():
-        x_cent[key] = np.log10(val)
-
-if args.ycolumn in args.logcolumn:
-    ax.set_yscale('log')
-    if args.ratios:
-        ax_res.set_yscale('log')
-    for key, val in y_cent.items():
-        y_cent[key] = np.log10(val)
-
-ax.grid(args.grid, which='both')
-if args.residuals or args.ratios:
-    ax_res.grid(args.grid, which='both')
-
-# set limits
-ax.set_xlim(xmin=args.xmin, xmax=args.xmax)
-if args.residuals or args.ratios:
-    ax_res.set_xscale(ax.get_xscale())
-    ax_res.set_xlim(ax.get_xlim())
-
-if args.ymin is not None:
-    ax.set_ylim(ymin=args.ymin)
-if args.ymax is not None:
-    ax.set_ylim(ymax=args.ymax)
-
-if args.residuals or args.ratios:
-    if args.res_ymin is not None:
-        ax_res.set_ylim(ymin=args.res_ymin)
-    if args.res_ymax is not None:
-        ax_res.set_ylim(ymax=args.res_ymax)
-
-### add signposts
-ylim = ax.get_ylim()
-for value in signposts[args.xcolumn]:
-    ax.plot([value]*2, ylim, color=args.signpost_color)
-ax.set_ylim(ylim)
-
-xlim = ax.get_xlim()
-for value in signposts[args.ycolumn]:
-    ax.plot(xlim, [value]*2, color=args.signpost_color)
-ax.set_xlim(xlim)
-
-if args.residuals or args.ratios:
-    ylim = ax_res.get_ylim()
-    for value in signposts[args.xcolumn]:
-        ax_res.plot([value]*2, ylim, color=args.signpost_color)
-    ax_res.set_ylim(ylim)
-
-    xlim = ax_res.get_xlim()
-    for value in signposts[args.ycolumn]:
-        x = np.linspace(xlim[0], xlim[1], args.num_points)
-        if args.residuals:
-            y = value-np.ones_like(y_reference)
-        else: 
-            y = value/np.ones_like(y_reference)
-        ax_res.plot(x, y, color=args.signpost_color)
-    ax_res.set_xlim(xlim)
-
-# set labels
-ax.set_ylabel(labels[args.ycolumn])
-if args.residuals or args.ratios:
-    plot.plt.setp(ax.get_xticklabels(), visible=False)
-    ax_res.set_xlabel(labels[args.xcolumn])
-    if args.residuals:
-        ax_res.set_ylabel('%s - %s'%(labels[args.ycolumn], y_reference_label))
-    if args.ratios:
-        ax_res.set_ylabel('%s/%s'%(labels[args.ycolumn], y_reference_label))
-else:
-    ax.set_xlabel(labels[args.xcolumn])
-
-# save
 plot.save('plot-quantiles%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.close(fig)
