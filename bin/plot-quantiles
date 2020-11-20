@@ -213,7 +213,14 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('computing confidence intervals')
 
-    raise NotImplementedError('compute confidence regions from quantiles')
+    raise NotImplementedError('''compute confidence regions from quantiles
+
+col_template = args.ycolumn+'('+args.xcolumn+'=%s)'
+outcols = ['quantile'] + [col_template%val for val in x_test]
+
+Note, these are stored as just the quantiles, so we need to map those into the correct thing based on args.quantile_type
+
+''')
 
     y[ind,:,:] = qs
     y_median[ind,:] = med
