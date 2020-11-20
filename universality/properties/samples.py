@@ -5,10 +5,12 @@ __author__ = "Reed Essick (reed.essick@gmai.com)"
 #-------------------------------------------------
 
 import os
+import glob
 
 import numpy as np
 
 from universality.utils import (io, utils)
+from universality import stats
 
 #-------------------------------------------------
 
@@ -202,7 +204,7 @@ def process2samples(
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
             print('    '+path)
-        d, c = load(path, loadcolumns)
+        d, c = io.load(path, loadcolumns)
         x = d[:,c.index(xcolumn)]
         d = d[:,1:]
 
@@ -242,7 +244,7 @@ def process2quantiles(
         for eos_path in glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}):
             if verbose:
                 print('    '+eos_path)
-            d, _ = load(eos_path, columns)
+            d, _ = io.load(eos_path, columns)
 
             d[:,0] *= x_multiplier
             d[:,1] *= y_multiplier
