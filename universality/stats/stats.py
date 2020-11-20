@@ -90,7 +90,9 @@ def samples2crbounds(data, levels, weights=None):
 
     data, cweights = samples2cdf(data, weights=weights)
 
-    # perform a direct search over confidence bands, looking for the smallest one at each level
+    return cdf2crbounds(data, cweights, levels)
+
+def cdf2crbounds(data, cweights, levels):
     bounds = []
     for level in levels:
         i = 0

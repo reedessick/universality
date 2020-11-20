@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import re
 import numpy as np
 
 from collections import defaultdict
@@ -202,10 +203,17 @@ if args.legend and args.include_neff:
     neff = []
     nkde = []
 
+pattern = re.compile(args.ycolumn + '\(' + args.xcolumn + '=(.*)\)') ### used to extract x-values
+qs = np.empty((Nquantiles, args.num_points), dtype=float)
+med = np.empty(args.num_points, dtype=float)
+
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading quantiles for %s from: %s'%(label, path))
-    quantiles, cols = io.load(path)
+    data, cols = io.load(path)
+    X = [float(pattern.match(col).group(1)) for col in cols[1:]] ### the x values at which we have quantiles
+                                                                 ### assumes the first column is always "quantile"
+    NX = len(X)
 
     #--------------------
 
@@ -213,18 +221,23 @@ for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('computing confidence intervals')
 
-    raise NotImplementedError('''compute confidence regions from quantiles
+    # parse the column names
+    if args.quantile_type == 'sym':
+        for q_ind, q in enumerate(quantiles): ### iterate over requested quantiles
+            ### interpolate to find the quantile at each X and then interpolate to map those onto x_tst
+            y[ind,q_ind,:] = np.interp(x_tst, X, [np.interp(q, data[:,0], data[:,ind+1]) for ind in range(NX)]
 
-col_template = args.ycolumn+'('+args.xcolumn+'=%s)'
-outcols = ['quantile'] + [col_template%val for val in x_test]
+    elif args.quantile_type == 'hpd':
+        hpd = np.array([stats.cdf2crbounds(data[:,q_ind], data[:,0], quantiles) for q_ind in range(NX)]) ### compute HPD CR bounds
+        for q_ind in range(Nquantiles/2):
+            y[ind,2*q_ind] = np.interp(x_tst, X, hpd[:,2*q_ind,0])
+            y[ind,2*q_ind+1] = np.interp(x_tst, X, hpd[:,2*q_ind,1])
 
-Note, these are stored as just the quantiles, so we need to map those into the correct thing based on args.quantile_type
-
-''')
-
-    y[ind,:,:] = qs
-    y_median[ind,:] = med
-
+    else:
+        raise RuntimeError('--quantile-type=%s not understood'%args.quantile_type)
+ 
+    # extract medians for each X and then interpolate
+    y_median[ind,:] = np.interp(x_txt, X, [np.interp(0.5, data[:,0], data[:,q_ind+1]) for q_ind in range(NX)])
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
