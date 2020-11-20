@@ -12,7 +12,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import (utils, io)
+from universality.utils import (utils, io, units)
 from universality import kde
 from universality import plot
 from universality import stats
@@ -212,7 +212,10 @@ bandwidths = [bandwidthdict.get(col, None) for col in load_columns] ### If None,
 multiplierdict = dict()
 for column, m in args.column_multiplier:
     assert column in load_columns, 'specifying --column-multiplier for uknown column: '+column
-    multiplierdict[column] = float(m)
+    if hasattr(units, m):
+        multiplierdict[column] = getattr(units, m)
+    else:
+        multiplierdict[column] = float(m)
 
 labeldict = dict()
 for column, label in args.column_label:

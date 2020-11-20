@@ -11,7 +11,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import (utils, io)
+from universality.utils import (utils, io, units)
 from universality import kde
 from universality import stats
 from universality import plot
@@ -97,7 +97,7 @@ args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confiden
 
 bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
 variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in args.columns])**2
-multiplierdict = dict((col, float(val)) for col, val in args.column_multiplier)
+multiplierdict = dict((col, getattr(units, val) if hasattr(units, val) else float(val)) for col, val in args.column_multiplier)
 
 #-------------------------------------------------
 

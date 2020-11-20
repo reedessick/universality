@@ -14,7 +14,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import (utils, io)
+from universality.utils import (utils, io, units)
 from universality import plot
 from universality import stats
 from universality.properties import samples
@@ -41,9 +41,9 @@ rgroup.add_argument('xcolumn', type=str)
 rgroup.add_argument('xmin', type=float)
 rgroup.add_argument('xmax', type=float)
 
-rgroup.add_argument('--y-multiplier', default=1, type=float,
+rgroup.add_argument('--y-multiplier', default=1, type=str,
     help='multiply all y-values by this before plotting. y-limits are applied after multiplying.')
-rgroup.add_argument('--x-multiplier', default=1, type=float,
+rgroup.add_argument('--x-multiplier', default=1, type=str,
     help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
 
 # verbosity arguments
@@ -201,6 +201,16 @@ labels = dict((col, '$'+col+'$') for col in columns)
 for column, label in args.column_label:
     assert column in columns, 'specifying --column-label for unknown column: '+column
     labels[column] = label
+
+if isinstance(args.x_multiplier, str) and hasattr(units, args.x_multiplier):
+    args.x_multiplier = getattr(units, args.x_multiplier)
+else:
+    args.x_multiplier = float(args.x_multiplier)
+
+if isinstance(args.y_multiplier, str) and hasattr(units, args.y_multiplier):
+    args.y_multiplier = getattr(units, args.y_multiplier)
+else:
+    args.y_multiplier = float(args.y_multiplier)
 
 # plotting options
 colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
