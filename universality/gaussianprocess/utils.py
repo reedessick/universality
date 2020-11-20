@@ -32,7 +32,7 @@ def dedp2e(denergy_densitydpressure, pressurec2, reference_pressurec2):
 
     return energy_densityc2
 
-def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
+def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2, verbose=True):
     """
     integrate the first law of thermodynamics
         deps = (eps + p) (drho/rho)
@@ -66,7 +66,8 @@ def e_p2rho(energy_densityc2, pressurec2, reference_pressurec2):
     ### fix an annoying issue with numerical stability at very low pressures (wiht sparse samples)
     truth = energy_densityc2 < baryon_density
     if np.any(truth):
-        print('WARNING: enforcing the requirement that baryon_density <= energy_densityc2 by hand below pressurec2=%.6e'%(pressurec2[truth][-1]))
+        if verbose:
+            print('WARNING: enforcing the requirement that baryon_density <= energy_densityc2 by hand below pressurec2=%.6e'%(pressurec2[truth][-1]))
         baryon_density[truth] = energy_densityc2[truth]
 
     ### return
