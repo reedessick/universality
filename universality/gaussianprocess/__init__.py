@@ -4,5 +4,5 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
-from gaussianprocess import *
-from hyperparameters import *
+#from gaussianprocess import *
+#from hyperparameters import *

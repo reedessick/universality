@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import numpy as np
 
 from universality import eos
+from universality.utils import utils
 
 #-------------------------------------------------
 # utilities associated with integrating the EOS realizations
