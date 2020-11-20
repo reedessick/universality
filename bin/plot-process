@@ -346,8 +346,8 @@ if args.residuals or args.ratios:
 if args.verbose:
     print('plotting')
 
-fig, ax = plot.envelope(
-        x_tst,
+fig= plot.envelope(
+        x_test,
         y,
         y_median,
         names,
@@ -356,7 +356,7 @@ fig, ax = plot.envelope(
         labels[args.ycolumn],
         [args.xmin, args.xmax],
         legend=args.legend,
-        neff_nkde=(neff, nkde) if args.include_neff else None,
+        neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
         logxcolumn=args.xcolumn in args.logcolumn,
         logycolumn=args.ycolumn in args.logcolumn,
         grid=args.grid,
@@ -379,5 +379,5 @@ fig, ax = plot.envelope(
 )
 
 # save
-plot.save('plot-process%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
-plot.close(fig)
+plot.save('plot-process%s'%args.tag, fig[0], directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
+plot.close(fig[0])

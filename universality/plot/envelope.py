@@ -45,8 +45,8 @@ def envelope(
 
     xmin, xmax = xcolumn_range
 
-    if neff_nkde is not None:
-        include_neff = True
+    include_neff =  neff_nkde is not None
+    if include_neff:
         neff, nkde = neff_nkde
 
     # instantiate figure object or unpack it as needed
@@ -64,7 +64,8 @@ def envelope(
     else:
         fig, ax = fig
 
-    Nq, Nx = np.shape(quantiles)
+    Nn, Nq, Nx = np.shape(quantiles)
+    assert Nn == len(names), 'bad shape for quantiles!'
 
     # iterate through data and plot
     for ind, label in enumerate(names):
@@ -111,11 +112,12 @@ def envelope(
 
     # add legend
     if legend:
+        center = plt.MAIN_AXES_POSITION[0] + 0.5*plt.MAIN_AXES_POSITION[2]
         if len(names)==1:
-            placement = [0.5]
+            placement = [center]
         else:
             placement = np.linspace(plt.MAIN_AXES_POSITION[0], plt.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], len(names))
-        center = plt.MAIN_AXES_POSITION[0] + 0.5*plt.MAIN_AXES_POSITION[2]
+
         for i, (placement, label) in enumerate(zip(placement, names)):
             legend = label
             if include_neff:
@@ -126,7 +128,6 @@ def envelope(
                 ha='center'
             else:
                 ha='right'
-#            ha = 'center'
             fig.text(placement, 0.5*(1 + plt.MAIN_AXES_POSITION[1] + plt.MAIN_AXES_POSITION[3]), legend, color=colors[label], ha=ha, va='center')
 
     # scaling, etc

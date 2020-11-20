@@ -99,8 +99,6 @@ parser.add_argument('--res-ymin', default=None, type=float)
 parser.add_argument('--res-ymax', default=None, type=float)
 
 pgroup.add_argument('--legend', default=False, action='store_true')
-pgroup.add_argument('--include-neff', default=False, action='store_true',
-    help='include an estimate of the effective number of samples as a title')
 
 pgroup.add_argument('--reference-legend', default=False, action='store_true')
 
@@ -199,13 +197,7 @@ y = np.empty((Nsamples, Nquantiles, args.num_points), dtype='float')
 y_median = np.empty((Nsamples, args.num_points), dtype='float')
 
 ### iterate and plot
-if args.legend and args.include_neff:
-    neff = []
-    nkde = []
-
 pattern = re.compile(args.ycolumn + '\(' + args.xcolumn + '=(.*)\)') ### used to extract x-values
-qs = np.empty((Nquantiles, args.num_points), dtype=float)
-med = np.empty(args.num_points, dtype=float)
 
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
@@ -224,20 +216,25 @@ for ind, (label, path) in enumerate(args.samples):
     # parse the column names
     if args.quantile_type == 'sym':
         for q_ind, q in enumerate(quantiles): ### iterate over requested quantiles
-            ### interpolate to find the quantile at each X and then interpolate to map those onto x_tst
-            y[ind,q_ind,:] = np.interp(x_tst, X, [np.interp(q, data[:,0], data[:,ind+1]) for ind in range(NX)]
+            ### interpolate to find the quantile at each X and then interpolate to map those onto x_test
+            y[ind,q_ind,:] = np.interp(x_test, X, [np.interp(q, data[:,0], data[:,i+1]) for i in range(NX)])
 
     elif args.quantile_type == 'hpd':
         hpd = np.array([stats.cdf2crbounds(data[:,q_ind], data[:,0], quantiles) for q_ind in range(NX)]) ### compute HPD CR bounds
         for q_ind in range(Nquantiles/2):
-            y[ind,2*q_ind] = np.interp(x_tst, X, hpd[:,2*q_ind,0])
-            y[ind,2*q_ind+1] = np.interp(x_tst, X, hpd[:,2*q_ind,1])
+            y[ind,2*q_ind] = np.interp(x_test, X, hpd[:,2*q_ind,0])
+            y[ind,2*q_ind+1] = np.interp(x_test, X, hpd[:,2*q_ind,1])
 
     else:
         raise RuntimeError('--quantile-type=%s not understood'%args.quantile_type)
  
     # extract medians for each X and then interpolate
-    y_median[ind,:] = np.interp(x_txt, X, [np.interp(0.5, data[:,0], data[:,q_ind+1]) for q_ind in range(NX)])
+    y_median[ind,:] = np.interp(x_test, X, [np.interp(0.5, data[:,0], data[:,q_ind+1]) for q_ind in range(NX)])
+
+### set things up for plotting
+x_test *= args.x_multiplier
+y *= args.y_multiplier
+y_median *= args.y_multiplier
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -265,7 +262,7 @@ if args.verbose:
     print('plotting')
 
 fig, ax = plot.envelope(
-        x_tst,
+        x_test,
         y,
         y_median,
         names,
@@ -274,7 +271,6 @@ fig, ax = plot.envelope(
         labels[args.ycolumn],
         [args.xmin, args.xmax],
         legend=args.legend,
-        neff_nkde=(neff, nkde) if args.include_neff else None,
         logxcolumn=args.xcolumn in args.logcolumn,
         logycolumn=args.ycolumn in args.logcolumn,
         grid=args.grid,
