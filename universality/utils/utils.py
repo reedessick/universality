@@ -321,7 +321,6 @@ def num_intfdx(x_obs, f_obs):
     F = np.empty_like(f_obs, dtype=float)
 
     F[0] = 0 ### initial value is a special case
-    F[1:] = 0.5*(f_obs[1:] + f_obs[:-1]) * (x_obs[1:] - x_obs[:-1]) ### trapazoidal approximation
+    F[1:] = np.cumsum(0.5*(f_obs[1:] + f_obs[:-1]) * (x_obs[1:] - x_obs[:-1])) ### trapazoidal approximation
 
     return F
-
