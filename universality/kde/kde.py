@@ -472,7 +472,7 @@ def silverman_bandwidth(data, weights=None):
     else: ### account for weights when computing std
         N = np.sum(weights)
         std = (np.sum(weights*data**2)/N - (np.sum(weights*data)/N)**2)**0.5
-        num = neff(weights/np.sum(weights)) ### approximate number of samples that matter
+        num = stats.neff(weights/np.sum(weights)) ### approximate number of samples that matter
     return 0.9 * std * num**(-0.2)
 
 def optimize_bandwidth(

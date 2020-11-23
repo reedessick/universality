@@ -75,6 +75,12 @@ def setp(*args, **kwargs):
 def figure(*args, **kwargs):
     return plt.figure(*args, **kwargs)
 
+def subplot(*args, **kwargs):
+    return plt.subplot(*args, **kwargs)
+
+def subplots_adjust(*args, **kwargs):
+    return plt.subplots_adjust(*args, **kwargs)
+
 def save(basename, fig, figtypes=DEFAULT_FIGTYPES, directory=DEFAULT_DIRECTORY, verbose=False, **kwargs):
     template = os.path.join(directory, basename+'.%s')
     for figtype in figtypes:

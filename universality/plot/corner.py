@@ -14,8 +14,8 @@ except ImportError:
 ### non-standard libraries
 from . import utils as plt
 
-from universality.kde import (logkde, silverman_bandwidth)
-from universality.utils import DEFAULT_NUM_PROC
+from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid)
+from universality.utils import (DEFAULT_NUM_PROC, reflect)
 from universality import stats
 
 #-------------------------------------------------
@@ -103,12 +103,12 @@ def kde_corner(
     if fig is None:
         fig = plt.figure(figsize=(figwidth, figheight)) ### FIXME: set figsize based on Ncol?
         plt.subplots_adjust(
-            hspace=HSPACE,
-            wspace=WSPACE,
-            left=CORNER_LEFT/figwidth,
-            right=(figwidth-CORNER_RIGHT)/figwidth,
-            bottom=CORNER_BOTTOM/figheight,
-            top=(figheight-CORNER_TOP)/figheight,
+            hspace=plt.HSPACE,
+            wspace=plt.WSPACE,
+            left=plt.CORNER_LEFT/figwidth,
+            right=(figwidth-plt.CORNER_RIGHT)/figwidth,
+            bottom=plt.CORNER_BOTTOM/figheight,
+            top=(figheight-plt.CORNER_TOP)/figheight,
         )
 
     shape = (num_points, num_points) # used to reshape 2D sampling kdes
@@ -120,7 +120,7 @@ def kde_corner(
     dvects = [v[1]-v[0] for v in vects]
 
     ### set colors for scatter points
-    scatter_color = weights2color(weights, color)
+    scatter_color = plt.weights2color(weights, color)
 
     ### set up bins for 1D marginal histograms, if requested
     if hist1D:
@@ -142,7 +142,7 @@ def kde_corner(
 
                     truth[col] = True
 
-                    d, w = utils.reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
                         vects[col],
@@ -209,10 +209,10 @@ def kde_corner(
                             color=scatter_color,
                         )
 
-                    d, w = utils.reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
-                        utils.vects2flatgrid(vects[col], vects[row]),
+                        vects2flatgrid(vects[col], vects[row]),
                         d,
                         variances[truth],
                         weights=w,
@@ -221,7 +221,7 @@ def kde_corner(
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-                    thrs = sorted(np.exp(logkde2levels(np.log(kde), levels)), reverse=True)
+                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
                     if filled:
                         ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs)
                     ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
@@ -320,12 +320,12 @@ def curve_corner(
     if fig is None:
         fig = plt.figure(figsize=(figwidth, figheight)) ### FIXME: set figsize based on Ncol?
         plt.subplots_adjust(
-            hspace=HSPACE,
-            wspace=WSPACE,
-            left=CORNER_LEFT/figwidth,
-            right=(figwidth-CORNER_RIGHT)/figwidth,
-            bottom=CORNER_BOTTOM/figheight,
-            top=(figheight-CORNER_TOP)/figheight,
+            hspace=plt.HSPACE,
+            wspace=plt.WSPACE,
+            left=plt.CORNER_LEFT/figwidth,
+            right=(figwidth-plt.CORNER_RIGHT)/figwidth,
+            bottom=plt.CORNER_BOTTOM/figheight,
+            top=(figheight-plt.CORNER_TOP)/figheight,
         )
 
     ### iterate over columns, building 2D KDEs as needed
