@@ -152,7 +152,7 @@ def overlay(
     # plot residuals, etc
     if subax:
         if reference_curve is None:
-            x_ref, f_ref = curves[0]
+            x_ref, f_ref, _ = curves[0]
         else:
             x_ref, f_ref = reference_curve
 
@@ -196,7 +196,7 @@ def overlay(
 
         elif ratios:
             rs.set_yscale(ax.get_xscale())
-            rs.set_ylabel('$%s/%s_{\mathrm{ref}$'%(ylabel.strip('$'), ylabel.strip('$')))
+            rs.set_ylabel('$%s/%s_{\mathrm{ref}}$'%(ylabel.strip('$'), ylabel.strip('$')))
 
         return fig, ax, rs
 
