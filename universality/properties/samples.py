@@ -139,22 +139,22 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
                 ans[j*Ntot:j*Ntot+Nref] = data[:,j][truth]
                 ans[j*Ntot+Nref:(j+1)*Ntot] = data[:,j][dyn_truth]
             else:
-                ans[i,j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, x, data[:,j])
-                ans[i,j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], x, data[:,j])
+                ans[j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, x, data[:,j])
+                ans[j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], x, data[:,j])
 
     elif Nref > 0:
         for j in range(Ncols):
             if nearest_neighbor:
-                ans[i,j*Nref:(j+1)*Nref] = data[:,j][truth]
+                ans[j*Nref:(j+1)*Nref] = data[:,j][truth]
             else:
-                ans[i,j*Nref:(j+1)*Nref] = np.interp(static_x_test, x, data[:,j])
+                ans[j*Nref:(j+1)*Nref] = np.interp(static_x_test, x, data[:,j])
 
     else: ### Ndyn > 0
         for j in range(Ncols):
             if nearest_neighbor:
-                ans[i,j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_truth]
+                ans[j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_truth]
             else:
-                ans[i,j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], x, data[:,j])
+                ans[j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], x, data[:,j])
 
     return ans
 
@@ -165,7 +165,7 @@ def outputcolumns(columns, reference, reference_values=[], reference_columns=[])
     outcols = []
     for column in columns:
         outcols += [COL_TEMPLATE%(column, reference, val) for val in reference_values]
-        outcols += [REF_TEMPLATE%(column, reference, col) for col in reference_value_columns]
+        outcols += [REF_TEMPLATE%(column, reference, col) for col in reference_columns]
     return outcols
 
 def process2samples(

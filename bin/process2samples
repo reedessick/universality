@@ -39,7 +39,7 @@ rgroup.add_argument('--nearest-neighbor', default=False, action='store_true',
     help='if supplied, we take the nearest neighbor when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
 
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
-    help='copy over the values from this column')
+    help='copy over the values from this column. Can be repeated to specify multiple columns. If not specified, will copy over all columns by default.')
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -79,12 +79,25 @@ args.verbose |= args.Verbose
 
 if args.verbose:
     print('reading samples from: '+args.inpath)
-data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
+if Nkeep > 0: ### args.copy_column is specified
+    data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
 
-ind = 1+Nkeep
-ref = data[:,ind:] ### the columns from which we extract refernce values
-keep = data[:,:ind+1] ### the stuff we want to transfer over to the final file
-data = data[:,0]
+    ind = 1+Nkeep
+    ref = data[:,ind:] ### the columns from which we extract refernce values
+    keep = data[:,:ind+1] ### the stuff we want to transfer over to the final file
+    data = data[:,0]
+    outcols = [args.eos_column] + args.copy_columns
+
+else: ### copy all columns over
+    keep, outcols = io.load(args.inpath, max_num_samples=args.max_num_samples)
+    io.check_columns(outcols, [args.eos_column]+args.reference_value_column)
+    Nkeep = len(outcols) - 1
+
+    data = keep[:,outcols.index(args.eos_column)]
+    ref = np.empty((len(data), len(args.reference_value_column)), dtype=float)
+    for i, col in enumerate(args.reference_value_column):
+        ref[:,i] = keep[:,outcols.index(col)]
+
 N = len(data)
 
 #------------------------
@@ -92,7 +105,7 @@ N = len(data)
 if args.verbose:
     print('extacting data at reference values')
 
-ans = np.empty((N, Nkeep+Nref*Ncol), dtype=float)
+ans = np.empty((N, 1+Nkeep+Nref*Ncol), dtype=float)
 ans[:,:Nkeep+1] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
@@ -110,8 +123,7 @@ ans[:,Nkeep+1:] = samples.process2samples(
 )
 
 ### set up output columns
-outcols = [args.eos_column] + args.copy_columns
-outcols += samples.output_columns(args.columns, args.reference, reference_values=args.reference_value, reference_value_columns=args.reference_value_column)
+outcols += samples.outputcolumns(args.columns, args.reference, reference_values=args.reference_value, reference_columns=args.reference_value_column)
 
 #------------------------
 
