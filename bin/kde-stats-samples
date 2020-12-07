@@ -177,7 +177,7 @@ if args.one_dim_confidence_region_samples:
                     print('    @%.3f mean region   : %.6f^{+%.6f}_{-%.6f}'%(level, mean, high-mean, mean-low))
                     print('    @%.3f median region : %.6f^{+%.6f}_{-%.6f}'%(level, median, high-median, median-low))
             else:
-                if scienote:
+                if scinote:
                     print('    @%.3f region: [%.3e, %.3e]'%(level, low, high))
                 else:
                     print('    @%.3f region: [%.6f, %.6f]'%(level, low, high))

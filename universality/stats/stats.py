@@ -93,6 +93,8 @@ def samples2crbounds(data, levels, weights=None):
     return cdf2crbounds(data, cweights, levels)
 
 def cdf2crbounds(data, cweights, levels):
+    N = len(data)
+    stop = N-1
     bounds = []
     for level in levels:
         i = 0
