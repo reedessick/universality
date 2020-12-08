@@ -324,7 +324,7 @@ for ind, (label, path) in enumerate(args.samples):
 
         else:
             z = (val - data[:,Ncol+i])/b
-            phi = kde._cumulative_gaussian_distribution(z) ### integrate from -infty up to val for each data separately
+            phi = kde.cumulative_gaussian_distribution(z) ### integrate from -infty up to val for each data separately
 
             if cond_type == 'upper-bound': ### integrate from val down for each sample
                 truth = phi > 0

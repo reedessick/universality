@@ -122,13 +122,13 @@ def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFA
         norm = 1
     else:
         m, M = bounds ### assumes all samples are between these bounds, but data need not be...
-        lower = _cumulative_gaussian_distribution((m - data)*frac)
-        norm = _cumulative_gaussian_distribution((M - data)*frac) - lower
+        lower = cumulative_gaussian_distribution((m - data)*frac)
+        norm = cumulative_gaussian_distribution((M - data)*frac) - lower
 
     ### iterate and compute the cumuative integrals
     for i, sample in enumerate(samples):
         ### NOTE: it is important that we pass "sample - data" so that data is the mean
-        ans[i] = np.sum(weights * (_cumulative_gaussian_distribution((sample - data)*frac) - lower))
+        ans[i] = np.sum(weights * (cumulative_gaussian_distribution((sample - data)*frac) - lower))
     ans /= np.sum(weights * norm)
 
     ### return based on the requested direction
@@ -139,7 +139,7 @@ def logcumkde(samples, data, variance, bounds=None, weights=None, direction=DEFA
     else:
         raise RuntimeError('direction=%s not understood!'%direction)
 
-def _cumulative_gaussian_distribution(z):
+def cumulative_gaussian_distribution(z):
     """standard cumulative Gaussian distribution"""
     return 0.5*(1 + erf(z/2**0.5))
 
