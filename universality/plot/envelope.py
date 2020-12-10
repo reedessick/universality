@@ -116,7 +116,7 @@ def envelope(
         if len(names)==1:
             placement = [center]
         else:
-            placement = np.linspace(plt.MAIN_AXES_POSITION[0], plt.MAIN_AXES_POSITION[0]+plot.MAIN_AXES_POSITION[2], len(names))
+            placement = np.linspace(plt.MAIN_AXES_POSITION[0], plt.MAIN_AXES_POSITION[0]+plt.MAIN_AXES_POSITION[2], len(names))
 
         for i, (placement, label) in enumerate(zip(placement, names)):
             legend = label
@@ -190,7 +190,7 @@ def envelope(
     # set labels
     ax.set_ylabel(ycolumn_label)
     if residuals or ratios:
-        plot.plt.setp(ax.get_xticklabels(), visible=False)
+        plt.setp(ax.get_xticklabels(), visible=False)
         ax_res.set_xlabel(xcolumn_label)
         if residuals:
             ax_res.set_ylabel('%s - %s'%(xcolumn_label, y_reference_label))
