@@ -107,6 +107,11 @@ wgroup.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int)
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
     help='e.g. "--color label c"')
+pgroup.add_argument('--alpha', nargs=2, action='append', default=[], type=str,
+    help='e.g. "--alpha label 0.5"')
+pgroup.add_argument('--filled-alpha', nargs=2, action='append', default=[], type=str,
+    help='e.g. "--filled-alpha label 0.5"')
+
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
@@ -235,6 +240,16 @@ for label, color in args.color:
     assert label in names, 'specifying --color for uknown sample set: '+label
     colors[label] = color
 
+alphas = dict((label, plot.DEFAULT_ALPHA) for label in names)
+for label, alpha in args.alpha:
+    assert label in names, 'specifying --alpha for unknown samples set: '+label
+    alphas[label] = float(alpha)
+
+filled_alphas = dict((label, plot.DEFAULT_ALPHA) for label in names)
+for label, alpha in args.filled_alpha:
+    assert label in names, 'specifying --filled-alpha for unknown set: '+label
+    filled_alphas[label] = float(alpha)
+
 reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in reference_names)
 for label, color in args.reference_color:
     assert label in reference_names, 'specifying --reference-color for unknown reference set: '+label
@@ -360,12 +375,14 @@ for ind, (label, path) in enumerate(args.samples):
         weights=weights,
         num_points=args.num_points,
         color=colors[label],
+        alpha=alphas[label],
         reflect=args.reflect,
         verbose=args.Verbose,
         hist1D=args.hist1D,
         levels1D=args.level1D,
         levels=args.level,
         filled=args.filled,
+        filled_alpha=filled_alphas[label],
         scatter=not args.no_scatter,
         rotate=args.rotate,
         rotate_xticklabels=args.rotate_xticklabels,
@@ -382,7 +399,7 @@ for ind, (label, path) in enumerate(args.samples):
         if args.include_neff:
             legend = legend+": $N_\mathrm{eff} = %.1f,\ N_\mathrm{kde} = %.1f$"%(stats.neff(weights), stats.nkde(weights))
         dy = 0.25 / args.figheight ### this seems to be a good scaling.
-        fig.text(0.95, 0.95-ind*dy, legend, color=colors[label], ha='right', va='top')
+        fig.text(0.95, 0.95-ind*dy, legend, color=colors[label], alpha=alphas[label], ha='right', va='top')
 
 ### plot reference curves
 for i, (label, path) in enumerate(args.reference):

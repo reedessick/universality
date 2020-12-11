@@ -53,6 +53,7 @@ def kde_corner(
         figwidth=plt.DEFAULT_FIGWIDTH,
         figheight=plt.DEFAULT_FIGHEIGHT,
         alpha=plt.DEFAULT_ALPHA,
+        filled_alpha=plt.DEFAULT_ALPHA,
         num_proc=DEFAULT_NUM_PROC,
     ):
     """
@@ -179,7 +180,7 @@ def kde_corner(
 
                     else:
                         if filled1D:
-                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
+                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
                         ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
@@ -223,7 +224,7 @@ def kde_corner(
 
                     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
                     if filled:
-                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs)
+                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
                     ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate
