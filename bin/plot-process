@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import glob
 import numpy as np
 
 from collections import defaultdict
@@ -76,6 +77,10 @@ lgroup.add_argument('--eos-basename', nargs=2, default=[], type=str, action='app
 wgroup = parser.add_argument_group('workflow arguments')
 wgroup.add_argument('--num-points', default=101, type=int,
     help='the number of interpolation points used when plotting')
+wgroup.add_argument('--num-draws', default=0, type=int,
+    help='the number of fair draws to plot on top of the envelope')
+wgroup.add_argument('--seed', default=None, type=int,
+    help='the seed for numpy.random; allows for reproducible random draws')
 
 # column arguments
 cgroup = parser.add_argument_group('column-specific arguments')
@@ -262,6 +267,13 @@ if not args.figtype:
 
 #-------------------------------------------------
 
+if args.seed is not None:
+    if args.verbose:
+        print('setting numpy.random.seed to %d'%args.seed)
+    np.random.seed(args.seed)
+
+#-------------------------------------------------
+
 # set up data
 if args.xcolumn in args.logcolumn:
     x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
@@ -275,6 +287,9 @@ y_median = np.empty((Nsamples, args.num_points), dtype='float')
 if args.legend and args.include_neff:
     neff = []
     nkde = []
+
+if args.num_draws: ### curves to plot
+    draws = []
 
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
@@ -331,6 +346,19 @@ for ind, (label, path) in enumerate(args.samples):
     y[ind,:,:] = qs
     y_median[ind,:] = med
 
+    if args.num_draws: # draw curves from the process
+        if args.verbose:
+            print('drawing %d curves from the process'%args.num_draws)
+        _draws = []
+        for draw in utils.draw_from_weights(weights, size=args.num_draws):
+            for path in glob.glob(eos_temps[label]%{'moddraw':draw//eos_num_per_dir[label], 'draw':draw}):
+                if args.Verbose:
+                    print('    loading: %s'%path)
+                d, _ = io.load(path, [args.xcolumn, args.ycolumn])
+                _draws.append((d[:,0]*args.x_multiplier, d[:,1]*args.y_multiplier, None))
+
+        draws.append((label, _draws))
+
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
 if args.reference:
@@ -350,6 +378,8 @@ if args.residuals or args.ratios:
     else:
         y_reference = y_median[0,:]
         y_reference_label = 'median'
+else:
+    y_reference = None
 
 #-------------------------------------------------
 
@@ -381,12 +411,47 @@ fig= plot.envelope(
         reference_colors=reference_colors,
         residuals=args.residuals,
         ratios=args.ratios,
-        y_reference=y_reference if args.residuals or args.ratios else None,
+        y_reference=y_reference,
         filled=args.filled,
         alpha=args.alpha,
         figwidth=args.figwidth,
         figheight=args.figheight,
 )
+
+#------------------------
+
+if args.num_draws: ### want to plot some fair draws from each posterior on top of the envelope
+    if y_reference is not None:
+        reference_curve = (x_test, y_reference)
+    else:
+        reference_curve = None
+
+    xlims = []
+    ylims = []
+    for ax in fig[1:]:
+        xlims.append(ax.get_xlim())
+        ylims.append(ax.get_ylim())
+
+    for label, draws in draws:
+        if args.verbose:
+            print('plotting draws for: %s'%label)
+        fig = plot.overlay(
+                draws,                
+                colors=[colors[label]]*len(draws),
+                alphas=[1.0]*len(draws),
+                logx=args.xcolumn in args.logcolumn,
+                logy=args.ycolumn in args.logcolumn,
+                reference_curve=reference_curve,
+                residuals=args.residuals,
+                ratios=args.ratios,
+                figtup=fig,
+            )
+
+    for ax, xlim, ylim in zip(fig[1:], xlims, ylims):
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+
+#------------------------
 
 # save
 plot.save('plot-process%s'%args.tag, fig[0], directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
