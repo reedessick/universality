@@ -36,6 +36,8 @@ rgroup.add_argument('xmax', type=float)
 rgroup.add_argument('--quantile', default=[], type=float, action='append',
     help='generate these quantiles. DEFAULT is each percentile between 0 and 100.')
 
+rgroup.add_argument('--default-y-value', default=None, type=float)
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -133,6 +135,7 @@ ans[:,1:], _ = samples.process2quantiles(
     args.quantile,
     quantile_type='sym',
     weights=weights,
+    default_y_value=args.default_y_value,
     verbose=args.Verbose,
 )
 
