@@ -351,7 +351,8 @@ for ind, (label, path) in enumerate(args.samples):
             print('drawing %d curves from the process'%args.num_draws)
         _draws = []
         for draw in utils.draw_from_weights(weights, size=args.num_draws):
-            for path in glob.glob(eos_temps[label]%{'moddraw':draw//eos_num_per_dir[label], 'draw':draw}):
+            eos = data[draw]
+            for path in glob.glob(eos_temps[label]%{'moddraw':eos//eos_num_per_dir[label], 'draw':eos}):
                 if args.Verbose:
                     print('    loading: %s'%path)
                 d, _ = io.load(path, [args.xcolumn, args.ycolumn])
