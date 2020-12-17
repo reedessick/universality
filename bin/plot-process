@@ -119,6 +119,8 @@ parser.add_argument('--filled', default=False, action='store_true',
     help='fill in the region between quantiles')
 parser.add_argument('--alpha', default=0.25, type=float,
     help='DEFAULT=0.25')
+wgroup.add_argument('--draws-alpha', default=0.25, type=float,
+    help='the alpha used when overlaying fair draws. DEFAULT=%.1f'%plot.DEFAULT_ALPHA)
 
 parser.add_argument('--residuals', default=False, action='store_true',
     help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
@@ -439,7 +441,7 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
         fig = plot.overlay(
                 draws,                
                 colors=[colors[label]]*len(draws),
-                alphas=[1.0]*len(draws),
+                alphas=[args.draws_alpha]*len(draws),
                 logx=args.xcolumn in args.logcolumn,
                 logy=args.ycolumn in args.logcolumn,
                 reference_curve=reference_curve,
