@@ -47,6 +47,11 @@ rgroup.add_argument('--y-multiplier', default=1, type=str,
 rgroup.add_argument('--x-multiplier', default=1, type=str,
     help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
 
+rgroup.add_argument('--default-y-value', default=None, type=float)
+
+rgroup.add_argument('--kde-overlay', nargs=3, type=str, default=[], action='append',
+    help='e.g. "--kde-overlay samples.csv xcolumn ycolumn"')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -79,6 +84,9 @@ wgroup.add_argument('--num-points', default=101, type=int,
     help='the number of interpolation points used when plotting')
 wgroup.add_argument('--num-draws', default=0, type=int,
     help='the number of fair draws to plot on top of the envelope')
+wgroup.add_argument('--draw-from-weights', default=False, action='store_true',
+    help='overlay fair draws from posterior with the same alpha instead of setting the alpha based on the weights')
+
 wgroup.add_argument('--seed', default=None, type=int,
     help='the seed for numpy.random; allows for reproducible random draws')
 
@@ -159,6 +167,9 @@ ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
 args = parser.parse_args()
 
 ### finish parsing
+
+assert args.num_draws or args.quantile, 'must supply at least one --quantile or a nonzero --num-draws'
+
 columns = [args.xcolumn, args.ycolumn]
 names = [label for label, path in args.samples]
 reference_names = [label for label, path in args.reference]
@@ -236,16 +247,17 @@ if args.residuals and args.ratios:
 if args.quantile_type not in ['sym', 'hpd']:
     raise ValueError('could not understand --quantile-type="%s", please specify either "sym" or "hpd".'%args.quantile_type)
 
-if not args.quantile:
-    args.quantile = [0.9]
-args.quantile.sort()
+if args.quantile:
+    args.quantile.sort()
 
-if args.quantile_type=='sym':
-    quantiles = []
-    for q in args.quantile:
-        quantiles += [q, (1-q)]
+    if args.quantile_type=='sym':
+        quantiles = []
+        for q in args.quantile:
+            quantiles += [q, (1-q)]
+    else:
+        quantiles = args.quantile
 else:
-    quantiles = args.quantile
+    quantiles = []
 
 Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
@@ -267,6 +279,13 @@ if args.output_dir and (not os.path.exists(args.output_dir)):
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
 
+#------------------------
+
+### basic sanity-check for logarithmic plotting
+if (args.default_y_value is not None) and (args.ycolumn in args.logcolumn):
+    if (args.ymin is not None) and (args.default_y_value < args.ymin):
+        args.default_y_value = args.ymin        
+
 #-------------------------------------------------
 
 if args.seed is not None:
@@ -282,16 +301,17 @@ if args.xcolumn in args.logcolumn:
 else:
     x_test = np.linspace(args.xmin, args.xmax, args.num_points)
 
-y = np.empty((Nsamples, Nquantiles, args.num_points), dtype='float')
-y_median = np.empty((Nsamples, args.num_points), dtype='float')
-
 ### iterate and plot
 if args.legend and args.include_neff:
     neff = []
     nkde = []
 
+if Nquantiles:
+    y = np.empty((Nsamples, Nquantiles, args.num_points), dtype='float')
+    y_median = np.empty((Nsamples, args.num_points), dtype='float')
+
 if args.num_draws: ### curves to plot
-    draws = []
+    curves = []
 
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
@@ -326,41 +346,63 @@ for ind, (label, path) in enumerate(args.samples):
 
     #--------------------
 
-    ### compute confidence regions
-    if args.verbose:
-        print('computing confidence intervals from %d samples'%N)
+    if Nquantiles:
+        ### compute confidence regions
+        if args.verbose:
+            print('computing confidence intervals from %d samples'%N)
 
-    qs, med = samples.process2quantiles(
-        data,
-        eos_temps[label],
-        eos_num_per_dir[label],
-        args.xcolumn,
-        args.ycolumn,
-        x_test,
-        quantiles,
-        quantile_type=args.quantile_type,
-        x_multiplier=args.x_multiplier,
-        y_multiplier=args.y_multiplier,
-        weights=weights,
-        verbose=args.Verbose,
-    )
+        qs, med = samples.process2quantiles(
+            data,
+            eos_temps[label],
+            eos_num_per_dir[label],
+            args.xcolumn,
+            args.ycolumn,
+            x_test,
+            quantiles,
+            quantile_type=args.quantile_type,
+            x_multiplier=args.x_multiplier,
+            y_multiplier=args.y_multiplier,
+            weights=weights,
+            default_y_value=args.default_y_value,
+            verbose=args.Verbose,
+        )
 
-    y[ind,:,:] = qs
-    y_median[ind,:] = med
+        y[ind,:,:] = qs
+        y_median[ind,:] = med
 
     if args.num_draws: # draw curves from the process
-        if args.verbose:
-            print('drawing %d curves from the process'%args.num_draws)
-        _draws = []
-        for draw in utils.draw_from_weights(weights, size=args.num_draws):
+        _curves = []
+        _alphas = []
+
+        if args.draw_from_weights: # fair draws from weights
+            if args.verbose:
+                print('drawing %d fair draws from the process, assigning each the same transparency'%args.num_draws)
+            draws = utils.draw_from_weights(weights, size=args.num_draws)
+            alphas = [args.draws_alpha]*len(draws)
+
+        else:
+            if args.verbose:
+                print('drawing %d random draws from the sample set, assigning each a transparency proportional to their weight'%args.num_draws)
+            draws = np.random.randint(0, high=len(data), size=args.num_draws)
+            alphas = weights[draws]
+            alphas *= args.draws_alpha / np.max(alphas)
+
+        for draw, alpha in zip(draws, alphas):
             eos = data[draw]
-            for path in glob.glob(eos_temps[label]%{'moddraw':eos//eos_num_per_dir[label], 'draw':eos}):
+            paths = sorted(glob.glob(eos_temps[label]%{'moddraw':eos//eos_num_per_dir[label], 'draw':eos}))
+            for path in paths:
                 if args.Verbose:
                     print('    loading: %s'%path)
                 d, _ = io.load(path, [args.xcolumn, args.ycolumn])
-                _draws.append((d[:,0]*args.x_multiplier, d[:,1]*args.y_multiplier, None))
+                _curves.append((d[:,0]*args.x_multiplier, d[:,1]*args.y_multiplier, None))
+                _alphas.append(alpha)
 
-        draws.append((label, _draws))
+            if len(paths) and (args.default_y_value is not None) and np.any(x_test <= np.max(d[:,0]*args.x_multiplier)):
+                X = x_test[x_test <= np.max(d[:,0]*args.x_multiplier)]
+                Y = np.ones_like(X, dtype=float)*args.default_y_value
+                _curves.append((X, Y, None))
+
+        curves.append((label, _curves, _alphas))
 
 ### load in reference curves
 reference = [] # define this out here so other loops can iterate over it even if we don't have any reference curves...
@@ -378,48 +420,53 @@ if args.residuals or args.ratios:
     if len(reference)==1: ### use the one reference curve a the baseline
         y_reference = np.interp(x_test, reference[0][1][:,0], reference[0][1][:,1])
         y_reference_label = 'reference'
-    else:
+    elif Nquantiles:
         y_reference = y_median[0,:]
         y_reference_label = 'median'
+    else:
+        y_reference = None
 else:
     y_reference = None
 
 #-------------------------------------------------
 
-if args.verbose:
-    print('plotting')
+fig = None
 
-fig= plot.envelope(
-        x_test,
-        y,
-        y_median,
-        names,
-        colors,
-        labels[args.xcolumn],
-        labels[args.ycolumn],
-        [args.xmin, args.xmax],
-        legend=args.legend,
-        neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
-        logxcolumn=args.xcolumn in args.logcolumn,
-        logycolumn=args.ycolumn in args.logcolumn,
-        grid=args.grid,
-        ymin=args.ymin,
-        ymax=args.ymax,
-        res_ymin=args.res_ymin,
-        res_ymax=args.res_ymax,
-        xsignposts=signposts[args.xcolumn],
-        ysignposts=signposts[args.ycolumn],
-        signpost_color=args.signpost_color,
-        reference=reference,
-        reference_colors=reference_colors,
-        residuals=args.residuals,
-        ratios=args.ratios,
-        y_reference=y_reference,
-        filled=args.filled,
-        alpha=args.alpha,
-        figwidth=args.figwidth,
-        figheight=args.figheight,
-)
+if Nquantiles: ### plot quantiles from each posterior
+    if args.verbose:
+        print('plotting envelopes')
+
+    fig= plot.envelope(
+            x_test,
+            y,
+            y_median,
+            names,
+            colors,
+            labels[args.xcolumn],
+            labels[args.ycolumn],
+            [args.xmin, args.xmax],
+            legend=args.legend,
+            neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
+            logxcolumn=args.xcolumn in args.logcolumn,
+            logycolumn=args.ycolumn in args.logcolumn,
+            grid=args.grid,
+            ymin=args.ymin,
+            ymax=args.ymax,
+            res_ymin=args.res_ymin,
+            res_ymax=args.res_ymax,
+            xsignposts=signposts[args.xcolumn],
+            ysignposts=signposts[args.ycolumn],
+            signpost_color=args.signpost_color,
+            reference=reference,
+            reference_colors=reference_colors,
+            residuals=args.residuals,
+            ratios=args.ratios,
+            y_reference=y_reference,
+            filled=args.filled,
+            alpha=args.alpha,
+            figwidth=args.figwidth,
+            figheight=args.figheight,
+    )
 
 #------------------------
 
@@ -429,19 +476,39 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
     else:
         reference_curve = None
 
-    xlims = []
-    ylims = []
-    for ax in fig[1:]:
-        xlims.append(ax.get_xlim())
-        ylims.append(ax.get_ylim())
+    if Nquantiles:
+        ylims = []
+        for ax in fig[1:]:
+            ylims.append(ax.get_ylim())
 
-    for label, draws in draws:
+    for label, draws, alphas in curves:
         if args.verbose:
             print('plotting draws for: %s'%label)
         fig = plot.overlay(
                 draws,                
                 colors=[colors[label]]*len(draws),
-                alphas=[args.draws_alpha]*len(draws),
+                alphas=alphas,
+                logx=args.xcolumn in args.logcolumn,
+                logy=args.ycolumn in args.logcolumn,
+                reference_curve=reference_curve,
+                residuals=args.residuals,
+                ratios=args.ratios,
+                figwidth=args.figwidth,
+                figheight=args.figheight,
+                figtup=fig,
+            )
+
+    if Nquantiles:
+        for ax, ylim in zip(fig[1:], ylims):
+            ax.set_xlim(xmin=args.xmin, xmax=args.xmax)
+            ax.set_ylim(ylim)
+
+    else:
+        ### add reference curves
+        if reference:
+            fig = plot.overlay(
+                [(x, y, label) for label, (x, y) in reference],
+                colors=[colors[label] for label, _ in reference],
                 logx=args.xcolumn in args.logcolumn,
                 logy=args.ycolumn in args.logcolumn,
                 reference_curve=reference_curve,
@@ -449,10 +516,42 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
                 ratios=args.ratios,
                 figtup=fig,
             )
+        
+        ### annotate
+        fig = plot.annotate_envelope(
+            fig,
+            names,
+            colors,
+            labels[args.xcolumn],
+            labels[args.ycolumn],
+            [args.xmin, args.xmax],
+            legend=args.legend,
+            neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
+            logxcolumn=args.xcolumn in args.logcolumn,
+            logycolumn=args.ycolumn in args.logcolumn,
+            grid=args.grid,
+            ymin=args.ymin,
+            ymax=args.ymax,
+            res_ymin=args.res_ymin,
+            res_ymax=args.res_ymax,
+            xsignposts=signposts[args.xcolumn],
+            ysignposts=signposts[args.ycolumn],
+            signpost_color=args.signpost_color,
+            y_reference=y_reference,
+            residuals=args.residuals,
+            ratios=args.ratios,
+        )
 
-    for ax, xlim, ylim in zip(fig[1:], xlims, ylims):
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
+#------------------------
+
+for path, xcolumn, ycolumn in args.kde_overlay:
+    if args.verbose:
+        print('plotting KDE overlay from: %s\n    xcolumn=%s\n    ycolumn=%s'%(path, xcolumn, ycolumn))
+
+    raise NotImplementedError('''\
+need to load the data from the path, build a KDE over it (need to define some grid spacing...) and then plot a contour
+perhaps we can push this to plot.corner in some way (or reuse that logic without copy-and-paste)?
+''')
 
 #------------------------
 

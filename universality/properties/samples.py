@@ -226,6 +226,7 @@ def process2quantiles(
         x_multiplier=1.,
         y_multiplier=1.,
         weights=None,
+        default_y_value=None,
         verbose=False,
     ):
     """manages I/O and extracts quantiles at the specified places
@@ -241,7 +242,8 @@ def process2quantiles(
         weights = np.ones(len(data), dtype=float) / len(data)
 
     for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
-        for eos_path in glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}):
+        paths = sorted(glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}))
+        for eos_path in paths:
             if verbose:
                 print('    '+eos_path)
             d, _ = io.load(eos_path, columns)
@@ -255,6 +257,13 @@ def process2quantiles(
             truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
             _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
 
+            y_test.append( _y ) ### add to the total list
+            w_test.append( weight )
+
+        if len(paths) and (default_y_value is not None) and np.any(x_test > np.max(d[:,0])):
+            _y = np.empty(num_points, dtype=float)
+            _y[:] = np.nan ### signal that nothing was available at this x-value
+            _y[x_test >= np.max(d[:,0])] = default_y_value
             y_test.append( _y ) ### add to the total list
             w_test.append( weight )
 

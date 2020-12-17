@@ -43,12 +43,6 @@ def envelope(
         figheight=plt.DEFAULT_FIGHEIGHT,
     ):
 
-    xmin, xmax = xcolumn_range
-
-    include_neff =  neff_nkde is not None
-    if include_neff:
-        neff, nkde = neff_nkde
-
     # instantiate figure object or unpack it as needed
     if fig is None:
         fig = plt.figure(figsize=(figwidth, figheight)) ### FIXME: set figsize based on Ncol?
@@ -109,6 +103,73 @@ def envelope(
             ax_res.plot(x_test, np.interp(x, X, Y)/y_reference, color=color, alpha=0.5)
 
     ### decorate
+    if residuals or ratios:
+        fig = fig, ax, ax_res
+    else:
+        fig = fig, ax
+
+    fig = annotate_envelope(
+        fig,
+        names,
+        colors,
+        xcolumn_label,
+        ycolumn_label,
+        xcolumn_range,
+        legend=legend,
+        neff_nkde=neff_nkde,
+        logxcolumn=logxcolumn,
+        logycolumn=logycolumn,
+        grid=grid,
+        ymin=ymin,
+        ymax=ymax,
+        res_ymin=res_ymin,
+        res_ymax=res_ymax,
+        xsignposts=xsignposts,
+        ysignposts=ysignposts,
+        signpost_color=signpost_color,
+        y_reference=y_reference,
+        residuals=residuals,
+        ratios=ratios,
+    )
+
+    return fig
+
+#------------------------
+
+def annotate_envelope(
+        fig,
+        names,
+        colors,
+        xcolumn_label,
+        ycolumn_label,
+        xcolumn_range,
+        legend=False,
+        neff_nkde=None,
+        logxcolumn=False,
+        logycolumn=False,
+        grid=False,
+        ymin=None,
+        ymax=None,
+        res_ymin=None,
+        res_ymax=None,
+        xsignposts=[],
+        ysignposts=[],
+        signpost_color=plt.DEFAULT_TRUTH_COLOR,
+        y_reference=None,
+        residuals=False,
+        ratios=False,
+    ):
+
+    xmin, xmax = xcolumn_range
+
+    include_neff =  neff_nkde is not None
+    if include_neff:
+        neff, nkde = neff_nkde
+
+    if residuals or ratios:
+        fig, ax, ax_res = fig
+    else:
+        fig, ax = fig
 
     # add legend
     if legend:
