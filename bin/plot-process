@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 from universality.utils import (utils, io, units)
 from universality import plot
 from universality import stats
+from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid)
 from universality.properties import samples
 
 #-------------------------------------------------
@@ -544,14 +545,31 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
 
 #------------------------
 
+ymin, ymax = fig[1].get_ylim()
+vects = [np.linspace(args.xmin, args.xmax, args.num_points), np.linspace(ymin, ymax, args.num_points)]
+dvol = np.prod([v[1]-v[0] for v in vects])
+
 for path, xcolumn, ycolumn in args.kde_overlay:
     if args.verbose:
         print('plotting KDE overlay from: %s\n    xcolumn=%s\n    ycolumn=%s'%(path, xcolumn, ycolumn))
 
-    raise NotImplementedError('''\
-need to load the data from the path, build a KDE over it (need to define some grid spacing...) and then plot a contour
-perhaps we can push this to plot.corner in some way (or reuse that logic without copy-and-paste)?
-''')
+    data, cols = io.load(path, [xcolumn, ycolumn]) ### NOTE: we do not support weight columns at the moment!
+
+    variances = np.array([silverman_bandwidth(data[:,0]), silverman_bandwidth(data[:,1])], dtype=float)**2
+
+    kde = logkde(
+        vects2flatgrid(vects[0], vects[1]),
+        data,
+        variances,
+    )
+    kde = np.exp(kde-np.max(kde)).reshape((args.num_points, args.num_points))
+    kde /= np.sum(kde)*dvol # normalize kde
+
+    levels = [0.9, 0.90001]
+#    levels = np.linspace(0.0, 1.0, 101)
+    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
+    ax.contourf(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.01, levels=thrs)
+#    ax.contour(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.1, levels=thrs)
 
 #------------------------
 
