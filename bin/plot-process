@@ -568,7 +568,7 @@ for path, xcolumn, ycolumn in args.kde_overlay:
     levels = [0.9, 0.90001]
 #    levels = np.linspace(0.0, 1.0, 101)
     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
-    ax.contourf(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.01, levels=thrs)
+    ax.contourf(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.1, levels=thrs)
 #    ax.contour(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.1, levels=thrs)
 
 #------------------------
