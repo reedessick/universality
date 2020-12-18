@@ -115,31 +115,35 @@ pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
 
-parser.add_argument('--quantile', default=[], type=float, action='append',
+pgroup.add_argument('--quantile', default=[], type=float, action='append',
     help='plot these quantiles. \
 DEFAULT=[0.9]')
-parser.add_argument('--quantile-type', default='sym', type=str,
+pgroup.add_argument('--quantile-type', default='sym', type=str,
     help='the type of quantiles desired. Can be either "sym" or "hpd". \
 If "sym", plots symmetric quantiles between (q, 1-q) for every quantile specified via --quantile. \
 If "hpd", plots the highest-probability-density region for every quantile specified via --quantile, each of which may not be contiguous. \
 DEFAULT="sym".')
 
-parser.add_argument('--filled', default=False, action='store_true',
+pgroup.add_argument('--filled', default=False, action='store_true',
     help='fill in the region between quantiles')
-parser.add_argument('--alpha', default=0.25, type=float,
+pgroup.add_argument('--alpha', default=0.25, type=float,
     help='DEFAULT=0.25')
-wgroup.add_argument('--draws-alpha', default=0.25, type=float,
+pgroup.add_argument('--draws-alpha', default=0.25, type=float,
     help='the alpha used when overlaying fair draws. DEFAULT=%.1f'%plot.DEFAULT_ALPHA)
 
-parser.add_argument('--residuals', default=False, action='store_true',
+pgroup.add_argument('--kde-level', default=[], type=float, action='append')
+pgroup.add_argument('--kde-alpha', default=0.25, type=float)
+pgroup.add_argument('--kde-filled', default=False, action='store_true')
+
+pgroup.add_argument('--residuals', default=False, action='store_true',
     help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
-parser.add_argument('--ratios', default=False, action='store_true',
+pgroup.add_argument('--ratios', default=False, action='store_true',
     help='if supplied, plot the ratio of the values instead of the difference (--residuals). Cannot be supplied simulaneously with --residuals')
 
-parser.add_argument('--ymin', default=None, type=float)
-parser.add_argument('--ymax', default=None, type=float)
-parser.add_argument('--res-ymin', default=None, type=float)
-parser.add_argument('--res-ymax', default=None, type=float)
+pgroup.add_argument('--ymin', default=None, type=float)
+pgroup.add_argument('--ymax', default=None, type=float)
+pgroup.add_argument('--res-ymin', default=None, type=float)
+pgroup.add_argument('--res-ymax', default=None, type=float)
 
 pgroup.add_argument('--legend', default=False, action='store_true')
 pgroup.add_argument('--include-neff', default=False, action='store_true',
@@ -263,6 +267,11 @@ else:
 Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
     Nquantiles *= 2 ### we need twice as many as are in the list
+
+if not args.kde_level:
+    args.kde_level.append(0.9)
+    if args.kde_filled:
+        args.kde_level.append(0.90001)
 
 # annotation options
 signposts = defaultdict(list)
@@ -565,11 +574,10 @@ for path, xcolumn, ycolumn in args.kde_overlay:
     kde = np.exp(kde-np.max(kde)).reshape((args.num_points, args.num_points))
     kde /= np.sum(kde)*dvol # normalize kde
 
-    levels = [0.9, 0.90001]
-#    levels = np.linspace(0.0, 1.0, 101)
-    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
-    ax.contourf(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.1, levels=thrs)
-#    ax.contour(vects[0], vects[1], kde.transpose(), colors='k', alpha=0.1, levels=thrs)
+    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), args.kde_level)), reverse=True)
+    if args.kde_filled:
+        ax.contourf(vects[0], vects[1], kde.transpose(), colors='k', alpha=args.kde_alpha, levels=thrs)
+    ax.contour(vects[0], vects[1], kde.transpose(), colors='k', alpha=args.kde_alpha, levels=thrs)
 
 #------------------------
 
