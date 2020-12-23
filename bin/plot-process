@@ -750,8 +750,8 @@ for name in overlay_names:
         print('plotting KDE')
 
     if args.overlay_filled:
-        ax.contourf(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
-    ax.contour(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
+        fig[1].contourf(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
+    fig[1].contour(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
 
 #------------------------
 
