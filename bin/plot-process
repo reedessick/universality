@@ -151,6 +151,8 @@ pgroup.add_argument('--overlay-color', nargs=2, default=[], type=str, action='ap
 pgroup.add_argument('--overlay-alpha', nargs=2, default=[], type=str, action='append',
     help='e.g.: "--overlay-alpha name 0.5"')
 
+pgroup.add_argument('--overlay-no-scatter', default=False, action='store_true',
+    help='do not plot the points from the overlay as a scatter')
 pgroup.add_argument('--overlay-level', default=[], type=float, action='append',
     help='e.g.: "--overlay-level 0.9"')
 pgroup.add_argument('--overlay-filled', default=False, action='store_true')
@@ -747,11 +749,29 @@ for name in overlay_names:
     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), args.overlay_level)), reverse=True)
 
     if args.Verbose:
-        print('plotting KDE')
+        print('plotting KDE contours')
 
     if args.overlay_filled:
         fig[1].contourf(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
     fig[1].contour(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
+
+    if not args.overlay_no_scatter:
+        if args.Verbose:
+            print('plotting scatter')
+        scatter_color = plot.weights2color(weights, overlay_color[name])
+
+        if logx:
+            data[:,0] = np.exp(data[:,0])
+        if logy:
+            data[:,1] = np.exp(data[:,1])
+
+        fig[1].scatter(
+            data[:,0],
+            data[:,1],
+            marker='o',
+            s=2,
+            color=scatter_color,
+        )
 
 #------------------------
 
