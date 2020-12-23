@@ -199,7 +199,7 @@ for label, column in args.weight_column_is_log:
     assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
     weight_columns[label][1].append(column)
 for label, column in args.invert_weight_column:
-    assert label in names, 'specifying --weight-column-is-log for unknown sample set: '+label
+    assert label in names, 'specifying --invert-weight-column for unknown sample set: '+label
     weight_columns[label][2].append(column)
 
 # column arguments
