@@ -140,6 +140,8 @@ pgroup.add_argument('--reference-legend', default=False, action='store_true')
 
 pgroup.add_argument('--filled', default=False, action='store_true',
     help='fill in the contours plotted in corner plots')
+pgroup.add_argument('--filled1D', default=False, action='store_true',
+    help='fill in the 1D distributions plotted along the diagonal')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
 pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
@@ -382,6 +384,7 @@ for ind, (label, path) in enumerate(args.samples):
         levels1D=args.level1D,
         levels=args.level,
         filled=args.filled,
+        filled1D=args.filled1D,
         filled_alpha=filled_alphas[label],
         scatter=not args.no_scatter,
         rotate=args.rotate,
