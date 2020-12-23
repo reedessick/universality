@@ -72,9 +72,6 @@ sgroup.add_argument('--overlay-xcolumn', nargs=2, default=[], type=str, action='
 sgroup.add_argument('--overlay-ycolumn', nargs=2, default=[], type=str, action='append',
     help='e.g.: "--overlay-ycolumn name y"')
 
-sgroup.add_argument('--overlay-logcolumn', nargs=2, default=[], type=str, action='append',
-    help='e.g.: "--overlay-logcolumn name column"')
-
 sgroup.add_argument('--overlay-column-bandwidth', nargs=3, default=[], type=str, action='append',
     help='e.g.: "--overlay-column-bandwidth name column 0.1"')
 
@@ -205,6 +202,9 @@ names = [label for label, path in args.samples]
 reference_names = [label for label, path in args.reference]
 Nsamples = len(names)
 
+logx = args.xcolumn in args.logcolumn
+logy = args.ycolumn in args.logcolumn
+
 # samples arguments
 max_num_samples = dict((label, np.infty) for label in names)
 for label, num in args.max_num_samples:
@@ -307,11 +307,6 @@ for name, ycolumn in args.overlay_ycolumn:
     assert name in overlays, 'specifying --overlay-ycolumn for unknown overlay samples: '+name
     overlay_ycolumn[name] = ycolumn
 
-overlay_logcolumn = dict((name, []) for name in overlays)
-for name, column in args.overlay_logcolumn:
-    assert name in overlays, 'specifying --overlay-logcolumn for unknown overlay samples: '+name
-    overlay_logcolumn[name].append(column)
-
 overlay_column_bandwidth = dict((name, {overlay_xcolumn[name]:None, overlay_ycolumn[name]:None}) for name in overlays)
 for name, column, bandwidth in args.overlay_x_bandwidth:
     assert name in overlays, 'specifying --overlay-x-bandwidth for unknown overlay samples: '+name
@@ -383,7 +378,7 @@ if args.seed is not None:
 #-------------------------------------------------
 
 # set up data
-if args.xcolumn in args.logcolumn:
+if logx:
     x_test = np.logspace(np.log10(args.xmin), np.log10(args.xmax), args.num_points)
 else:
     x_test = np.linspace(args.xmin, args.xmax, args.num_points)
@@ -534,8 +529,8 @@ if Nquantiles: ### plot quantiles from each posterior
             [args.xmin, args.xmax],
             legend=args.legend,
             neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
-            logxcolumn=args.xcolumn in args.logcolumn,
-            logycolumn=args.ycolumn in args.logcolumn,
+            logxcolumn=logx,
+            logycolumn=logy,
             grid=args.grid,
             ymin=args.ymin,
             ymax=args.ymax,
@@ -575,8 +570,8 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
                 draws,                
                 colors=[colors[label]]*len(draws),
                 alphas=alphas,
-                logx=args.xcolumn in args.logcolumn,
-                logy=args.ycolumn in args.logcolumn,
+                logx=logx,
+                logy=logy,
                 reference_curve=reference_curve,
                 residuals=args.residuals,
                 ratios=args.ratios,
@@ -596,8 +591,8 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
             fig = plot.overlay(
                 [(x, y, label) for label, (x, y) in reference],
                 colors=[colors[label] for label, _ in reference],
-                logx=args.xcolumn in args.logcolumn,
-                logy=args.ycolumn in args.logcolumn,
+                logx=logx,
+                logy=logy,
                 reference_curve=reference_curve,
                 residuals=args.residuals,
                 ratios=args.ratios,
@@ -614,8 +609,8 @@ if args.num_draws: ### want to plot some fair draws from each posterior on top o
             [args.xmin, args.xmax],
             legend=args.legend,
             neff_nkde=(neff, nkde) if (args.include_neff and args.legend) else None,
-            logxcolumn=args.xcolumn in args.logcolumn,
-            logycolumn=args.ycolumn in args.logcolumn,
+            logxcolumn=logx,
+            logycolumn=logy,
             grid=args.grid,
             ymin=args.ymin,
             ymax=args.ymax,
@@ -642,11 +637,19 @@ YMIN, YMAX = fig[1].get_ylim()
 for name, path in overlays.items():
 
     # load samples
+    logcolumns = []
+
     xcolumn = overlay_xcolumn[name]
+    if logx:
+        logcolumns.append(xcolumn)
+
     ycolumn = overlay_ycolumn[name]
+    if logy:
+        logcolumns.append(ycolumn)
+
     if args.verbose:
         print('loading samples for overlay %s from: %s\n    xcolumn=%s\n    ycolumn=%s'%(name, path, xcolumn, ycolumn))
-    data, cols = io.load(path, [xcolumn, ycolumn], logcolumns=overlay_logcolumns[name])
+    data, cols = io.load(path, [xcolumn, ycolumn], logcolumns=logcolumns)
 
     if overlay_weight_columns[name]:
         if args.verbose:
@@ -683,37 +686,24 @@ for name, path in overlays.items():
     # this is based on whether each column was logged or not
 
     xmin, xmax = stats.samples2range(data[:,0])
-    if xcolumn in overlay_logcolumn[name]:
+    if logx:
         xmin = np.max(xmin, np.log(args.xmin))
         xmax = np.min(xmax, np.log(args.xmax))
     else:
         xmin = np.max(xmin, args.xmin)
         xmax = np.min(xmax, args.xmax)
 
-    if (args.xcolumn in args.logcolumn) == (xcolumn in overlay_logcolumn[name]): ### x-scale matches
-        vects[0] = np.linspace(xmin, xmax, args.overlay_num_points)
-
-    else: # scales don't match
-        if args.xcolumn in args.logcolumn: ### need to logarithmically space x-grid
-            vects[0] = np.logspace(np.log10(xmin), np.log10(xmax), args.overlay_num_points)
-        else: ### linearly space x-grid (which is exponentiated)
-            vects[0] = np.log(np.linspace(np.exp(xmin), np.exp(xmax), args.overlay_num_points))
+    vects[0] = np.linspace(xmin, xmax, args.overlay_num_points)
 
     ymin, ymax = stats.samples2range(data[:,1], weights=weights)
-    if ycolumn in overlay_logcolumn[name]:
+    if logy:
         ymin = np.max(ymin, np.log(YMIN))
         ymax = np.min(ymax, np.log(YMAX))
     else:
         ymin = np.max(ymin, YMIN)
         ymax = np.min(ymax, YMAX)
 
-    if (args.ycolumn in args.logcolumn) == (ycolumn in overlay_logcolumn[name]): ### y-scale matches
-        vects[1] = np.linspace(ymin, ymax, args.overlay_num_points)
-    else:
-        if args.xcolumn in args.logcolumn: ### logarithmically space y-grid
-            vects[1] = np.logspace(np.log10(ymin), np.log10(ymax), args.overlay_num_points)
-        else:
-            vects[1] = np.log(np.linspace(np.exp(xmin), np.exp(xmax), args.overlay_num_points))
+    vects[1] = np.linspace(ymin, ymax, args.overlay_num_points)
 
     # compute and plot kde
     if args.Verbose:
@@ -730,10 +720,10 @@ for name, path in overlays.items():
     if args.Verbose:
         print('plotting KDE')
 
-    # fix vects for plotting
-    if xcolumn in overlay_logcolumn[name]:
+    # fix vects for plotting (ie, undo the fact that we computed the KDE in log coordinates)
+    if logx:
         vects[0] = np.exp(vects[0])
-    if ycolumn in overlay_logcolumn[name]:
+    if logy:
         vects[1] = np.exp(vects[1])
 
     # figure out the thresholds for credible regions
