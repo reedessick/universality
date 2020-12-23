@@ -295,49 +295,50 @@ if args.quantile_type=="hpd":
     Nquantiles *= 2 ### we need twice as many as are in the list
 
 # overlay KDE options
-overlays = dict(args.overlay_samples)
+overlay_names = [a for a, b in args.overlay_samples] ### maintain order in which these were supplied
+overlay_paths = dict(args.overlay_samples)
 
-overlay_xcolumn = dict((name, args.xcolumn) for name in overlays)
+overlay_xcolumn = dict((name, args.xcolumn) for name in overlay_names)
 for name, xcolumn in args.overlay_xcolumn:
-    assert name in overlays, 'specifying --overlay-xcolumn for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-xcolumn for unknown overlay samples: '+name
     overlay_xcolumn[name] = xcolumn
 
-overlay_ycolumn = dict((name, args.ycolumn) for name in overlays)
+overlay_ycolumn = dict((name, args.ycolumn) for name in overlay_names)
 for name, ycolumn in args.overlay_ycolumn:
-    assert name in overlays, 'specifying --overlay-ycolumn for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-ycolumn for unknown overlay samples: '+name
     overlay_ycolumn[name] = ycolumn
 
-overlay_column_bandwidth = dict((name, {overlay_xcolumn[name]:None, overlay_ycolumn[name]:None}) for name in overlays)
-for name, column, bandwidth in args.overlay_x_bandwidth:
-    assert name in overlays, 'specifying --overlay-x-bandwidth for unknown overlay samples: '+name
+overlay_column_bandwidth = dict((name, {overlay_xcolumn[name]:None, overlay_ycolumn[name]:None}) for name in overlay_names)
+for name, column, bandwidth in args.overlay_column_bandwidth:
+    assert name in overlay_names, 'specifying --overlay-x-bandwidth for unknown overlay samples: '+name
     assert column in overlay_column_bandwidth[name], 'specfying --overlay-column-bandwidth for unknown column: '+column
     overlay_column_bandwidth[name][column] = float(bandwidth)
 
-overlay_weight_column = dict((name, []) for name in overlays)
+overlay_weight_column = dict((name, []) for name in overlay_names)
 for name, column in args.overlay_weight_column:
-    assert name in overlays, 'specifying --overlay-weight-column for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-weight-column for unknown overlay samples: '+name
     overlay_weight_column[name].append(column)
 
-overlay_weight_column_is_log = dict((name, []) for name in overlays)
+overlay_weight_column_is_log = dict((name, []) for name in overlay_names)
 for name, column in args.overlay_weight_column_is_log:
-    assert name in overlays, 'specifying --overlay-weight-column-is-log for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-weight-column-is-log for unknown overlay samples: '+name
     assert column in overlay_weight_column[name], 'specifying --overlay-weight-column-is-log for unkown column: '+column
     overlay_weight_column_is_log[name].append(column)
 
-overlay_invert_weight_column = dict((name, []) for name in overlays)
+overlay_invert_weight_column = dict((name, []) for name in overlay_names)
 for name, column in args.overlay_invert_weight_column:
-    assert name in overlays, 'specifying --overlay-invert-weight-column for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-invert-weight-column for unknown overlay samples: '+name
     assert column in overlay_weight_column[name], 'specifying --overlay-invert-weight-column for unknown column: '+column
     overlay_invert_weight_column[name].append(column)
 
-overlay_alpha = dict((name, plot.DEFAULT_ALPHA) for name in overlays)
+overlay_alpha = dict((name, plot.DEFAULT_ALPHA) for name in overlay_names)
 for name, alpha in args.overlay_alpha:
-    assert name in overlays, 'specifying --overlay-alpha for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-alpha for unknown overlay samples: '+name
     overlay_alpha[name] = float(alpha)
 
-overlay_color = dict((name, plot.DEFAULT_COLOR3) for name in overlays)
+overlay_color = dict((name, plot.DEFAULT_COLOR3) for name in overlay_names)
 for name, color in args.overlay_color:
-    assert name in overlays, 'specifying --overlay-color for unknown overlay samples: '+name
+    assert name in overlay_names, 'specifying --overlay-color for unknown overlay samples: '+name
     overlay_color[name] = color
 
 if not args.overlay_level:
@@ -634,7 +635,11 @@ overlay_shape = (args.overlay_num_points, args.overlay_num_points)
 
 YMIN, YMAX = fig[1].get_ylim()
 
-for name, path in overlays.items():
+for name in overlay_names:
+
+    path = overlay_paths[name]
+    xcolumn = overlay_xcolumn[name]
+    ycolumn = overlay_ycolumn[name]
 
     # load samples
     if args.verbose:
@@ -642,13 +647,11 @@ for name, path in overlays.items():
 
     logcolumns = []
 
-    xcolumn = overlay_xcolumn[name]
     if logx:
         if args.Verbose:
             print('computing KDE overlay in logarithmic x-coordinates to match plot scale')
         logcolumns.append(xcolumn)
 
-    ycolumn = overlay_ycolumn[name]
     if logy:
         if args.Verbose:
             print('computing KDE overlay in logarithmic y-coordinates to match plot scale')
@@ -656,7 +659,7 @@ for name, path in overlays.items():
 
     data, cols = io.load(path, [xcolumn, ycolumn], logcolumns=logcolumns)
 
-    if overlay_weight_columns[name]:
+    if overlay_weight_column[name]:
         if args.verbose:
             print('loading non-trivial weights from: %s'%path)
         weights = io.load_weights(
@@ -692,24 +695,24 @@ for name, path in overlays.items():
 
     xmin, xmax = stats.samples2range(data[:,0])
     if logx:
-        xmin = np.max(xmin, np.log(args.xmin))
-        xmax = np.min(xmax, np.log(args.xmax))
+        xmin = max(xmin, np.log(args.xmin))
+        xmax = min(xmax, np.log(args.xmax))
     else:
-        xmin = np.max(xmin, args.xmin)
-        xmax = np.min(xmax, args.xmax)
+        xmin = max(xmin, args.xmin)
+        xmax = min(xmax, args.xmax)
 
     if args.Verbose:
         print('automatically chose %s range: %.3e, %.3e'%(cols[0], xmin, xmax))
 
     vects[0] = np.linspace(xmin, xmax, args.overlay_num_points)
 
-    ymin, ymax = stats.samples2range(data[:,1], weights=weights)
+    ymin, ymax = stats.samples2range(data[:,1])
     if logy:
-        ymin = np.max(ymin, np.log(YMIN))
-        ymax = np.min(ymax, np.log(YMAX))
+        ymin = max(ymin, np.log(YMIN))
+        ymax = min(ymax, np.log(YMAX))
     else:
-        ymin = np.max(ymin, YMIN)
-        ymax = np.min(ymax, YMAX)
+        ymin = max(ymin, YMIN)
+        ymax = min(ymax, YMAX)
 
     if args.Verbose:
         print('automatically chose %s range: %.3e, %.3e'%(cols[1], ymin, ymax))
