@@ -637,18 +637,23 @@ YMIN, YMAX = fig[1].get_ylim()
 for name, path in overlays.items():
 
     # load samples
+    if args.verbose:
+        print('loading samples for overlay %s from: %s\n    xcolumn=%s\n    ycolumn=%s'%(name, path, xcolumn, ycolumn))
+
     logcolumns = []
 
     xcolumn = overlay_xcolumn[name]
     if logx:
+        if args.Verbose:
+            print('computing KDE overlay in logarithmic x-coordinates to match plot scale')
         logcolumns.append(xcolumn)
 
     ycolumn = overlay_ycolumn[name]
     if logy:
+        if args.Verbose:
+            print('computing KDE overlay in logarithmic y-coordinates to match plot scale')
         logcolumns.append(ycolumn)
 
-    if args.verbose:
-        print('loading samples for overlay %s from: %s\n    xcolumn=%s\n    ycolumn=%s'%(name, path, xcolumn, ycolumn))
     data, cols = io.load(path, [xcolumn, ycolumn], logcolumns=logcolumns)
 
     if overlay_weight_columns[name]:
@@ -669,14 +674,14 @@ for name, path in overlays.items():
         variances[0] = overlay_column_bandwidth[name][xcolumn]
     else:
         variances[0] = silverman_bandwidth(data[:,0], weights=weights)
-        if args.verbose:
+        if args.Verbose:
             print('automatically chose %s bandwidth=%.3e'%(cols[0], variances[0]))
 
     if overlay_column_bandwidth[name][ycolumn] is not None:
         variances[1] = overlay_column_bandwidth[name][ycolumn]
     else:
         variances[1] = silverman_bandwidth(data[:,1], weights=weights)
-        if args.verbose:
+        if args.Verbose:
             print('automatically chose %s bandwidth=%.3e'%(cols[1], variances[1]))
 
     variances = variances**2
@@ -693,6 +698,9 @@ for name, path in overlays.items():
         xmin = np.max(xmin, args.xmin)
         xmax = np.min(xmax, args.xmax)
 
+    if args.Verbose:
+        print('automatically chose %s range: %.3e, %.3e'%(cols[0], xmin, xmax))
+
     vects[0] = np.linspace(xmin, xmax, args.overlay_num_points)
 
     ymin, ymax = stats.samples2range(data[:,1], weights=weights)
@@ -702,6 +710,9 @@ for name, path in overlays.items():
     else:
         ymin = np.max(ymin, YMIN)
         ymax = np.min(ymax, YMAX)
+
+    if args.Verbose:
+        print('automatically chose %s range: %.3e, %.3e'%(cols[1], ymin, ymax))
 
     vects[1] = np.linspace(ymin, ymax, args.overlay_num_points)
 
@@ -717,18 +728,23 @@ for name, path in overlays.items():
     # NOTE: we don't need to normalize the kde because that'll be taken care of within the call to stats.logkde2levels
 
     ### actually plot the contours
-    if args.Verbose:
-        print('plotting KDE')
 
     # fix vects for plotting (ie, undo the fact that we computed the KDE in log coordinates)
     if logx:
+        if args.Verbose:
+            print('undoing log-transform for x-column before plotting')
         vects[0] = np.exp(vects[0])
     if logy:
+        if args.Verbose:
+            print('undoing log-transform for y-column before plotting')
         vects[1] = np.exp(vects[1])
 
     # figure out the thresholds for credible regions
     ### NOTE: the measure should be included in the grid placement, so this should give me the right levels
     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), args.overlay_level)), reverse=True)
+
+    if args.Verbose:
+        print('plotting KDE')
 
     if args.overlay_filled:
         ax.contourf(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
