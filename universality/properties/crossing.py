@@ -126,7 +126,7 @@ def process2crossing(
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    '+path)
+            print('    %d/%d %s'%(i+1, N, path))
         d, _ = load(path, loadcolumns)
         ref = reference_column_value[i] ### pull this out only once
 

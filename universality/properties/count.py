@@ -26,11 +26,12 @@ def process2count(
     ):
     """handles I/O and extracts the number of lines in a particular file (like the number of branches, etc)
     """
-    ans = np.empty(len(data), dtype=int)
+    N = len(data)
+    ans = np.empty(N, dtype=int)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    '+path)
+            print('    %d/%d %s'%(i+1, N, path))
         d, _ = io.load(path, [reference_column])
         ans[i] = data2count(d)
 

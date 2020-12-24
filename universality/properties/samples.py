@@ -87,11 +87,12 @@ def process_calculus(
     ):
     """manages I/O for performing calculations on a large number of files
     """
-    for eos in data:
+    N = len(data)
+    for ind, eos in enumerate(data):
         tmp = {'moddraw':eos//mod, 'draw':eos}
         path = input_tmp%tmp
         if verbose:
-            print('    '+path)
+            print('    %d/%d %s'%(ind+1, N, path))
         d, c = io.load(path)
 
         ans, cols = calculus(d, c, xcolumn, fcolumn, foo, newcolumn, scale=scale, shift=shift, overwrite=overwrite)
@@ -199,11 +200,12 @@ def process2samples(
     Ntot = Nref+Ndyn
     assert Ntot > 0, 'must provide at least one static_x_test or dynamic_x_test'
 
-    ans = np.empty((len(data), (Nref+Ndyn)*len(ycolumns)), dtype=float)
+    N = len(data)
+    ans = np.empty((N, (Nref+Ndyn)*len(ycolumns)), dtype=float)
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    '+path)
+            print('    %d/%d %s'%(i+1, N, path))
         d, c = io.load(path, loadcolumns)
         x = d[:,c.index(xcolumn)]
         d = d[:,1:]
@@ -236,16 +238,16 @@ def process2quantiles(
     num_points = len(x_test)
 
     truth = np.empty(num_points, dtype=bool) ### used to extract values
-
+    N = len(data)
     columns = [xcolumn, ycolumn]
     if weights is None:
-        weights = np.ones(len(data), dtype=float) / len(data)
+        weights = np.ones(N, dtype=float) / N
 
-    for eos, weight in zip(data, weights): ### iterate over samples and compute weighted moments
+    for ind, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
         paths = sorted(glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}))
         for eos_path in paths:
             if verbose:
-                print('    '+eos_path)
+                print('    %d/%d %s'%(ind+1, N, eos_path))
             d, _ = io.load(eos_path, columns)
 
             d[:,0] *= x_multiplier

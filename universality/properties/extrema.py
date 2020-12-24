@@ -84,7 +84,7 @@ def process2extrema(
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    '+path)
+            print('    %d/%d %s'%(i+1, N, path))
         d, _ = load(path, loadcolumns)
 
         ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=dynamic_minima, dynamic_maxima=dynamic_maxima)

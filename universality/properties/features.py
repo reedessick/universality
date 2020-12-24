@@ -324,7 +324,8 @@ def process2moi_features(
     ):
     """extract the branches for each EoS specified
     """
-    for eos in data:
+    N = len(data)
+    for ind, eos in enumerate(data):
 
         ### construct paths
         # where we're going to read in data
@@ -337,6 +338,7 @@ def process2moi_features(
         sum_path = summary_template%tmp
 
         if verbose:
+            print('    %d/%d'%(ind+1, N))
             print('    loading macro: %s'%mac_path)
         mac_data, mac_cols = io.load(mac_path, [macro_rhoc, macro_mass, macro_moi]+output_macro_columns) ### NOTE: we load all columns because we're going to re-write them all into subdir as separate branches
 
