@@ -160,7 +160,7 @@ branches.process2branch_properties(
     eos_rho,
     macro_rhoc,
     args.mass_column,
-    output_eos_columns=args.output_eos_columns,
+    output_eos_columns=args.output_eos_column,
     output_macro_columns=args.output_macro_column,
     suppress_individual_branches=args.suppress_individual_branches,
     verbose=args.Verbose,
