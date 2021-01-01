@@ -4,6 +4,12 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import numpy as np
+
+from universality.utils import io
+
+#-------------------------------------------------
+
 def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxima=None):
     truth = np.ones(len(d), dtype=bool)
 
@@ -23,7 +29,7 @@ def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxim
         raise RuntimeError('could not find any samples within all specified ranges!')
     d = d[truth]
 
-    ans = np.empty(Ncol, dtype=float) ### note, Ncol may not be the same as len(d[0]) because of the ranges arguments
+    ans = np.empty(2*Ncol, dtype=float)
     for j in range(Ncol):
         ans[2*j] = np.max(d[:,j])
         ans[2*j+1] = np.min(d[:,j])
@@ -37,7 +43,7 @@ def outputcolumns(columns, custom_names=None):
         custom_names = dict()
 
     outcols = []
-    for column in args.column:
+    for column in columns:
         outcols += custom_names.get(column, [MAX_TEMPLATE%column, MIN_TEMPLATE%column])
 
     return outcols
@@ -85,7 +91,7 @@ def process2extrema(
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
             print('    %d/%d %s'%(i+1, N, path))
-        d, _ = load(path, loadcolumns)
+        d, _ = io.load(path, loadcolumns)
 
         ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=dynamic_minima, dynamic_maxima=dynamic_maxima)
 
