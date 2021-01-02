@@ -131,7 +131,7 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
 
         if Ndyn > 0:
             dyn_truth = np.zeros(len(data), dtype=bool)
-            for X in dynamic_x_test[i]:
+            for X in dynamic_x_test:
                 dyn_truth[np.argmin(np.abs(x-X))] = True
 
     if (Nref > 0) and (Ndyn > 0):
@@ -141,7 +141,7 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
                 ans[j*Ntot+Nref:(j+1)*Ntot] = data[:,j][dyn_truth]
             else:
                 ans[j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, x, data[:,j])
-                ans[j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test[i], x, data[:,j])
+                ans[j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test, x, data[:,j])
 
     elif Nref > 0:
         for j in range(Ncols):
@@ -155,7 +155,7 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
             if nearest_neighbor:
                 ans[j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_truth]
             else:
-                ans[j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test[i], x, data[:,j])
+                ans[j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test, x, data[:,j])
 
     return ans
 
@@ -210,7 +210,7 @@ def process2samples(
         x = d[:,c.index(xcolumn)]
         d = d[:,1:]
 
-        ans[i] = data2samples(x, d, (Nref, static_x_test), (Ndyn, dynamic_x_test), nearest_neighbor=nearest_neighbor)
+        ans[i] = data2samples(x, d, (Nref, static_x_test), (Ndyn, dynamic_x_test[i]), nearest_neighbor=nearest_neighbor)
 
     return ans
 

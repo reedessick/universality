@@ -85,15 +85,15 @@ if args.verbose:
 dynamic_columns = [col for _, col in args.dynamic_minimum + args.dynamic_maximum]
 Ndyn = len(dynamic_columns)
 
-data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
+data, cols = io.load(args.inpath, [args.eos_column]+args.copy_column+dynamic_columns, max_num_samples=args.max_num_samples)
 
 N = 1+Nkeep
 keep = data[:,:N] ### the stuff we want to transfer over to the final file
 
-dynamic_minima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_minimum)) ### the values defining the dynamic minima
+dynamic_minima = dict((col, data[:,cols.index(umn)]) for col, umn in args.dynamic_minimum) ### the values defining the dynamic minima
 
 N += len(args.dynamic_minimum)
-dynamic_maxima = dict((col, data[:,N+i]) for i, (col, _) in enumerate(args.dynamic_maximum)) ### the values defining the dynamic maxima
+dynamic_maxima = dict((col, data[:,cols.index(umn)]) for col, umn in args.dynamic_maximum) ### the values defining the dynamic maxima
 
 data = data[:,0]
 N = len(data)

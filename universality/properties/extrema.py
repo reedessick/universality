@@ -19,11 +19,11 @@ def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxim
 
     if dynamic_minima is not None:
         for j, minima in dynamic_minima:
-            truth *= d[:,j] >= minima[i]
+            truth *= d[:,j] >= minima
 
     if dynamic_maxima is not None:
         for j, maxima in dynamic_maxima:
-            truth *= d[:,j] <= maxima[i]
+            truth *= d[:,j] <= maxima
 
     if not np.any(truth):
         raise RuntimeError('could not find any samples within all specified ranges!')
@@ -93,6 +93,9 @@ def process2extrema(
             print('    %d/%d %s'%(i+1, N, path))
         d, _ = io.load(path, loadcolumns)
 
-        ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=dynamic_minima, dynamic_maxima=dynamic_maxima)
+        minima = [(j, val[i]) for j, val in dynamic_minima]
+        maxima = [(j, val[i]) for j, val in dynamic_maxima]
+
+        ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=minima, dynamic_maxima=maxima)
 
     return ans

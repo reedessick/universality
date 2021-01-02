@@ -80,13 +80,17 @@ args.verbose |= args.Verbose
 if args.verbose:
     print('reading samples from: '+args.inpath)
 if Nkeep > 0: ### args.copy_column is specified
-    data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
+    data, cols = io.load(args.inpath, [args.eos_column]+args.copy_column+args.reference_value_column, max_num_samples=args.max_num_samples)
+
+    ### the columns from which we extract refernce values
+    ref = np.empty((len(data), len(args.reference_value_column)), dtype=float)
+    for i, col in enumerate(args.reference_value_column):
+        ref[:,i] = data[:,cols.index(col)]
 
     ind = 1+Nkeep
-    ref = data[:,ind:] ### the columns from which we extract refernce values
     keep = data[:,:ind+1] ### the stuff we want to transfer over to the final file
     data = data[:,0]
-    outcols = [args.eos_column] + args.copy_columns
+    outcols = [args.eos_column] + args.copy_column
 
 else: ### copy all columns over
     keep, outcols = io.load(args.inpath, max_num_samples=args.max_num_samples)
