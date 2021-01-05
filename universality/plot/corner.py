@@ -15,7 +15,8 @@ except ImportError:
 from . import utils as plt
 
 from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid)
-from universality.utils import (DEFAULT_NUM_PROC, reflect)
+from universality.utils import DEFAULT_NUM_PROC
+from universality.utils import reflect as reflect_samples
 from universality import stats
 
 #-------------------------------------------------
@@ -143,7 +144,7 @@ def kde_corner(
 
                     truth[col] = True
 
-                    d, w = reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
                         vects[col],
@@ -210,7 +211,7 @@ def kde_corner(
                             color=scatter_color,
                         )
 
-                    d, w = reflect(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
                         vects2flatgrid(vects[col], vects[row]),
