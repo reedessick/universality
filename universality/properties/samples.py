@@ -125,20 +125,20 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
 
     if nearest_neighbor:
         if Nref > 0:
-            truth = np.zeros(len(data), dtype=bool)
-            for X in static_x_test:
-                truth[np.argmin(np.abs(x-X))] = True
+            inds = np.empty(Nref, dtype=int)
+            for i, X in enumerate(static_x_test):
+                inds[i] = np.argmin(np.abs(x-X)) ### which indecies to look up
 
         if Ndyn > 0:
-            dyn_truth = np.zeros(len(data), dtype=bool)
-            for X in dynamic_x_test:
-                dyn_truth[np.argmin(np.abs(x-X))] = True
+            dyn_inds = np.empty(Ndyn, dtype=int)
+            for i, X in enumerate(dynamic_x_test):
+                dyn_inds[i] = np.argmin(np.abs(x-X))
 
     if (Nref > 0) and (Ndyn > 0):
         for j in range(Ncols):
             if nearest_neighbor:
-                ans[j*Ntot:j*Ntot+Nref] = data[:,j][truth]
-                ans[j*Ntot+Nref:(j+1)*Ntot] = data[:,j][dyn_truth]
+                ans[j*Ntot:j*Ntot+Nref] = data[:,j][inds]
+                ans[j*Ntot+Nref:(j+1)*Ntot] = data[:,j][dyn_inds]
             else:
                 ans[j*Ntot:j*Ntot+Nref] = np.interp(static_x_test, x, data[:,j])
                 ans[j*Ntot+Nref:(j+1)*Ntot] = np.interp(dynamic_x_test, x, data[:,j])
@@ -146,14 +146,14 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
     elif Nref > 0:
         for j in range(Ncols):
             if nearest_neighbor:
-                ans[j*Nref:(j+1)*Nref] = data[:,j][truth]
+                ans[j*Nref:(j+1)*Nref] = data[:,j][inds]
             else:
                 ans[j*Nref:(j+1)*Nref] = np.interp(static_x_test, x, data[:,j])
 
     else: ### Ndyn > 0
         for j in range(Ncols):
             if nearest_neighbor:
-                ans[j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_truth]
+                ans[j*Ndyn:(j+1)*Ndyn] = data[:,j][dyn_inds]
             else:
                 ans[j*Ndyn:(j+1)*Ndyn] = np.interp(dynamic_x_test, x, data[:,j])
 
