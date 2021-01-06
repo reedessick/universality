@@ -63,8 +63,10 @@ for inpath in args.samples:
         weights = io.load_weights(inpath, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
     else:
+        data = io.load(inpath)
         N = len(data)
         weights = np.ones(N, dtype='float')/N
+        del data ### could be big, and we don't need it
 
     if args.prune:### throw away data that's outside the bounds
         data, columns = io.load(inpath, columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
