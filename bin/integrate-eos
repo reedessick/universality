@@ -24,6 +24,7 @@ parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
 parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
 parser.add_argument('--baryon_density-column', default='baryon_density', type=str)
+parser.add_argument('--cs2c2-column', default='cs2c2', type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
@@ -58,6 +59,9 @@ if args.energy_densityc2_column not in args.central_eos_column:
 if args.baryon_density_column not in args.central_eos_column:
     args.central_eos_column.append(args.baryon_density_column)
 
+if args.cs2c2_column not in args.central_eos_column:
+    args.central_eos_column.append(args.cs2c2_column)
+
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
@@ -70,6 +74,7 @@ data, cols = io.load(args.eospath, args.central_eos_column)
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 baryon_density = data[:, cols.index(args.baryon_density_column)]
+cs2c2 = data[:,cols.index(args.cs2c2_column)]
 
 ### sanity check that our integration range is compatible with the EoS data available
 max_pressurec2 = np.max(pressurec2)
@@ -84,13 +89,15 @@ if min_central_pressurec2 < min_pressurec2:
         print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
     min_central_pressurec2 = min_pressurec2
 
+### FIXME? add a sanity check that sound speed never vanishes (or becomes too small?)
+
 ### now compute the stellar sequence
 if args.verbose:
     print('solving for sequence of stellar models')
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
-    (pressurec2, energy_densityc2, baryon_density),
+    (pressurec2, energy_densityc2, baryon_density, cs2c2),
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,

@@ -35,7 +35,7 @@ def stellar_sequence(
         **kwargs
     ):
     """solve for a sequence of stellar models such that the resulting interpolator has relative error less than "interpolator_rtol"
-    expect eos = (pressurec2, energy_densityc2, baryon_density)
+    expect eos = (pressurec2, energy_densityc2, baryon_density, cs2c2)
     """
     if formalism == 'logenthalpy':
         integrate = logenthalpy.integrate
@@ -43,9 +43,9 @@ def stellar_sequence(
         R_ind = None ### don't pass max_dr to integrate
 
         ### compute the log(enthalpy per rest mass). Do this here so we only have to do it once
-        pc2, ec2, rho = eos
+        pc2, ec2, rho, cs2c2 = eos
         logh = logenthalpy.eos2logh(pc2, ec2)
-        eos = (logh, pc2, ec2, rho)
+        eos = (logh, pc2, ec2, rho, cs2c2)
 
     elif formalism == 'standard':
         integrate = standard.integrate
