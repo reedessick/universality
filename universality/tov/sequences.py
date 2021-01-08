@@ -17,7 +17,14 @@ DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space
 
 DEFAULT_INTEGRATION_RTOL = 1e-4
 
-KNOWN_FORMALISMS = ['standard', 'standard_MR', 'standard_MRLambda', 'logenthalpy']
+KNOWN_FORMALISMS = [
+    'standard',
+    'standard_MR',
+    'standard_MRLambda',
+    'logenthalpy',
+    'logenthalpy_MR',
+    'logenthalpy_MRLambda',
+]
 DEFAULT_FORMALISM = KNOWN_FORMALISMS[0]
 
 #-------------------------------------------------
@@ -37,9 +44,22 @@ def stellar_sequence(
     """solve for a sequence of stellar models such that the resulting interpolator has relative error less than "interpolator_rtol"
     expect eos = (pressurec2, energy_densityc2, baryon_density, cs2c2)
     """
-    if formalism == 'logenthalpy':
-        integrate = logenthalpy.integrate
-        macro_cols = logenthalpy.MACRO_COLS
+    if 'logenthalpy' in formalism: ### logenthalpy is the integration coordinate
+        if formalism == 'logenthalpy':
+            integrate = logenthalpy.integrate
+            macro_cols = logenthalpy.MACRO_COLS
+
+        elif formalism == 'logethalpy_MR':
+            integrate = logenthalpy.integrate_MR
+            macro_cols = logenthalpy.MACRO_COLS_MR
+
+        elif formalism == 'logenthalpy_MRLambda':
+            integrate = logenthalpy.integrate_MRLambda
+            macro_cols = logenthalpy.MACRO_COLS_MRLambda
+
+        else:
+            raise ValueError('logenthalpy-based formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
+
         R_ind = None ### don't pass max_dr to integrate
 
         ### compute the log(enthalpy per rest mass). Do this here so we only have to do it once
@@ -47,23 +67,26 @@ def stellar_sequence(
         logh = logenthalpy.eos2logh(pc2, ec2)
         eos = (logh, pc2, ec2, rho, cs2c2)
 
-    elif formalism == 'standard':
-        integrate = standard.integrate_all
-        macro_cols = standard.MACRO_COLS
-        R_ind = macro_cols.index('R') ### adapt max_dr and pass it to integrate
+    elif 'standard' in formalism: ### radius is the integration coordinate
+        if formalism == 'standard':
+            integrate = standard.integrate
+            macro_cols = standard.MACRO_COLS
 
-    elif formalism == 'standard_MR':
-        integrate = standard.integrate_MR
-        macro_cols = standard.MACRO_COLS_MR
+        elif formalism == 'standard_MR':
+            integrate = standard.integrate_MR
+            macro_cols = standard.MACRO_COLS_MR
+
+        elif formalism == 'standard_MRLambda':
+            integrate = standard.integrate_MRLambda
+            macro_cols = standard.MACRO_COLS_MRLambda
+
+        else:
+            raise ValueError('standard formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
+
         R_ind = macro_cols.index('R')
 
-    elif formalism == 'standard_MRLambda':
-        integrate = standard.integrate_MRLambda
-        macro_cols = standard.MACRO_COLS_MRLambda
-        R_ind = macro_cols.index('R')
-
-    else:
-        raise ValueError('formalism=%s not understood!'%formalism)
+    else: ### formalism not understood
+        raise ValueError('formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
 
     ### determine the initial grid of central pressures
     pressurec2 = eos[0]
