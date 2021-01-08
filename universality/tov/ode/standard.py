@@ -89,10 +89,10 @@ def initial_m(r, ec2i):
 def initial_mb(r, rhoi):
     return FOURPI * r**3 * rhoi / 3.  # gravitational mass
 
-def intitial_eta(r, pc2i, ec2i, cs2c2i):
+def initial_eta(r, pc2i, ec2i, cs2c2i):
     return 2. + FOURPI * G * r**2 * (9.*pc2i + 13.*ec2i + 3.*(pc2i+ec2i)/cs2c2i)/21. # intial perturbation for dimensionless tidal deformability
 
-def intitial_omega(r, pc2i, ec2i):
+def initial_omega(r, pc2i, ec2i):
     return 16.*np.pi * G * r**2 * (pc2i + ec2i)/5. # initial frame-dgragging function
 
 #-------------------------------------------------
@@ -169,7 +169,7 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 
     return r, (pc2, m, eta, omega, mb)
 
-def integrate_all(
+def integrate(
         pc2i,
         eos,
         min_dr=DEFAULT_MIN_DR,
