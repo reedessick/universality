@@ -24,6 +24,7 @@ TWOPI = 2*np.pi
 FOURPI = 2*TWOPI
 
 Gc2 = G/c2
+c2G = 1./Gc2
 
 #-------------------------------------------------
 ### Formulation of the TOV equations in terms of the log(enthalpy per unit rest mass) = log( (eps+p)/rho )
@@ -45,14 +46,14 @@ def dmbdlogh(r, m, rho, dr_dlogh):
 
 def detadlogh(r, pc2, m, eta, epsc2, cs2c2):
     f = 1. - 2.*Gc2*m/r
-    A = 2. * r * (1/Gc2 - 3.*m/r - TWOPI*r**2*(epsc2 + 3.*pc2))
-    B = r*(6./Gc2 - FOURPI*r**2*(epsc2 + pc2)*(3. + 1./cs2c2)) ### NOTE: the inverse sound speed can do bad things here...
-    return (eta*(eta - 1.)*r*f/Gc2 + A*eta - B)/(m + FOURPI*r**3*pc2) # from Landry+Poisson PRD 89 (2014)
+    A = 2. * r * (c2G - 3.*m/r - TWOPI*r**2*(epsc2 + 3.*pc2))
+    B = r*(6.*c2G - FOURPI*r**2*(epsc2 + pc2)*(3. + 1./cs2c2)) ### NOTE: the inverse sound speed can do bad things here...
+    return (eta*(eta - 1.)*r*f*c2G + A*eta - B)/(m + FOURPI*r**3*pc2) # from Landry+Poisson PRD 89 (2014)
 
 def domegadlogh(r, pc2, m, omega, epsc2):
     f = 1. - 2.*Gc2*m/r
-    F = FOURPI*r**3*(epsc2 + pc2)/(r/Gc2 - 2*m)
-    return (omega*(omega + 3.) - F*(omega + 4.))*r*f/(Gc2*m + FOURPI*Gc2*r**3*pc2)
+    F = FOURPI*r**3*(epsc2 + pc2)/(r*c2G - 2*m)
+    return (omega*(omega + 3.) - F*(omega + 4.))*r*f*c2G/(m + FOURPI*r**3*pc2)
 
 #-------------------------------------------------
 # initial conditions
