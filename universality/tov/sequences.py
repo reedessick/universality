@@ -49,7 +49,7 @@ def stellar_sequence(
             integrate = logenthalpy.integrate
             macro_cols = logenthalpy.MACRO_COLS
 
-        elif formalism == 'logethalpy_MR':
+        elif formalism == 'logenthalpy_MR':
             integrate = logenthalpy.integrate_MR
             macro_cols = logenthalpy.MACRO_COLS_MR
 

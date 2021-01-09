@@ -11,10 +11,10 @@ from .standard import (dpc2dr, eta2lambda, omega2i, initial_m, initial_mb, initi
 
 #-------------------------------------------------
 
-DEFAULT_MIN_DLOGH = 1e-4
-DEFAULT_MAX_DLOGH = 1e-4 ### maximum step size allowed within the integrator (dimensionless)
+DEFAULT_MIN_DLOGH = 1e-3
+DEFAULT_MAX_DLOGH = 1e-1 ### maximum step size allowed within the integrator (dimensionless)
 
-DEFAULT_INITIAL_FRAC = 1e-10 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-6 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
 
@@ -40,7 +40,7 @@ def drdlogh(r, m, pc2):
 def dmdlogh(r, epsc2, dr_dlogh):
     return FOURPI * r**2 * epsc2 * dr_dlogh
 
-def dmbdlogh(r, rho, dr_dlogh):
+def dmbdlogh(r, m, rho, dr_dlogh):
     return FOURPI * r**2 * rho * dr_dlogh / (1 - 2*Gc2*m/r)**0.5
 
 def detadlogh(r, pc2, m, eta, epsc2, cs2c2):
@@ -76,31 +76,28 @@ def engine(
         min_dlogh=DEFAULT_MIN_DLOGH,
         max_dlogh=DEFAULT_MAX_DLOGH,
         rtol=DEFAULT_RTOL,
-        termination_rtol=1e-3,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
     """
     ### integrate out until we hit termination condition
-    while logh > 0:
-        logh0 = logh
-        vec0 = vec[:]
+    return odeint(dvecdlogh_func, vec, (logh, 0), args=(eos,), rtol=rtol)[-1,:]
 
-        ### guess the next step
-        dvec_dlogh = np.array(dvecddlogh_func(vec0, -logh, eos))
-        logh = logh0 - max(min_dlogh, termination_rtol*np.min(np.array(vec)/dvec_dlogh))
-
-        if logh < 0: ### the remaining contribution is small, so we terminate the integration
-            vec = np.array(vec) + dvec_dlogh * logh0
-            logh = 0
-
-        else:
-            vec = odeint(dvecdlogh_func, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
-
-    ### extract final values at the surface
-    logh = [logh, logh0]
-
-    return [np.interp(0, logh, [vec[i], vec0[i]]) for i in range(len(vec))]
+#    vec = np.array(vec, dtype=float) # make sure this is an array
+#
+#    while logh > 0:
+#        logh0 = logh
+#        vec0 = vec[:]
+#
+#        ### guess the next step
+#        dvec_dlogh = np.array(dvecdlogh_func(vec0, logh, eos))
+#        logh = logh0 - max(min_dlogh, min(np.min(vec/dvec_dlogh), max_dlogh)) ### we might be able to speed this up by guessing...
+#        logh = max(0., logh) ### make sure we never go past zero
+#
+#        vec[:] = odeint(dvecdlogh_func, vec0, (logh0, logh), args=(eos,), rtol=rtol)[-1,:]
+#
+#    ### extract final values at the surface
+#    return vec
 
 #-------------------------------------------------
 
@@ -150,7 +147,6 @@ def integrate(
         max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
-        termination_rtol=1e-3,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
@@ -166,7 +162,6 @@ def integrate(
         min_dlogh=min_dlogh,
         max_dlogh=max_dlogh,
         rtol=rtol,
-        termination_rtol=termination_rtol,
     )
 
     # compute tidal deformability
@@ -221,13 +216,12 @@ def integrate_MR(
         max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
-        termination_rtol=1e-3,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
     """
     ### define initial condition
-    logh, vec = initial_condition(pc2i, eos, frac=initial_frac)
+    logh, vec = initial_condition_MR(pc2i, eos, frac=initial_frac)
 
     m, r = engine(
         logh,
@@ -237,7 +231,6 @@ def integrate_MR(
         min_dlogh=min_dlogh,
         max_dlogh=max_dlogh,
         rtol=rtol,
-        termination_rtol=termination_rtol,
     )
 
     # convert to "standard" units
@@ -265,7 +258,7 @@ def dvecdlogh_MRLambda(vec, logh, eos):
     return \
         dmdlogh(r, ec2, dr_dlogh), \
         dr_dlogh, \
-        detadlogh(r, pc2, m, eta, epsc2, cs2c2)
+        detadlogh(r, pc2, m, eta, ec2, cs2c2)
 
 def initial_condition_MRLambda(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
@@ -291,7 +284,6 @@ def integrate_MRLambda(
         max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
-        termination_rtol=1e-3,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
@@ -303,11 +295,10 @@ def integrate_MRLambda(
         logh,
         vec,
         eos,
-        dvecdlogh,
+        dvecdlogh_MRLambda,
         min_dlogh=min_dlogh,
         max_dlogh=max_dlogh,
         rtol=rtol,
-        termination_rtol=termination_rtol,
     )
 
     # compute tidal deformability
@@ -316,6 +307,5 @@ def integrate_MRLambda(
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
-    i /= 1e45 ### normalize this to a common value but still in CGS
 
     return m, r, l
