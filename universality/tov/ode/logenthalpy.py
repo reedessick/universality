@@ -118,9 +118,9 @@ def dvecdlogh(vec, logh, eos):
     return \
         dmdlogh(r, ec2, dr_dlogh), \
         dr_dlogh, \
-        detadlogh(r, pc2, m, eta, epsc2, cs2c2), \
-        domegadlogh(r, pc2, m, omega, epsc2), \
-        dmbdlogh(r, rho, dr_dlogh)
+        detadlogh(r, pc2, m, eta, ec2, cs2c2), \
+        domegadlogh(r, pc2, m, omega, ec2), \
+        dmbdlogh(r, m, rho, dr_dlogh)
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
