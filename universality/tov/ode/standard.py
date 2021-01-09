@@ -51,8 +51,8 @@ def detadr(r, pc2, m, eta, epsc2, cs2c2):
     return -1.*(eta*(eta - 1.) + A*eta - B)/r
 
 def domegadr(r, pc2, m, omega, epsc2):
-    P = FOURPI * G * r**2 * (epsc2 + pc2)/ (1. - 2.*Gc2*m/r)
-    return -(omega*(omega + 3.) - P*(omega + 4.))/r
+    P = FOURPI * Gc2 * r**3 * (epsc2 + pc2)/ (r - 2.*Gc2*m)
+    return (P*(omega + 4.) - omega*(omega + 3.))/r
 
 #-------------------------------------------------
 # functions for values at the stellar surface
@@ -137,12 +137,10 @@ def engine(
 #-------------------------------------------------
 
 ### the solver that yields all known macroscopic quantites
-#MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
-MACRO_COLS = ['M', 'R', 'Lambda', 'Mb'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
 
 def dvecdr(vec, r, eos):
-#    pc2, m, eta, omega, mb = vec
-    pc2, m, eta, mb = vec
+    pc2, m, eta, omega, mb = vec
     epsc2 = np.interp(pc2, eos[0], eos[1])
     rho = np.interp(pc2, eos[0], eos[2])
     cs2c2 = np.interp(pc2, eos[0], eos[3])
@@ -151,9 +149,8 @@ def dvecdr(vec, r, eos):
         dpc2dr(r, pc2, m, epsc2), \
         dmdr(r, epsc2), \
         detadr(r, pc2, m, eta, epsc2, cs2c2), \
+        domegadr(r, pc2, m, omega, epsc2), \
         dmbdr(r, m, dmdr(r, rho))
-#        domegadr(r, pc2, m, omega, epsc2), \   ### FIXME: domegadr equation is buggy!
-#        dmbdr(r, m, dmdr(r, rho))
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     """determines the initial conditions for a stellar model with central pressure pc
@@ -170,8 +167,7 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     eta = initial_eta(r, pc2i, ec2i, cs2c2i)
     omega = initial_omega(r, pc2i, ec2i)
 
-    #return r, (pc2, m, eta, omega, mb)
-    return r, (pc2, m, eta, mb)
+    return r, (pc2, m, eta, omega, mb)
 
 def integrate(
         pc2i,
@@ -189,8 +185,7 @@ def integrate(
     if vec[0] < 0: ### guarantee that we enter the loop
         raise RuntimeError('bad initial condition!')
 
-#    r, (m, eta, omega, mb) = engine(
-    r, (m, eta, mb) = engine(
+    r, (m, eta, omega, mb) = engine(
         r,
         vec,
         eos,
@@ -205,16 +200,15 @@ def integrate(
     l = eta2lambda(r, m, eta)
 
     # compute  moment of inertia
-#    i = omega2i(r, omega)
+    i = omega2i(r, omega)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     mb /= Msun
     r *= 1e-5 ### convert from cm to km
-#    i /= 1e45 ### normalize this to a common value but still in CGS
+    i /= 1e45 ### normalize this to a common value but still in CGS
 
-#    return m, r, l, i, mb
-    return m, r, l, mb
+    return m, r, l, i, mb
 
 #-------------------------------------------------
 
