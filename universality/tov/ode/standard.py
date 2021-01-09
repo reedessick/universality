@@ -46,8 +46,8 @@ def dpc2dr(r, pc2, m, epsc2):
 
 def detadr(r, pc2, m, eta, epsc2, cs2c2):
     invf = (1. - 2.*Gc2*m/r)**-1
-    A = 2. * invf * (1. -3.*Gc2*m/r - TWOPI * G * r**2 * (epsc2 + 3.*pc2))
-    B = invf * (6. - FOURPI*G*r**2 * (epsc2 + pc2)*(3. + 1./cs2c2))
+    A = 2. * invf * (1. -3.*Gc2*m/r - TWOPI*Gc2*r**2 * (epsc2 + 3.*pc2))
+    B = invf * (6. - FOURPI*Gc2*r**2 * (epsc2 + pc2)*(3. + 1./cs2c2))
     return -1.*(eta*(eta - 1.) + A*eta - B)/r
 
 def domegadr(r, pc2, m, omega, epsc2):
@@ -67,7 +67,7 @@ def eta2lambda(r, m, eta): ### dimensionless tidal deformability
     dFdz = (5./(2.*z**6.)) * (z*(z*(z*(3.*z*(5. + z) - 110.) + 150.) - 60.) / (z - 1.)**3 + 60.*np.log(1. - z))
     RdFdr = -2.*C*dFdz # log derivative of hypergeometric function
 
-    k2el = 0.5*(eta - 2. - 4.*C/fR) / (RdFdr -F*(etaR + 3. - 4.*C/fR)) # gravitoelectric quadrupole Love number
+    k2el = 0.5*(eta - 2. - 4.*C/fR) / (RdFdr -F*(eta + 3. - 4.*C/fR)) # gravitoelectric quadrupole Love number
     return (2./3.)*(k2el/C**5)
 
 def omega2i(r, omega): ### moment of inertia
@@ -103,7 +103,7 @@ def engine(
         r,
         vec,
         eos,
-        dvdr_func,
+        dvecdr_func,
         min_dr=DEFAULT_MIN_DR,
         max_dr=DEFAULT_MAX_DR,
         guess_frac=DEFAULT_GUESS_FRAC,
@@ -118,10 +118,10 @@ def engine(
         r0 = r
 
         ### estimate the radius at which this p will vanish via Newton's method
-        r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvdr_func(vec, r, eos)[0])))
+        r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr_func(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec = odeint(ddr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
+        vec = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
 
     ### return to client, who will then interpolate to find the surface
     ### interpolate to find stellar surface
@@ -137,10 +137,12 @@ def engine(
 #-------------------------------------------------
 
 ### the solver that yields all known macroscopic quantites
-MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
+#MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'Lambda', 'Mb'] ### the column names for what we compute
 
 def dvecdr(vec, r, eos):
-    pc2, m, eta, omega, mb = vec
+#    pc2, m, eta, omega, mb = vec
+    pc2, m, eta, mb = vec
     epsc2 = np.interp(pc2, eos[0], eos[1])
     rho = np.interp(pc2, eos[0], eos[2])
     cs2c2 = np.interp(pc2, eos[0], eos[3])
@@ -149,8 +151,9 @@ def dvecdr(vec, r, eos):
         dpc2dr(r, pc2, m, epsc2), \
         dmdr(r, epsc2), \
         detadr(r, pc2, m, eta, epsc2, cs2c2), \
-        domegadr(r, pc2, m, omega, epsc2), \
         dmbdr(r, m, dmdr(r, rho))
+#        domegadr(r, pc2, m, omega, epsc2), \   ### FIXME: domegadr equation is buggy!
+#        dmbdr(r, m, dmdr(r, rho))
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     """determines the initial conditions for a stellar model with central pressure pc
@@ -167,7 +170,8 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     eta = initial_eta(r, pc2i, ec2i, cs2c2i)
     omega = initial_omega(r, pc2i, ec2i)
 
-    return r, (pc2, m, eta, omega, mb)
+    #return r, (pc2, m, eta, omega, mb)
+    return r, (pc2, m, eta, mb)
 
 def integrate(
         pc2i,
@@ -181,11 +185,12 @@ def integrate(
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density, baryon_density, cs2c2)
     """
-    r, vec = initial_conditions(pc2i, eos, frac=initial_frac)
+    r, vec = initial_condition(pc2i, eos, frac=initial_frac)
     if vec[0] < 0: ### guarantee that we enter the loop
         raise RuntimeError('bad initial condition!')
 
-    r, (m, eta, omega, mb) = engine(
+#    r, (m, eta, omega, mb) = engine(
+    r, (m, eta, mb) = engine(
         r,
         vec,
         eos,
@@ -197,18 +202,19 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2labmda(r, m, eta)
+    l = eta2lambda(r, m, eta)
 
     # compute  moment of inertia
-    i = omega2i(r, omega)
+#    i = omega2i(r, omega)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     mb /= Msun
     r *= 1e-5 ### convert from cm to km
-    i /= 1e45 ### normalize this to a common value but still in CGS
+#    i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, l, i, mb
+#    return m, r, l, i, mb
+    return m, r, l, mb
 
 #-------------------------------------------------
 
@@ -219,7 +225,7 @@ def dvecdr_MR(vec, r, eos):
     '''returns d(p, m)/dr
     expects: pressurec2, energy_densityc2 = eos
     '''
-    pc2, m, eta, omega, mb = vec
+    pc2, m = vec
     epsc2 = np.interp(pc2, eos[0], eos[1])
     rho = np.interp(pc2, eos[0], eos[2])
 
@@ -252,7 +258,7 @@ def integrate_MR(
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density, baryon_density, cs2c2)
     """
-    r, vec = initial_conditions_MR(pc2i, eos, frac=initial_frac)
+    r, vec = initial_condition_MR(pc2i, eos, frac=initial_frac)
     if vec[0] < 0: ### guarantee that we enter the loop
         raise RuntimeError('bad initial condition!')
 
@@ -282,7 +288,7 @@ def dvecdr_MRLambda(vec, r, eos):
     '''returns d(p, m)/dr
     expects: pressurec2, energy_densityc2 = eos
     '''
-    pc2, m, eta, omega, mb = vec
+    pc2, m, eta = vec
     epsc2 = np.interp(pc2, eos[0], eos[1])
     rho = np.interp(pc2, eos[0], eos[2])
     cs2c2 = np.interp(pc2, eos[0], eos[3])
@@ -319,7 +325,7 @@ def integrate_MRLambda(
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density, baryon_density, cs2c2)
     """ 
-    r, vec = initial_conditions_MRLambda(pc2i, eos, frac=initial_frac)
+    r, vec = initial_condition_MRLambda(pc2i, eos, frac=initial_frac)
     if vec[0] < 0: ### guarantee that we enter the loop
         raise RuntimeError('bad initial condition!')
 
@@ -335,7 +341,7 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2labmda(r, m, eta)
+    l = eta2lambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams

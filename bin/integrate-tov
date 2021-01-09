@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.tov import sequences
-from universality.utils import io
+from universality.utils import (io, utils)
 
 #-------------------------------------------------
 
@@ -24,7 +24,7 @@ parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
 parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
 parser.add_argument('--baryon_density-column', default='baryon_density', type=str)
-parser.add_argument('--cs2c2-column', default='cs2c2', type=str)
+parser.add_argument('--cs2c2-column', default=None, type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
@@ -61,7 +61,7 @@ if args.energy_densityc2_column not in args.central_eos_column:
 if args.baryon_density_column not in args.central_eos_column:
     args.central_eos_column.append(args.baryon_density_column)
 
-if args.cs2c2_column not in args.central_eos_column:
+if (args.cs2c2_column is not None) and (args.cs2c2_column not in args.central_eos_column):
     args.central_eos_column.append(args.cs2c2_column)
 
 args.verbose |= args.Verbose
@@ -70,13 +70,17 @@ args.verbose |= args.Verbose
 
 ### load EoS data from disk
 if args.verbose:
-    print('print loading EoS data from: '+args.eospath)
+    print('loading EoS data from: '+args.eospath)
 data, cols = io.load(args.eospath, args.central_eos_column)
 
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 baryon_density = data[:, cols.index(args.baryon_density_column)]
-cs2c2 = data[:,cols.index(args.cs2c2_column)]
+
+if args.cs2c2_column is not None:
+    cs2c2 = data[:,cols.index(args.cs2c2_column)]
+else:
+    cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
 
 ### sanity check that our integration range is compatible with the EoS data available
 max_pressurec2 = np.max(pressurec2)
@@ -95,7 +99,7 @@ if min_central_pressurec2 < min_pressurec2:
 
 ### now compute the stellar sequence
 if args.verbose:
-    print('solving for sequence of stellar models')
+    print('solving for sequence of stellar models with formalism=%s'%args.formalism)
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,

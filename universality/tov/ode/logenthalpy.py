@@ -87,7 +87,7 @@ def engine(
         vec0 = vec[:]
 
         ### guess the next step
-        dvec_dlogh = np.array(dvecdH(vec0, -logh, eos))
+        dvec_dlogh = np.array(dvecddlogh_func(vec0, -logh, eos))
         logh = logh0 - max(min_dlogh, termination_rtol*np.min(np.array(vec)/dvec_dlogh))
 
         if logh < 0: ### the remaining contribution is small, so we terminate the integration
@@ -95,7 +95,7 @@ def engine(
             logh = 0
 
         else:
-            vec = odeint(dvecdH, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
+            vec = odeint(dvecdlogh_func, vec0, (-logh0, -logh), args=(eos,), rtol=rtol)[-1,:]
 
     ### extract final values at the surface
     logh = [logh, logh0]
@@ -124,7 +124,7 @@ def dvecdlogh(vec, logh, eos):
         domegadlogh(r, pc2, m, omega, epsc2), \
         dmbdlogh(r, rho, dr_dlogh)
 
-def initial_conditions(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
+def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
     '''
     eos1 = eos[1]
@@ -170,7 +170,7 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2labmda(r, m, eta)
+    l = eta2lambda(r, m, eta)
 
     # compute  moment of inertia
     i = omega2i(r, omega)
@@ -200,7 +200,7 @@ def dvecdlogh_MR(vec, logh, eos):
         dmdlogh(r, ec2, dr_dlogh), \
         dr_dlogh
 
-def initial_conditions_MR(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
+def initial_condition_MR(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
     '''
     eos1 = eos[1]
@@ -267,7 +267,7 @@ def dvecdlogh_MRLambda(vec, logh, eos):
         dr_dlogh, \
         detadlogh(r, pc2, m, eta, epsc2, cs2c2)
 
-def initial_conditions_MRLambda(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
+def initial_condition_MRLambda(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
     '''
     eos1 = eos[1]
@@ -311,7 +311,7 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2labmda(r, m, eta)
+    l = eta2lambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
