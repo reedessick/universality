@@ -12,9 +12,6 @@ from .standard import (dmdr, dmbdr, detadr, domegadr)
 
 #-------------------------------------------------
 
-DEFAULT_MIN_DLOGH = 1e-3
-DEFAULT_MAX_DLOGH = 1e-1 ### maximum step size allowed within the integrator (dimensionless)
-
 DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
@@ -70,8 +67,6 @@ def engine(
         vec,
         eos,
         dvecdlogh_func,
-        min_dlogh=DEFAULT_MIN_DLOGH,
-        max_dlogh=DEFAULT_MAX_DLOGH,
         rtol=DEFAULT_RTOL,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
@@ -131,8 +126,6 @@ def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 def integrate(
         pc2i,
         eos,
-        min_dlogh=DEFAULT_MIN_DLOGH,
-        max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
     ):
@@ -147,8 +140,6 @@ def integrate(
         vec,
         eos,
         dvecdlogh,
-        min_dlogh=min_dlogh,
-        max_dlogh=max_dlogh,
         rtol=rtol,
     )
 
@@ -200,8 +191,6 @@ def initial_condition_MR(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 def integrate_MR(
         pc2i,
         eos,
-        min_dlogh=DEFAULT_MIN_DLOGH,
-        max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
     ):
@@ -216,8 +205,6 @@ def integrate_MR(
         vec,
         eos,
         dvecdlogh_MR,
-        min_dlogh=min_dlogh,
-        max_dlogh=max_dlogh,
         rtol=rtol,
     )
 
@@ -268,8 +255,6 @@ def initial_condition_MRLambda(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 def integrate_MRLambda(
         pc2i,
         eos,
-        min_dlogh=DEFAULT_MIN_DLOGH,
-        max_dlogh=DEFAULT_MAX_DLOGH,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
     ):
@@ -284,8 +269,6 @@ def integrate_MRLambda(
         vec,
         eos,
         dvecdlogh_MRLambda,
-        min_dlogh=min_dlogh,
-        max_dlogh=max_dlogh,
         rtol=rtol,
     )
 
