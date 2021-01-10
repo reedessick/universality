@@ -14,7 +14,7 @@ from .standard import (dmdr, dmbdr, detadr, domegadr)
 
 #-------------------------------------------------
 
-DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
 
@@ -58,7 +58,7 @@ def initial_logh(loghi, frac):
     return (1. - frac)*loghi ### assume a constant slope over a small change in the pressure
 
 def initial_r(loghi, pc2i, ec2i, frac):
-    return ( 3.*frac*loghi*c2 / (TWOPI*G*(ec2i + 3.*pc2i)) )**0.5
+    return ( 3.*frac*loghi*c2G / (TWOPI*(ec2i + 3.*pc2i)) )**0.5
 
 #-------------------------------------------------
 # central loop that solves the TOV equations given a set of coupled ODEs

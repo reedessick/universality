@@ -90,10 +90,10 @@ def initial_mb(r, rhoi):
     return FOURPI * r**3 * rhoi / 3.  # gravitational mass
 
 def initial_eta(r, pc2i, ec2i, cs2c2i):
-    return 2. + FOURPI * G * r**2 * (9.*pc2i + 13.*ec2i + 3.*(pc2i+ec2i)/cs2c2i)/21. # intial perturbation for dimensionless tidal deformability
+    return 2. + FOURPI * Gc2 * r**2 * (9.*pc2i + 13.*ec2i + 3.*(pc2i+ec2i)/cs2c2i)/21. # intial perturbation for dimensionless tidal deformability
 
 def initial_omega(r, pc2i, ec2i):
-    return 16.*np.pi * G * r**2 * (pc2i + ec2i)/5. # initial frame-dgragging function
+    return 16.*np.pi * Gc2 * r**2 * (pc2i + ec2i)/5. # initial frame-dgragging function
 
 #-------------------------------------------------
 # central loop that solves the TOV equations given a set of coupled ODEs
