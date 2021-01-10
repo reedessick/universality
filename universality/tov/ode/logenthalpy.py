@@ -7,12 +7,14 @@ from scipy.integrate import odeint
 
 from universality.utils import utils
 from universality.utils.units import (G, c2, Msun)
-from .standard import (dpc2dr, eta2lambda, omega2i, initial_m, initial_mb, initial_eta, initial_omega)
+
+from .standard import (eta2lambda, omega2i)
+from .standard import (initial_m, initial_mb, initial_eta, initial_omega)
 from .standard import (dmdr, dmbdr, detadr, domegadr)
 
 #-------------------------------------------------
 
-DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
 
@@ -80,6 +82,7 @@ def engine(
         args=(eos,),
         rtol=rtol,
         mxstep=10000, ### empirically found to be sufficient, the default is 500
+        mxhnil=1, ### maximum number of messages to print
     )[-1,:]
 
 #-------------------------------------------------
@@ -183,8 +186,8 @@ def initial_condition_MR(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
 
     logh = initial_logh(loghi, frac)
 
-    r = initial_r(loghi, ec2i, pc2i, frac)
-    m = initial_m(r, ec2i)
+    r = initial_r(loghi, ec2i, pc2i, frac) ### NOTE: this is good enough for the M-R integrals
+    m = initial_m(r, ec2i)                 ### but we have to do something more complicated for the other perturbation equations
 
     return logh, (m, r)
 

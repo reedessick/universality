@@ -113,6 +113,8 @@ def engine(
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density)
     """
+    vec = np.array(vec, dtype=float)
+
     while vec[0] > 0: ### continue until pressure vanishes
         vec0 = vec[:] # store the current location as the old location
         r0 = r
@@ -121,7 +123,7 @@ def engine(
         r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr_func(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
+        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
 
     ### return to client, who will then interpolate to find the surface
     ### interpolate to find stellar surface
