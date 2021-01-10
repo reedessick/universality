@@ -38,15 +38,15 @@ Gc2 = G/c2
 def dmdr(r, epsc2):
     return FOURPI * r**2 * epsc2
 
-def dmbdr(r, m, dm_dr):
-    return dm_dr * (1 - 2*Gc2*m/r)**-0.5
+def dmbdr(r, rho, m):
+    return dmdr(r, rho) * (1 - 2*Gc2*m/r)**-0.5
 
 def dpc2dr(r, pc2, m, epsc2):
     return - Gc2 * (epsc2 + pc2)*(m + FOURPI * r**3 * pc2)/(r * (r - 2*Gc2*m))
 
 def detadr(r, pc2, m, eta, epsc2, cs2c2):
     invf = (1. - 2.*Gc2*m/r)**-1
-    A = 2. * invf * (1. -3.*Gc2*m/r - TWOPI*Gc2*r**2 * (epsc2 + 3.*pc2))
+    A = 2. * invf * (1. - 3.*Gc2*m/r - TWOPI*Gc2*r**2 * (epsc2 + 3.*pc2))
     B = invf * (6. - FOURPI*Gc2*r**2 * (epsc2 + pc2)*(3. + 1./cs2c2))
     return -1.*(eta*(eta - 1.) + A*eta - B)/r
 
@@ -150,7 +150,7 @@ def dvecdr(vec, r, eos):
         dmdr(r, epsc2), \
         detadr(r, pc2, m, eta, epsc2, cs2c2), \
         domegadr(r, pc2, m, omega, epsc2), \
-        dmbdr(r, m, dmdr(r, rho))
+        dmbdr(r, rho, m)
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     """determines the initial conditions for a stellar model with central pressure pc

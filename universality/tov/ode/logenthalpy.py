@@ -8,6 +8,7 @@ from scipy.integrate import odeint
 from universality.utils import utils
 from universality.utils.units import (G, c2, Msun)
 from .standard import (dpc2dr, eta2lambda, omega2i, initial_m, initial_mb, initial_eta, initial_omega)
+from .standard import (dmdr, dmbdr, detadr, domegadr)
 
 #-------------------------------------------------
 
@@ -36,24 +37,19 @@ def eos2logh(pc2, ec2):
 #------------------------
 
 def drdlogh(r, m, pc2):
-    return - r * (r*c2 - 2*G*m) / (G*(m + FOURPI * r**3 * pc2))
+    return - r * (r*c2G - 2*m) / (m + FOURPI * r**3 * pc2)
 
 def dmdlogh(r, epsc2, dr_dlogh):
-    return FOURPI * r**2 * epsc2 * dr_dlogh
+    return dmdr(r, epsc2) * dr_dlogh
 
 def dmbdlogh(r, m, rho, dr_dlogh):
-    return FOURPI * r**2 * rho * dr_dlogh / (1 - 2*Gc2*m/r)**0.5
+    return dmbdr(r, rho, m) * dr_dlogh
 
-def detadlogh(r, pc2, m, eta, epsc2, cs2c2):
-    f = 1. - 2.*Gc2*m/r
-    A = 2. * r * (c2G - 3.*m/r - TWOPI*r**2*(epsc2 + 3.*pc2))
-    B = r*(6.*c2G - FOURPI*r**2*(epsc2 + pc2)*(3. + 1./cs2c2)) ### NOTE: the inverse sound speed can do bad things here...
-    return (eta*(eta - 1.)*r*f*c2G + A*eta - B)/(m + FOURPI*r**3*pc2) # from Landry+Poisson PRD 89 (2014)
+def detadlogh(r, pc2, m, eta, epsc2, cs2c2, dr_dlogh):
+    return detadr(r, pc2, m, eta, epsc2, cs2c2) * dr_dlogh
 
-def domegadlogh(r, pc2, m, omega, epsc2):
-    f = 1. - 2.*Gc2*m/r
-    F = FOURPI*r**3*(epsc2 + pc2)/(r*c2G - 2*m)
-    return (omega*(omega + 3.) - F*(omega + 4.))*r*f*c2G/(m + FOURPI*r**3*pc2)
+def domegadlogh(r, pc2, m, omega, epsc2, dr_dlogh):
+    return domegadr(r, pc2, m, omega, epsc2) * dr_dlogh
 
 #-------------------------------------------------
 # initial conditions
@@ -109,8 +105,8 @@ def dvecdlogh(vec, logh, eos):
     return \
         dmdlogh(r, ec2, dr_dlogh), \
         dr_dlogh, \
-        detadlogh(r, pc2, m, eta, ec2, cs2c2), \
-        domegadlogh(r, pc2, m, omega, ec2), \
+        detadlogh(r, pc2, m, eta, ec2, cs2c2, dr_dlogh), \
+        domegadlogh(r, pc2, m, omega, ec2, dr_dlogh), \
         dmbdlogh(r, m, rho, dr_dlogh)
 
 def initial_condition(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
@@ -250,7 +246,7 @@ def dvecdlogh_MRLambda(vec, logh, eos):
     return \
         dmdlogh(r, ec2, dr_dlogh), \
         dr_dlogh, \
-        detadlogh(r, pc2, m, eta, ec2, cs2c2)
+        detadlogh(r, pc2, m, eta, ec2, cs2c2, dr_dlogh)
 
 def initial_condition_MRLambda(pc2i, eos, frac=DEFAULT_INITIAL_FRAC):
     '''analytically solve for the initial condition around the divergence at r=0
