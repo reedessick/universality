@@ -14,7 +14,7 @@ from .standard import (dpc2dr, eta2lambda, omega2i, initial_m, initial_mb, initi
 DEFAULT_MIN_DLOGH = 1e-3
 DEFAULT_MAX_DLOGH = 1e-1 ### maximum step size allowed within the integrator (dimensionless)
 
-DEFAULT_INITIAL_FRAC = 1e-6 ### the initial change in pressure we allow when setting the intial conditions
+DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
 
@@ -82,23 +82,14 @@ def engine(
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
     """
     ### integrate out until we hit termination condition
-    return odeint(dvecdlogh_func, vec, (logh, 0), args=(eos,), rtol=rtol)[-1,:]
-
-#    vec = np.array(vec, dtype=float) # make sure this is an array
-#
-#    while logh > 0:
-#        logh0 = logh
-#        vec0 = vec[:]
-#
-#        ### guess the next step
-#        dvec_dlogh = np.array(dvecdlogh_func(vec0, logh, eos))
-#        logh = logh0 - max(min_dlogh, min(np.min(vec/dvec_dlogh), max_dlogh)) ### we might be able to speed this up by guessing...
-#        logh = max(0., logh) ### make sure we never go past zero
-#
-#        vec[:] = odeint(dvecdlogh_func, vec0, (logh0, logh), args=(eos,), rtol=rtol)[-1,:]
-#
-#    ### extract final values at the surface
-#    return vec
+    return odeint(
+        dvecdlogh_func,
+        vec,
+        (logh, 0.),
+        args=(eos,),
+        rtol=rtol,
+        mxstep=10000, ### empirically found to be sufficient, the default is 500
+    )[-1,:]
 
 #-------------------------------------------------
 
