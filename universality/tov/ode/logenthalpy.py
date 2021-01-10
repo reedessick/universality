@@ -81,8 +81,6 @@ def engine(
         (logh, 0.),
         args=(eos,),
         rtol=rtol,
-        mxstep=10000, ### empirically found to be sufficient, the default is 500
-        mxhnil=1, ### maximum number of messages to print
     )[-1,:]
 
 #-------------------------------------------------
