@@ -52,18 +52,6 @@ if args.outpath is None:
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
 
-if args.pressurec2_column not in args.central_eos_column:
-    args.central_eos_column.append(args.pressurec2_column)
-
-if args.energy_densityc2_column not in args.central_eos_column:
-    args.central_eos_column.append(args.energy_densityc2_column)
-
-if args.baryon_density_column not in args.central_eos_column:
-    args.central_eos_column.append(args.baryon_density_column)
-
-if (args.cs2c2_column is not None) and (args.cs2c2_column not in args.central_eos_column):
-    args.central_eos_column.append(args.cs2c2_column)
-
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
@@ -71,7 +59,11 @@ args.verbose |= args.Verbose
 ### load EoS data from disk
 if args.verbose:
     print('loading EoS data from: '+args.eospath)
-data, cols = io.load(args.eospath, args.central_eos_column)
+cols = [args.pressurec2_column, args.energy_densityc2_column, args.baryon_density_column]
+if args.cs2c2_column is not None:
+    cols.append(args.cs2c2_column)
+
+data, cols = io.load(args.eospath, cols+args.central_eos_column) ### NOTE: this will not produce duplicated columns
 
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
@@ -124,9 +116,9 @@ sequence = np.empty((len(central_pressurec2), Neos+Nmac), dtype=float)
 columns = []
 
 # extract the central EoS parameters 
-for i in range(Neos):
-    sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,i])
-    columns.append(args.central_column_template%cols[i])
+for i, col in enumerate(args.central_eos_column):
+    sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,cols.index(col)])
+    columns.append(args.central_column_template%col)
 
 # add in the macro properties
 sequence[:,Neos:] = macro
