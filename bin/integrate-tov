@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""a script to integrate an EoS to compute a sequence of macroscopic parameters
+"""a script to integrate the TOV equations given an EoS to compute a sequence of macroscopic parameters
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.tov import sequences
-from universality.utils import io
+from universality.utils import (io, utils)
 
 #-------------------------------------------------
 
@@ -24,13 +24,16 @@ parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
 parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
 parser.add_argument('--baryon_density-column', default='baryon_density', type=str)
+parser.add_argument('--cs2c2-column', default=None, type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
 parser.add_argument('--central-column-template', default='central_%s', type=str,
     help='the template used to define column names associated with eos columns')
 
-parser.add_argument('--formalism', default=sequences.DEFAULT_FORMALISM, type=str)
+parser.add_argument('--formalism', default=sequences.DEFAULT_FORMALISM, type=str,
+    help='must be one of: %s. DEFAULT=%s'%(', '.join(sequences.KNOWN_FORMALISMS), sequences.DEFAULT_FORMALISM))
+
 parser.add_argument('--min-num-models', default=sequences.DEFAULT_MIN_NUM_MODELS, type=int)
 parser.add_argument('--interpolator-rtol', default=sequences.DEFAULT_INTERPOLATOR_RTOL, type=float)
 parser.add_argument('--integration-rtol', default=sequences.DEFAULT_INTEGRATION_RTOL, type=float)
@@ -49,27 +52,27 @@ if args.outpath is None:
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
 
-if args.pressurec2_column not in args.central_eos_column:
-    args.central_eos_column.append(args.pressurec2_column)
-
-if args.energy_densityc2_column not in args.central_eos_column:
-    args.central_eos_column.append(args.energy_densityc2_column)
-
-if args.baryon_density_column not in args.central_eos_column:
-    args.central_eos_column.append(args.baryon_density_column)
-
 args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
 ### load EoS data from disk
 if args.verbose:
-    print('print loading EoS data from: '+args.eospath)
-data, cols = io.load(args.eospath, args.central_eos_column)
+    print('loading EoS data from: '+args.eospath)
+cols = [args.pressurec2_column, args.energy_densityc2_column, args.baryon_density_column]
+if args.cs2c2_column is not None:
+    cols.append(args.cs2c2_column)
+
+data, cols = io.load(args.eospath, cols+args.central_eos_column) ### NOTE: this will not produce duplicated columns
 
 pressurec2 = data[:,cols.index(args.pressurec2_column)]
 energy_densityc2 = data[:,cols.index(args.energy_densityc2_column)]
 baryon_density = data[:, cols.index(args.baryon_density_column)]
+
+if args.cs2c2_column is not None:
+    cs2c2 = data[:,cols.index(args.cs2c2_column)]
+else:
+    cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
 
 ### sanity check that our integration range is compatible with the EoS data available
 max_pressurec2 = np.max(pressurec2)
@@ -84,13 +87,15 @@ if min_central_pressurec2 < min_pressurec2:
         print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
     min_central_pressurec2 = min_pressurec2
 
+### FIXME? add a sanity check that sound speed never vanishes (or becomes too small?)
+
 ### now compute the stellar sequence
 if args.verbose:
-    print('solving for sequence of stellar models')
+    print('solving for sequence of stellar models with formalism=%s'%args.formalism)
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
-    (pressurec2, energy_densityc2, baryon_density),
+    (pressurec2, energy_densityc2, baryon_density, cs2c2),
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,
@@ -111,9 +116,9 @@ sequence = np.empty((len(central_pressurec2), Neos+Nmac), dtype=float)
 columns = []
 
 # extract the central EoS parameters 
-for i in range(Neos):
-    sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,i])
-    columns.append(args.central_column_template%cols[i])
+for i, col in enumerate(args.central_eos_column):
+    sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,cols.index(col)])
+    columns.append(args.central_column_template%col)
 
 # add in the macro properties
 sequence[:,Neos:] = macro
