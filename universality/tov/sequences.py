@@ -10,7 +10,7 @@ from .ode import (standard, logenthalpy)
 
 #-------------------------------------------------
 
-DEFAULT_MIN_NUM_MODELS = 10
+DEFAULT_MIN_NUM_MODELS = 2
 
 DEFAULT_INTERPOLATOR_RTOL = 1e-2 ### used to determine accuracy of interpolator for macroscopic properties
 DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space central pressures
