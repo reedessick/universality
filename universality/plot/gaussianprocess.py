@@ -5,9 +5,11 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import numpy as np
+from scipy.special import erfinv
 
 ### non-standard libraries
 from . import utils as plt
+from universality.gaussianprocess import gaussianprocess as gp
 
 #-------------------------------------------------
 
@@ -53,7 +55,7 @@ def cov(model, colormap=plt.DEFAULT_COLORMAP, figwidth=plt.DEFAULT_COV_FIGWIDTH,
     # plot average covariance
     m = np.max(np.abs(c))
     lim = -m, +m
-    plt.sca(eax)
+    plt.plt.sca(eax)
     cb = fig.colorbar(
         eax.imshow(c, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
         orientation='vertical',
@@ -66,7 +68,7 @@ def cov(model, colormap=plt.DEFAULT_COLORMAP, figwidth=plt.DEFAULT_COV_FIGWIDTH,
 
     # plot stdv of covariance
     lim = 0, max(np.max(c2), 0.001)
-    plt.sca(vax)
+    plt.plt.sca(vax)
     cb = fig.colorbar(
         vax.imshow(c2, cmap=colormap, aspect='equal', extent=(x[0], x[-1], x[0], x[-1]), interpolation='none', vmin=lim[0], vmax=lim[1], origin='lower'),
         orientation='vertical',
@@ -246,7 +248,7 @@ def overlay_model(
     sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
 
     weights = [m['weight'] for m in model]
-    colors = weights2color(weights, color, prefact=alpha/max(2., len(sigmas)*2.), minimum=0.002)
+    colors = plt.weights2color(weights, color, prefact=alpha/max(2., len(sigmas)*2.), minimum=0.002)
 
     xmin = +np.infty
     xmax = -np.infty
