@@ -22,6 +22,11 @@ parser = ArgumentParser()
 parser.add_argument('input_csv', type=str)
 parser.add_argument('output_csv', type=str)
 
+parser.add_argument('--retain', nargs=2, type=str, action='append', default=[],
+    help="keep only samples with this value (eg: '--retain Mmax 2.0'). Can be repeated.")
+parser.add_argument('--reject', nargs=2, type=str, action='append', default=[],
+    help="discard all sample with this value (eg: '--reject logmargweight 0.0'). Can be repeated.")
+
 parser.add_argument('--include', nargs=3, type=str, action='append', default=[],
     help="the field along with min and max values for what should be kept (eg: '--include distance 30 40'). This can be repeated to specify bounds for multiple fields. It can also be repeated to specify multiple bounds for a single field (ie: disconnected regions that both should be kept). If a field is not specified with this option, we do not filter based on that field.")
 
@@ -35,6 +40,9 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
+
+args.retain = [(key, float(val)) for key, val in args.retain]
+args.reject = [(key, float(val)) for key, val in args.reject]
 
 bounds = defaultdict(list)
 for field, m, M in args.include:
@@ -60,10 +68,22 @@ if args.verbose:
     print('found %d samples'%N)
 
 ### filter data
+global_truth = np.ones(N, dtype=bool)
+
+# based on specific values
+if args.verbose:
+    print('pruning data based on specific values')
+
+for field, val in args.retain:
+    global_truth[:] = np.logical_and(global_truth, data[:,cols.index(field)]==val)
+
+for field, val in args.reject:
+    global_truth[:] = np.logical_and(global_truth, data[:,cols.index(field)]!=val)
+
+# based on ranges
 if args.verbose:
     print('pruning samples based on fixed ranges')
 
-global_truth = np.ones(N, dtype=bool)
 local_truth = np.empty(N, dtype=bool)
 for field, segs in bounds.items():
     col = cols.index(field)
@@ -72,7 +92,7 @@ for field, segs in bounds.items():
     for m, M in segs: ### NOTE: this logic is more complicated than what's in utils.prune, and so we just use this here
         if args.verbose:
             print('filtering to keep col=%s within [%f, %f)'%(field, m, M))
-        local_truth[:] = np.logical_or(local_truth, (m<=datum)*(datum<=M))
+        local_truth[:] = np.logical_or(local_truth, (m<=datum)*(datum<M))
     global_truth[:] = np.logical_and(global_truth, local_truth)
 
 if args.verbose:
