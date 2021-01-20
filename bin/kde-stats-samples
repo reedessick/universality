@@ -95,8 +95,7 @@ args.dlogL = [[float(_) for _ in v.split(',')] for v in args.dlogL]
 args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
 args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
 
-bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
-variances = np.array([bandwidthdict.get(col, kde.DEFAULT_BANDWIDTH) for col in args.columns])**2
+bandwdithdict = dict((col, float(val)) for col, val in args.column_bandwidth)
 multiplierdict = dict((col, getattr(units, val) if hasattr(units, val) else float(val)) for col, val in args.column_multiplier)
 
 #-------------------------------------------------
@@ -133,12 +132,19 @@ else:
     N = len(data)
     weights = np.ones(N, dtype='float')/N
 
+if args.prune:
+    data, weights = utils.prune(data, ranges, weights=weights)
+
 #------------------------
 
 vects = [np.linspace(m, M, args.num_points) for m, M in ranges]
 
-if args.prune:
-    data, weights = utils.prune(data, ranges, weights=weights)
+variances = np.empty(len(args.columns), dtype=float)
+for i, col in enumerate(columns):
+    if col in bandwidthdict:
+        variances[i] = bandwidthdict(col)
+    else:
+        variances = kde.silverman_bandwidth(data[:,columns.index(col)], weights=weights)
 
 #------------------------
 

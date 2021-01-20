@@ -154,25 +154,13 @@ def logkde2crbounds(vect, logkde, levels):
     returns the bounds on the smallest contiguous region that contain the specified confidence
     """
     assert vect.ndim==1 and logkde.ndim==1, 'logkde2crbounds only works with 1-dimensional vectors!'
+    assert np.all(np.diff(vect) > 0), 'vect must be strictly increasing!'
 
-    bounds = []
-    inds = np.arange(len(vect))
-    for thr in logkde2levels(logkde, levels):
-        these = inds[logkde>=thr]
+    # transform into cdf
+    cweights = np.exp(logkde-np.max(logkde))
+    cweights /= np.sum(cweights)
 
-        if these[0]==0:
-            low = vect[0]
-        else:
-            low = np.interp(thr, logkde[these[0]-1:these[0]+1], vect[these[0]-1:these[0]+1])
-
-        if these[-1]==inds[-1]:
-            high = vect[-1]
-        else:
-            high = np.interp(thr, logkde[these[-1]:these[-1]+2], vect[these[-1]:these[-1]+2])
-
-        bounds.append((low, high))
-
-    return bounds
+    return cdf2crbounds(vect, cweights, levels)
 
 def logkde2cr(vect, logkde, levels):
     """
