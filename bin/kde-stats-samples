@@ -95,7 +95,7 @@ args.dlogL = [[float(_) for _ in v.split(',')] for v in args.dlogL]
 args.dtheta = [[float(_) for _ in v.split(',')] for v in args.dtheta]
 args.confidence_level = [[float(_) for _ in v.split(',')] for v in args.confidence_level]
 
-bandwdithdict = dict((col, float(val)) for col, val in args.column_bandwidth)
+bandwidthdict = dict((col, float(val)) for col, val in args.column_bandwidth)
 multiplierdict = dict((col, getattr(units, val) if hasattr(units, val) else float(val)) for col, val in args.column_multiplier)
 
 #-------------------------------------------------
@@ -142,9 +142,9 @@ vects = [np.linspace(m, M, args.num_points) for m, M in ranges]
 variances = np.empty(len(args.columns), dtype=float)
 for i, col in enumerate(columns):
     if col in bandwidthdict:
-        variances[i] = bandwidthdict(col)
+        variances[i] = bandwidthdict[col]**2
     else:
-        variances = kde.silverman_bandwidth(data[:,columns.index(col)], weights=weights)
+        variances = kde.silverman_bandwidth(data[:,columns.index(col)], weights=weights)**2
 
 #------------------------
 

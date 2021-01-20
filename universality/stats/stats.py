@@ -157,8 +157,8 @@ def logkde2crbounds(vect, logkde, levels):
     assert np.all(np.diff(vect) > 0), 'vect must be strictly increasing!'
 
     # transform into cdf
-    cweights = np.exp(logkde-np.max(logkde))
-    cweights /= np.sum(cweights)
+    cweights = np.cumsum(np.exp(logkde-np.max(logkde)))
+    cweights /= cweights[-1]
 
     return cdf2crbounds(vect, cweights, levels)
 
