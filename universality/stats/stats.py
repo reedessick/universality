@@ -148,6 +148,23 @@ def logkde2levels(logkde, levels):
 
     return ans
 
+def logkde2median(vect, logkde):
+    assert vect.ndim==1 and logkde.ndim==1, 'logkde2crbounds only works with 1-dimensional vectors!'
+    assert np.all(np.diff(vect) > 0), 'vect must be strictly increasing!'
+    return np.interp(0.5, logkde2cdf(logkde), vect) ### find the median via interpolation
+
+def logkde2mean(vect, logkde):
+    assert vect.ndim==1 and logkde.ndim==1, 'logkde2crbounds only works with 1-dimensional vectors!'
+    assert np.all(np.diff(vect) > 0), 'vect must be strictly increasing!'
+    weights = np.exp(logkde-np.max(logkde))
+    weights /= np.sum(weights)
+    return samples2mean(vect, weights=weights)
+
+def logkde2cdf(logkde):
+    cweights = np.cumsum(np.exp(logkde-np.max(logkde)))
+    cweights /= cweights[-1]
+    return cweights
+
 def logkde2crbounds(vect, logkde, levels):
     """
     only works with 1D kde
@@ -155,12 +172,7 @@ def logkde2crbounds(vect, logkde, levels):
     """
     assert vect.ndim==1 and logkde.ndim==1, 'logkde2crbounds only works with 1-dimensional vectors!'
     assert np.all(np.diff(vect) > 0), 'vect must be strictly increasing!'
-
-    # transform into cdf
-    cweights = np.cumsum(np.exp(logkde-np.max(logkde)))
-    cweights /= cweights[-1]
-
-    return cdf2crbounds(vect, cweights, levels)
+    return cdf2crbounds(vect, logkde2cdf(logkde), levels)
 
 def logkde2cr(vect, logkde, levels):
     """

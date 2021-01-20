@@ -184,7 +184,7 @@ if args.one_dim_confidence_region_samples:
                     print('    @%.3f median region : %.6f^{+%.6f}_{-%.6f}'%(level, median, high-median, median-low))
             else:
                 if scinote:
-                    print('    @%.3f region: [%.3e, %.3e]'%(level, low, high))
+                    print('    @%.3f region: [%.6e, %.6e]'%(level, low, high))
                 else:
                     print('    @%.3f region: [%.6f, %.6f]'%(level, low, high))
 
@@ -202,13 +202,44 @@ if args.one_dim_confidence_region:
     args.one_dim_confidence_region.sort()
     for i, col in enumerate(columns):
         _logkde = kde.logkde(vects[i], data[:,i], variances[i], weights=weights)
+
         argmax = vects[i][_logkde.argmax()]
-        print('%s x %.3e argmax : %.3e'%(col, multiplierdict.get(col, 1), argmax))
+        mean = stats.logkde2mean(vects[i], _logkde)
+        median = stats.logkde2median(vects[i], _logkde)
+
+        scinote = col in args.one_dim_confidence_region_scientific_notation
+
+        tup = (col, multiplierdict.get(col, 1), argmax, mean, median, np.min(data[:,i]), np.max(data[:,i]))
+        if scinote:
+            print('''%s x %.3e
+  maxL   = %.6e
+  mean   = %.6e
+  median = %.6e
+  min    = %.6e
+  max    = %.6e'''%tup)
+        else:
+            print('''%s x %.3e
+  maxL   = %.6f
+  mean   = %.6f
+  median = %.6f
+  min    = %.6f
+  max    = %.6f'''%tup)
+
         for level, (low, high) in zip(args.one_dim_confidence_region, stats.logkde2crbounds(vects[i], _logkde, args.one_dim_confidence_region)):
             if args.one_dim_confidence_region_format4tex:
-                print('    @%.3f kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+                if scinote:
+                    print('    @%.3f maxL kde region: %.6e^{+%.6e}_{-%.6e}'%(level, argmax, high-argmax, argmax-low))
+                    print('    @%.3f mean kde region: %.6e^{+%.6e}_{-%.6e}'%(level, mean, high-mean, mean-low))
+                    print('    @%.3f median kde region: %.6e^{+%.6e}_{-%.6e}'%(level, median, high-median, median-low))
+                else:
+                    print('    @%.3f maxL kde region: %.6f^{+%.6f}_{-%.6f}'%(level, argmax, high-argmax, argmax-low))
+                    print('    @%.3f mean kde region: %.6f^{+%.6f}_{-%.6f}'%(level, mean, high-mean, mean-low))
+                    print('    @%.3f median kde region: %.6f^{+%.6f}_{-%.6f}'%(level, median, high-median, median-low))
             else:
-                print('    @%.3f kde region: [%.3e, %.3e]'%(level, low, high))
+                if scinote:
+                    print('    @%.3f maxL kde region: [%.6e, %.6e]'%(level, low, high))
+                else:
+                    print('    @%.3f maxL kde region: [%.6f, %.6f]'%(level, low, high))
 
 #------------------------
 
