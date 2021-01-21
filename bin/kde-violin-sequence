@@ -72,6 +72,7 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('--grid', default=False, action='store_true')
 parser.add_argument('--rotate-xticklabels', default=0, type=float,
     help='the number of degrees by which to rotate the xticklabels')
+parser.add_argument('--xaxis-padding-fraction', default=0.01, type=float)
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
@@ -229,6 +230,11 @@ for ind, (label, path) in enumerate(args.samples):
 
     xmin = min(xmin, x_value-dx)
     xmax = max(xmax, x_value+dx)
+
+# futz the sides of the figures
+dx = xmax - xmin
+xmin -= args.xaxis_padding_fraction*dx
+xmax += args.xaxis_padding_fraction*dx
 
 ### decorate
 
