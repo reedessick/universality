@@ -27,7 +27,7 @@ parser.add_argument('--multiplier', type=float, default=1.)
 parser.add_argument('--logcolumn', default=False, action='store_true')
 parser.add_argument('--column-label', default=None, type=str)
 parser.add_argument('--column-range', nargs=2, type=float)
-parser.add_argument('--column-bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float)
+parser.add_argument('--column-bandwidth', default=None, type=float)
 parser.add_argument('--column-truth', default=None, type=float)
 
 parser.add_argument('--level', default=[], action='append', type=float,
@@ -137,6 +137,7 @@ if args.only_cr_width:
 
 #-------------------------------------------------
 
+### set up figure, axes
 fig = plot.figure(figsize=(args.figwidth, args.figheight))
 if args.cr_width_subplot:
     ax = fig.add_axes([0.15, 0.35, 0.8, 0.6])
@@ -144,9 +145,12 @@ if args.cr_width_subplot:
 else:
     ax = fig.gca()
 
-variance = args.column_bandwidth**2
+### define these once here since they don't change throughout the loop
 ones = np.ones(args.num_points, dtype=float)
+if args.column_bandwidth is not None:
+    variance = args.column_bandwidth**2 
 
+### iterate
 xmin = +np.infty
 xmax = -np.infty
 for ind, (label, path) in enumerate(args.samples):
@@ -168,6 +172,12 @@ for ind, (label, path) in enumerate(args.samples):
         m, M = args.column_range
     else:
         m, M = np.min(data), np.max(data)
+
+    if args.column_bandwidth is None:
+        bandwidth = kde.silverman_bandwidth(data, weights=weights)
+        if args.verbose:
+            print('automatically selecting bandwidth=%.6e'%bandwidth)
+        variance = bandwidth**2
 
     if args.prune:### throw away data that's outside the bounds
         data, weights = utils.prune(data, [(m, M)], weights=weights)
