@@ -48,6 +48,9 @@ parser.add_argument('--dx', nargs=2, default=[], type=str, action='append',
     help='the width to plot the violin plot or credible interval markers for this sapmle set')
 
 parser.add_argument('--x-label', default='', type=str)
+
+parser.add_argument('--natural-xticklabels', default=False, action='store_true',
+    help='let python pick the ticklabels for you')
 parser.add_argument('--no-xticklabels', default=False, action='store_true')
 
 parser.add_argument('-m', '--max-num-samples', nargs=2, default=[], type=str, action='append')
@@ -173,14 +176,14 @@ for ind, (label, path) in enumerate(args.samples):
     else:
         m, M = np.min(data), np.max(data)
 
+    if args.prune:### throw away data that's outside the bounds
+        data, weights = utils.prune(data, [(m, M)], weights=weights)
+
     if args.column_bandwidth is None:
-        bandwidth = kde.silverman_bandwidth(data, weights=weights)
+        bandwidth = kde.silverman_bandwidth(data[:,0], weights=weights)
         if args.verbose:
             print('automatically selecting bandwidth=%.6e'%bandwidth)
         variance = bandwidth**2
-
-    if args.prune:### throw away data that's outside the bounds
-        data, weights = utils.prune(data, [(m, M)], weights=weights)
 
     if args.reflect:
         data, weights = utils.reflect(data, [(m, M)], weights=weights)
@@ -204,6 +207,9 @@ for ind, (label, path) in enumerate(args.samples):
         ax.plot(x_value*ones - _kde, samples, color=colors[label])
 
     if args.level:
+        if args.reflect:
+            print('WARNING: computing credible regions after reflecting samples can produce nonsensical result!')
+
         for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
             ymin, ymax = vals
             if args.cr_width_subplot:
@@ -225,16 +231,18 @@ for ind, (label, path) in enumerate(args.samples):
 
 ### decorate
 
+if args.natural_xticklabels: ### override the default tick labeling on the x-axis
+    xticks = sorted(set([x_values[label] for label in names]))
+else:
+    xticks = [x_values[label] for label in names]
+
+ax.set_xticks(xticks)
 if args.cr_width_subplot:
-    subax.set_xticks([x_values[label] for label in names])
-    subax.set_xticklabels(names, rotation=args.rotate_xticklabels)
     plot.setp(ax.get_xticklabels(), visible=False)
+    subax.set_xticks(xticks)
 
     subax.set_ylim(ymin=0)
     subax.set_ylabel('Credible Region Size')
-else:
-    ax.set_xticks([x_values[label] for label in names])
-    ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 
 if args.only_cr_width:
     ax.set_ylim(ymin=0)
@@ -255,14 +263,26 @@ if args.grid:
     ax.grid(True, which='both')
 
 if args.x_label:
-    ax.set_xlabel(args.x_label)
-    ax.xaxis.set_label_position('top')
+    if args.natural_xticklabels:
+        if args.cr_width_subplot:
+            subax.set_xlabel(args.x_label)
+        else:
+            ax.set_xlabel(args.x_label)
+    else:
+        ax.set_xlabel(args.x_label)
+        ax.xaxis.set_label_position('top')
 
 if args.no_xticklabels:
     if args.cr_width_subplot:
         plot.setp(subax.get_xticklabels(), visible=False)
     else:
         plot.setp(ax.get_xticklabels(), visible=False)
+
+elif not args.natural_xticklabels:
+    if args.cr_width_subplot:
+        subax.set_xticklabels(names, rotation=args.rotate_xticklabels)
+    else:
+        ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 
 ### save
 plot.save('kde-violin-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
