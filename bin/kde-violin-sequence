@@ -28,7 +28,8 @@ parser.add_argument('--logcolumn', default=False, action='store_true')
 parser.add_argument('--column-label', default=None, type=str)
 parser.add_argument('--column-range', nargs=2, type=float)
 parser.add_argument('--column-bandwidth', default=None, type=float)
-parser.add_argument('--column-truth', default=None, type=float)
+parser.add_argument('--column-truth', default=[], type=float, action='append',
+    help='can be repeated')
 
 parser.add_argument('--level', default=[], action='append', type=float,
     help='confidence levels for highest-probability-density credible regions')
@@ -253,9 +254,10 @@ else:
     ax.set_ylabel(args.column_label)
 
 xlim = (xmin, xmax)
-if args.column_truth is not None:
-    ax.plot(xlim, [args.column_truth]*2, color=args.truth_color)
+for column_truth in args.column_truth:
+    ax.plot(xlim, [column_truth]*2, color=args.truth_color)
 ax.set_xlim(xlim)
+
 if args.cr_width_subplot:
     subax.set_xlim(xlim)
 
