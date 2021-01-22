@@ -292,6 +292,12 @@ elif not args.natural_xticklabels:
     else:
         ax.set_xticklabels(names, rotation=args.rotate_xticklabels)
 
+else:
+    if args.cr_width_subplot:
+        plot.setp(subax.get_xticklabels(), rotation=args.rotate_xticklabels)
+    else:
+        plot.setp(ax.get_xticklabels(), rotation=args.rotate_xticklabels)
+
 ### save
 plot.save('kde-violin-sequence%s'%args.tag, fig, figtypes=args.figtype, directory=args.output_dir, verbose=args.verbose, dpi=args.dpi)
 plot.close(fig)
