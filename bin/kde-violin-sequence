@@ -33,6 +33,9 @@ parser.add_argument('--column-truth', default=[], type=float, action='append',
 
 parser.add_argument('--level', default=[], action='append', type=float,
     help='confidence levels for highest-probability-density credible regions')
+parser.add_argument('--kde-credible-region-bounds', default=False, action='store_true',
+    help='compute CR bounds using a KDE rather than from the raw samples')
+
 parser.add_argument('--level-linestyle', default='dashed', type=str)
 parser.add_argument('--filled', default=False, action='store_true')
 parser.add_argument('--alpha', default=0.25, type=float,
@@ -195,14 +198,14 @@ for ind, (label, path) in enumerate(args.samples):
 
     if not args.no_violin:
         samples = np.linspace(m, M, args.num_points)
-        _kde = kde.logkde(
+        _logkde = kde.logkde(
             samples,
             data,
             variance,
             weights=weights,
             num_proc=args.num_proc,
         )
-        _kde = np.exp(_kde - np.max(_kde))
+        _kde = np.exp(_logkde - np.max(_logkde))
         _kde *= dx ### normalize to be half the spacing between things
 
         ax.plot(x_value*ones + _kde, samples, color=colors[label]) ### make a violin plot
@@ -212,8 +215,27 @@ for ind, (label, path) in enumerate(args.samples):
         if args.reflect:
             print('WARNING: computing credible regions after reflecting samples can produce nonsensical result!')
 
-        for vals in stats.samples2crbounds(data[:,0], args.level, weights=weights):
-            ymin, ymax = vals
+        if args.kde_credible_region_bounds:
+            if args.verbose:
+                print('computing credible regions via a KDE')
+            if args.no_violin: ### compute the KDE because we haven't done it yet
+                samples = np.linspace(m, M, args.num_points)
+                _logkde = kde.logkde(
+                    samples,
+                    data,
+                    variance,
+                    weights=weights,
+                    num_proc=args.num_proc,
+                )
+
+            vals = stats.logkde2crbounds(samples, _logkde, args.level)
+
+        else:
+            if args.verbose:
+                print('computing credible regions directly from weighed samples')
+            vals = stats.samples2crbounds(data[:,0], args.level, weights=weights)
+
+        for ymin, ymax in vals:
             if args.cr_width_subplot:
                 if args.filled:
                     subax.fill_between([x_value-dx, x_value+dx], [0, 0], [ymax-ymin]*2, color=colors[label], alpha=args.alpha)
