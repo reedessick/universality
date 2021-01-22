@@ -238,15 +238,16 @@ xmax += args.xaxis_padding_fraction*dx
 
 ### decorate
 
-if args.natural_xticklabels: ### override the default tick labeling on the x-axis
-    xticks = sorted(set([x_values[label] for label in names]))
+if args.no_xticklabels:
+    ax.set_xticks([])
+elif args.natural_xticklabels: ### override the default tick labeling on the x-axis
+    ax.set_xticks(sorted(set([x_values[label] for label in names])))
 else:
-    xticks = [x_values[label] for label in names]
+    ax.set_xticks([x_values[label] for label in names])
 
-ax.set_xticks(xticks)
 if args.cr_width_subplot:
     plot.setp(ax.get_xticklabels(), visible=False)
-    subax.set_xticks(xticks)
+    subax.set_xticks(ax.get_xticks())
 
     subax.set_ylim(ymin=0)
     subax.set_ylabel('Credible Region Size')
