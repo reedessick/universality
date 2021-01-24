@@ -144,11 +144,13 @@ for i, col in enumerate(columns):
     if col in bandwidthdict:
         variances[i] = bandwidthdict[col]**2
     else:
-        variances = kde.silverman_bandwidth(data[:,columns.index(col)], weights=weights)**2
+        variances[i] = kde.silverman_bandwidth(data[:,columns.index(col)], weights=weights)**2
 
 #------------------------
 
 if args.one_dim_confidence_region_samples:
+    if args.verbose:
+        print('computing 1D statistics directly from samples')
     args.one_dim_confidence_region_samples.sort()
     for i, (col, argmax) in enumerate(zip(columns, data[weights.argmax()])):
         mean = stats.samples2mean(data[:,i], weights=weights)
@@ -197,7 +199,7 @@ if args.reflect:
 
 if args.one_dim_confidence_region:
     if args.verbose:
-        print('computing 1D statistics')
+        print('computing 1D statistics that involve a KDE')
 
     args.one_dim_confidence_region.sort()
     for i, col in enumerate(columns):
