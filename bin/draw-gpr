@@ -15,7 +15,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality import utils
+from universality.utils import (io, utils)
 from universality.gaussianprocess import gaussianprocess as gp
 from universality import plot
 from universality import stats
