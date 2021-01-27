@@ -51,6 +51,10 @@ args = parser.parse_args()
 if args.outpath is None:
     args.outpath = args.phipath
 
+#-------------------------------------------------
+
+if args.verbose:
+    print('loading crust from: '+args.crust_eos)
 eos.set_crust(crust_eos=args.crust_eos)
 
 #-------------------------------------------------
