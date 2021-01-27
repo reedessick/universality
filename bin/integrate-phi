@@ -28,6 +28,9 @@ rgroup.add_argument('phipath', type=str)
 rgroup.add_argument('reference_pressurec2', type=float)
 rgroup.add_argument('-o', '--outpath', type=str, default=None)
 
+rgroup.add_argument('--include-cs2c2', default=False, action='store_true')
+rgroup.add_argument('--include-baryon-chemical-potential', default=False, action='store_true')
+
 ### verbosity 
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -86,15 +89,25 @@ if args.stitch_below_reference_pressure:
     ### the following indecies should match up because of the call to utils.stitch_below_reference_pressure made above
     baryon_density[pressurec2<=reference_pressurec2] = eos.CRUST_BARYON_DENSITY[eos.CRUST_PRESSUREC2<=reference_pressurec2] 
 
+data = [pressurec2, energy_densityc2, baryon_density]
+cols = ['pressurec2', 'energy_densityc2', 'baryon_density']
+
 # take numeric derivative to estimate sound speed
-cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
+if args.include_cs2c2:
+    if args.verbose:
+        print('computing cs2c2 via numeric differentiation')
+    data.append(utils.num_dfdx(energy_densityc2, pressurec2))
+    cols.append('cs2c2')
 
 # take numeric derivative to estimate chemical potential
-baryon_chemical_potential = utils.num_dfdx(baryon_density, energy_densityc2) * units.Mnuc
+if args.include_baryon_chemical_potential:
+    if args.verbose:
+        print('computing baryon_chemical_potential via numeric differentiation')
+    data.append(utils.num_dfdx(baryon_density, energy_densityc2) * units.Mnuc)
+    cols.append('baryon_chemical_potential')
 
 # write output
 if args.verbose:
     print('writing: '+args.outpath)
-data = np.array(zip(pressurec2, energy_densityc2, baryon_density, cs2c2, baryon_chemical_potential), dtype=float)
-cols = ['pressurec2', 'energy_densityc2', 'baryon_density', 'cs2c2', 'baryon_chemical_potential']
+data = np.transpose(np.array(data, dtype=float))
 io.write(args.outpath, data, cols)
