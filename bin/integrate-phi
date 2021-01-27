@@ -84,7 +84,7 @@ if args.verbose:
 baryon_density = e_p2rho(energy_densityc2, pressurec2, reference_pressurec2, verbose=args.verbose)
 if args.stitch_below_reference_pressure:
     ### the following indecies should match up because of the call to utils.stitch_below_reference_pressure made above
-    baryon_density[pressurec2<=reference_pressurec2] = eos.CRUST_BARYON_DENSITY[utils.CRUST_PRESSUREC2<=reference_pressurec2] 
+    baryon_density[pressurec2<=reference_pressurec2] = eos.CRUST_BARYON_DENSITY[eos.CRUST_PRESSUREC2<=reference_pressurec2] 
 
 # take numeric derivative to estimate sound speed
 cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
