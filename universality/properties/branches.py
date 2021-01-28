@@ -93,8 +93,6 @@ def data2branch_properties(rhoc, M, baryon_density, mac_data, mac_cols, eos_data
         print('        identified %d branches'%len(branches))
 
     # iterate over stable branches to extract micro- and macroscopic parameters of these stellar configurations
-    mac_header = ','.join(mac_cols) # header for the macro files representing each branch separately
-
     summary = [] # summary statistics for central values of EOS parameters at the start, end of each branch
     names = ['branch']+[START_TEMPLATE%col for col in eos_cols+mac_cols]+[END_TEMPLATE%col for col in eos_cols+mac_cols]
 
@@ -116,7 +114,7 @@ def data2branch_properties(rhoc, M, baryon_density, mac_data, mac_cols, eos_data
             branch_path = branch_template%{'branch':ind}
             if verbose:
                 print('        writing branch %d into: %s'%(ind, branch_path))
-            np.savetxt(branch_path, mac_data[truth], comments='', header=mac_header, delimiter=',')
+            io.write(branch_path, mac_data[truth], mac_cols)
 
         # identify eos values at start, end of the branch
         branch = [ind] ### holder for central values, starting with the branch number
@@ -194,4 +192,4 @@ def process2branch_properties(
         )
         if verbose:
             print('    writing summary into: %s'%sum_path)
-        np.savetxt(sum_path, params, comments='', header=','.join(names), delimiter=',')
+        io.write(sum_path, params, names)
