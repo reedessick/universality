@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-"""draw realizations of the process stored in process.pkl and write them into separate CSV files
+"""draw realizations of the process stored in process.pkl and write them into separate CSV files.
+If requested, can also integrate these processes to get "final EoS CSVs" by numerically integrating phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 
+NOTE: 
+  reference_pressurec2 should be specified in g/cm^3. The integral is performed over all samples in phi.csv (we assign one value for energy_density for each pressure). Furthermore, we require phi.csv to have logpressurec2 and phi as columns.
+
+Stitching to set the initial condition is done by matching to a known crust from Douchin+Haensel, arXiv:0111092. The value of the energy density is matched to the crust's prediction at log(pressurec2) = N(log(reference_pressurec2), sigma_logpressurec2).
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
@@ -16,7 +21,12 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (io, utils)
+
+from universality import eos
+from universality.utils import (io, units, utils)
 from universality.gaussianprocess import gaussianprocess as gp
+from universality.gaussianprocess.utils import (integrate_phi, DEFAULT_SIGMA_LOGPRESSUREC2)
+
 from universality import plot
 from universality import stats
 
@@ -31,7 +41,7 @@ FOOTER = '''\
 # poly_degree = %(poly_degree)d
 # sigma = %(sigma).9f
 # length_scale = %(length_scale).9f
-# sigma_obs = %(sigma_obs).9f)'''
+# sigma_obs = %(sigma_obs).9f'''
 EXTRA_FOOTER = '''
 # model_multiplier = %(model_multiplier).9f'''
 
@@ -66,6 +76,27 @@ wgroup.add_argument('-N', '--num-per-directory', default=DEFAULT_NUM_PER_DIRECTO
 
 wgroup.add_argument('-p', '--plot', default=False, action='store_true')
 
+### integrate options
+igroup = parser.add_argument_group('integration options')
+
+igroup.add_argument('--integrate-phi', default=False, action='store_true',
+    help='integrate phi to get the EoS after drawing a realization.')
+
+igroup.add_argument('--reference-pressurec2', default=3e11, type=float,
+    help='DEFAULT=3e11')
+
+igroup.add_argument('--exclude-baryon-density', default=False, action='store_true')
+igroup.add_argument('--include-cs2c2', default=False, action='store_true')
+igroup.add_argument('--include-baryon-chemical-potential', default=False, action='store_true')
+
+igroup.add_argument('--sigma-logpressurec2', default=DEFAULT_SIGMA_LOGPRESSUREC2, type=float,
+    help='The reference pressurec2 used is drawn from a log-normal distribution (natural log) with the mean specified as an argument and this option as the standard deviation. NOTE: this is the standard deviation of the log(pressure/c^2) where pressure/c^2 is measured in g/cm^3. The reference pressure, however, is still specified in g/cm^3 and NOT log(pressure/c^2).')
+igroup.add_argument('--stitch-below-reference-pressure', default=False, action='store_true',
+    help='if supplied, report the values from the piecewise polytropic EOS below reference_pressure rather than continuing the drawn EOS below the stitching point.')
+igroup.add_argument('--crust-eos', default=eos.DEFAULT_CRUST_EOS, type=str,
+    help='the eos used at the crust when stitching. \
+DEFAULT='+eos.DEFAULT_CRUST_EOS)
+
 ### output options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -83,6 +114,13 @@ if args.tag:
 
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
+
+#-------------------------------------------------
+
+if args.integrate_phi:
+    if args.verbose:
+        print('loading crust from: '+args.crust_eos)
+    eos.set_crust(crust_eos=args.crust_eos)
 
 #-------------------------------------------------
 
@@ -104,8 +142,13 @@ path = os.path.join(directory, 'draw-gpr'+args.tag+'-%(draw)06d.csv') # for gene
 
 header = (model[0]['labels']['xlabel'], model[0]['labels']['flabel']) ### assume the mixture model is sane... 
 
+if args.integrate_phi:
+    assert (header[0]=='log(pressurec2)') and (header[1]=='phi'), 'unexpected labels for GP ordinate and/or abscissa'
+    eospath = os.path.join(directory, 'eos-draw'+args.tag+'-%(draw)06d.csv')
+
 if args.verbose:
     tmp = '\r[ %6d / '+'%6d ] '%(args.num_draws)+' saving: %s'            # for reporting progress
+
 for i, (ind, color) in enumerate(zip(\
         utils.draw_from_weights(weights, size=args.num_draws),
         plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=0.25, minimum=0.)
@@ -132,6 +175,26 @@ for i, (ind, color) in enumerate(zip(\
     # add to plot
     if args.plot:
         plot.overlay([(x_tst, y_tst, str(i))], colors=[color], alphas=[0.25], figtup=(fig, ax))
+
+    # integrate
+    if args.integrate_phi:
+        csvpath = eospath%fmt
+        if args.verbose:
+            sys.stdout.write(tmp%(i+1, csvpath))
+            sys.stdout.flush()
+
+        data, cols = integrate_phi(
+            np.exp(x_tst), ### pressurec2
+            y_tst, ### phi
+            args.reference_pressurec2,
+            sigma_logpressurec2=args.sigma_logpressurec2,
+            stitch_below_reference_pressure=args.stitch_below_reference_pressure,
+            include_baryon_density=not args.exclude_baryon_density,
+            include_cs2c2=args.include_cs2c2,
+            include_baryon_chemical_potential=args.include_baryon_chemical_potential,
+        )
+
+        io.write(csvpath, data, cols)
 
 if args.verbose:
     sys.stdout.write('\n')
