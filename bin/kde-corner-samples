@@ -9,6 +9,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import os
 import numpy as np
 
+from collections import defaultdict
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -66,6 +68,8 @@ DEFAULT=[]')
 cgroup.add_argument('-T', '--column-truth', nargs=2, default=[], type=str, action='append',
     help='include this as an injected value for this column. e.g: \'--column-truth xcol 5\'. \
 DEFAULT=[]')
+cgroup.add_argument('-B', '--column-band', nargs=3, default=[], type=str, action='append',
+    help='shade this band of values for the specified column. eg.: "--column-band xcol 1 9"')
 
 cgroup.add_argument('-r', '--column-range', nargs=3, default=[], action='append', type=str,
     help='specify the ranges used in corner.corner (eg.: "--column-range column minimum maximum"). \
@@ -113,6 +117,10 @@ pgroup.add_argument('--filled-alpha', nargs=2, action='append', default=[], type
     help='e.g. "--filled-alpha label 0.5"')
 
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
+
+pgroup.add_argument('--band-color', default=None, type=str)
+pgroup.add_argument('--band-alpha', default=plot.DEFAULT_ALPHA, type=str)
+
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
 
@@ -230,11 +238,17 @@ for column, label in args.column_label:
     labeldict[column] = label
 labels = [labeldict.get(col, '$'+col+'$') for col in args.columns]
 
-truthdict = dict()
+truthdict = defaultdict(list)
 for column, value in args.column_truth:
     assert column in args.columns, 'specifying --column-truth for unknown column: '+column
-    truthdict[column] = float(value)
+    truthdict[column].append(float(value))
 truths = [truthdict.get(col, None) for col in args.columns]
+
+banddict = defaultdict(list)
+for column, m, M in args.column_band:
+    assert column in args.columns, 'specifying --column-band for unknown column: '+column
+    banddict[column].append((float(m), float(M)))
+bands = [banddict.get(col, None) for col in args.columns]
 
 # plotting options
 colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
@@ -295,8 +309,17 @@ for ind, (label, path) in enumerate(args.samples):
 
     if args.whiten:
         data, means, stds = utils.whiten(data, verbose=args.verbose)
-        ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
-        truths = [(val-m)/s if val is not None else val for val, m, s in zip(truths, means, stds)]
+        these_ranges = [((MIN-m)/s, (MAX-m)/s) for (MIN, MAX), m, s in zip(ranges, means, stds)]
+        these_truths = [[(v-m)/s for v in val] if val is not None else val for val, m, s in zip(truths, means, stds)]
+        these_bands = [[((v-m)/s, (V-m)/s) for v, V in val] if val is not None else val for val, m, s in zip(bands, means, stds)]
+    else:
+        these_ranges = ranges
+        if ind+1 == len(args.samples): ### only plot truths if this is the last data set (assuming they aren't auto-scaled)
+            these_truths = truths
+            these_bands = bands
+        else:
+            these_truths = None
+            these_bands = None
 
     if weight_columns[label][0]:
         if args.verbose:
@@ -314,7 +337,7 @@ for ind, (label, path) in enumerate(args.samples):
         weights = np.ones(N, dtype='float')/N
 
     if args.prune:### throw away data that's outside the bounds
-        data, weights = utils.prune(data, ranges, weights=weights)
+        data, weights = utils.prune(data, these_ranges, weights=weights)
 
     #--------------------
 
@@ -370,10 +393,13 @@ for ind, (label, path) in enumerate(args.samples):
     fig = plot.kde_corner(
         data[:,:Ncol],
         bandwidths=bandwidths[:Ncol],
-        truths=truths,
+        truths=these_truths,
         truth_color=args.truth_color,
+        bands=these_bands,
+        band_color=args.band_color,
+        band_alpha=args.band_alpha,
         labels=labels,
-        range=ranges,
+        range=these_ranges,
         weights=weights,
         num_points=args.num_points,
         color=colors[label],

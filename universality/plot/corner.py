@@ -32,6 +32,7 @@ def kde_corner(
         labels=None,
         range=None,
         truths=None,
+        bands=None,
         weights=None,
         num_points=plt.DEFAULT_NUM_POINTS,
         levels=plt.DEFAULT_LEVELS,
@@ -42,6 +43,8 @@ def kde_corner(
         grid=True,
         color=plt.DEFAULT_COLOR1,
         truth_color=plt.DEFAULT_TRUTH_COLOR,
+        band_color=None,
+        band_alpha=plt.DEFAULT_ALPHA,
         linewidth=plt.DEFAULT_LINEWIDTH,
         linestyle=plt.DEFAULT_LINESTYLE,
         filled=False,
@@ -99,7 +102,14 @@ def kde_corner(
         truths = [None]*Ncol
     else:
         assert len(truths)==Ncol, 'must have the same number of columns in data and truths'
-    truths = np.array(truths)
+
+    if bands is None:
+        bands = [None]*Ncol
+    else:
+        assert len(bands)==Ncol, 'must have the same number of columns in data and bands'
+
+    if band_color is None:
+        band_color = truth_color
 
     ### construct figure and axes objects
     if fig is None:
@@ -247,18 +257,38 @@ def kde_corner(
 
             # add Truth annotations
             if truths[col] is not None:
-                if rotate and (row==(Ncol-1)) and (row==col):
-                    xlim = ax.get_xlim()
-                    ax.plot(xlim, [truths[col]]*2, color=truth_color)
-                    ax.set_xlim(xlim)
-                else:
-                    ylim = ax.get_ylim()
-                    ax.plot([truths[col]]*2, ylim, color=truth_color)
-                    ax.set_ylim(ylim)
+                for val in truths[col]:
+                    if rotate and (row==(Ncol-1)) and (row==col):
+                        xlim = ax.get_xlim()
+                        ax.plot(xlim, [val]*2, color=truth_color)
+                        ax.set_xlim(xlim)
+                    else:
+                        ylim = ax.get_ylim()
+                        ax.plot([val]*2, ylim, color=truth_color)
+                        ax.set_ylim(ylim)
+
             if (row!=col) and (truths[row] is not None):
-                xlim = ax.get_xlim()
-                ax.plot(xlim, [truths[row]]*2, color=truth_color)
-                ax.set_xlim(xlim)
+                for val in truths[row]:
+                    xlim = ax.get_xlim()
+                    ax.plot(xlim, [val]*2, color=truth_color)
+                    ax.set_xlim(xlim)
+
+            if bands[col] is not None:
+                for m, M in bands[col]:
+                    if rotate and (row==(Ncol-1)) and (row==col):
+                        xlim = ax.get_xlim()
+                        ax.fill_between(xlim, [m]*2, [M]*2, color=band_color, alpha=band_alpha)
+                        ax.set_xlim(xlim)
+                    else:
+                        ylim = ax.get_ylim()
+                        ax.fill_between([m, M], [ylim[0]]*2, [ylim[1]]*2, color=band_color, alpha=band_alpha)
+                        ax.set_ylim(ylim)
+
+            if (row!=col) and (bands[row] is not None):
+                for m, M in bands[row]:
+                    xlim = ax.get_xlim()
+                    ax.fill_between(xlim, [m]*2, [M]*2, color=band_color, alpha=band_alpha)
+                    ax.set_xlim(xlim)
 
             if (row!=(Ncol-1)):
                 plt.setp(ax.get_xticklabels(), visible=False)
@@ -281,9 +311,13 @@ def curve_corner(
         labels=None,
         range=None,
         truths=None,
+        bands=None,
         color=None, ### let matplotlib pick this for you automatically
         alpha=plt.DEFAULT_ALPHA,
         grid=True,
+        truth_color=plt.DEFAULT_TRUTH_COLOR,
+        band_color=None,
+        band_alpha=plt.DEFAULT_ALPHA,
         linestyle=plt.DEFAULT_LINESTYLE,
         linewidth=plt.DEFAULT_LINEWIDTH,
         fig=None,
@@ -316,7 +350,14 @@ def curve_corner(
         truths = [None]*Ncol
     else:
         assert len(truths)==Ncol, 'must have the same number of columns in data and truths'
-    truths = np.array(truths)
+
+    if bands is None:
+        bands = [None]*Ncol
+    else:
+        assert len(bands)==Ncol, 'must have the same number of columns in data and bands'
+
+    if band_color is None:
+        band_color = truth_color
 
     ### construct figure and axes objects
     if fig is None:
@@ -331,6 +372,7 @@ def curve_corner(
         )
 
     ### iterate over columns, building 2D KDEs as needed
+    ### NOTE: we do not plot in the 1D axes, so we don't have to worry about rotate, etc
     for row in xrange(Ncol):
         for col in xrange(row):
             ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
@@ -355,13 +397,27 @@ def curve_corner(
 
             # add Truth annotations
             if truths[col] is not None:
-                ylim = ax.get_ylim()
-                ax.plot([truths[col]]*2, ylim, color=truth_color)
-                ax.set_ylim(ylim)
+                for val in truths[col]:
+                    ylim = ax.get_ylim()
+                    ax.plot([val]*2, ylim, color=truth_color)
+                    ax.set_ylim(ylim)
             if (row!=col) and (truths[row] is not None):
-                xlim = ax.get_xlim()
-                ax.plot(xlim, [truths[row]]*2, color=truth_color)
-                ax.set_xlim(xlim)
+                for val in truths[row]:
+                    xlim = ax.get_xlim()
+                    ax.plot(xlim, [val]*2, color=truth_color)
+                    ax.set_xlim(xlim)
+
+            if bands[col] is not None:
+                for m, M in bands[col]:
+                    ylim = ax.get_ylim()
+                    ax.fill_between([m, M], [ylim[0]]*2, [ylim[1]]*2, color=band_color, alpha=band_alpha)
+                    ax.set_ylim(ylim)
+
+            if (row!=col) and (bands[row] is not None):
+                for m, M in bands[row]:
+                    xlim = ax.get_xlim()
+                    ax.fill_between(xlim, [m]*2, [M]*2, color=band_color, alpha=band_alpha)
+                    ax.set_xlim(xlim)
 
             if row!=(Ncol-1):
                 plt.setp(ax.get_xticklabels(), visible=False)
