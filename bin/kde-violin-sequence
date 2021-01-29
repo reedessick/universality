@@ -30,6 +30,8 @@ parser.add_argument('--column-range', nargs=2, type=float)
 parser.add_argument('--column-bandwidth', default=None, type=float)
 parser.add_argument('--column-truth', default=[], type=float, action='append',
     help='can be repeated')
+parser.add_argument('--column-band', nargs=2, default=[], type=float, action='append',
+    help='can be repeated')
 
 parser.add_argument('--level', default=[], action='append', type=float,
     help='confidence levels for highest-probability-density credible regions')
@@ -63,6 +65,8 @@ parser.add_argument('--weight-column-is-log', nargs=2, type=str, default=[], act
 
 parser.add_argument('--color', nargs=2, action='append', default=[], type=str)
 parser.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
+parser.add_argument('--band-color', default=None, type=str)
+parser.add_argument('--band-alpha', default=plot.DEFAULT_LIGHT_ALPHA, type=str)
 
 parser.add_argument('--prune', default=False, action='store_true')
 parser.add_argument('--reflect', default=False, action='store_true')
@@ -142,6 +146,9 @@ assert (not args.no_violin) or args.level, 'must either plot violins or have at 
 if args.only_cr_width:
     assert len(args.level)==1, 'must specify only a single --level with --only-cr-width'
     args.no_violin = True
+
+if args.band_color is None:
+    args.band_color = args.truth_color
 
 #-------------------------------------------------
 
@@ -285,6 +292,8 @@ else:
 xlim = (xmin, xmax)
 for column_truth in args.column_truth:
     ax.plot(xlim, [column_truth]*2, color=args.truth_color)
+for m, M in args.column_band:
+    ax.fill_between(xlim, [m]*2, [M]*2, color=args.band_color, alpha=args.band_alpha)
 ax.set_xlim(xlim)
 
 if args.cr_width_subplot:

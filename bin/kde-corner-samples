@@ -119,7 +119,7 @@ pgroup.add_argument('--filled-alpha', nargs=2, action='append', default=[], type
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 
 pgroup.add_argument('--band-color', default=None, type=str)
-pgroup.add_argument('--band-alpha', default=plot.DEFAULT_ALPHA, type=str)
+pgroup.add_argument('--band-alpha', default=plot.DEFAULT_LIGHT_ALPHA, type=str)
 
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
