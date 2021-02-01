@@ -21,14 +21,14 @@ parser = ArgumentParser(description=__doc__)
 parser.add_argument('eospath', type=str)
 parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
-parser.add_argument('--pressurec2-column', default='pressurec2', type=str)
-parser.add_argument('--energy_densityc2-column', default='energy_densityc2', type=str)
-parser.add_argument('--baryon_density-column', default='baryon_density', type=str)
+parser.add_argument('--pressurec2-column', default=sequences.DEFAULT_PRESSUREC2_COLUMN, type=str)
+parser.add_argument('--energy_densityc2-column', default=sequences.DEFAULT_ENERGY_DENSITYC2_COLUMN, type=str)
+parser.add_argument('--baryon_density-column', default=sequences.DEFAULT_BARYON_DENSITY_COLUMN, type=str)
 parser.add_argument('--cs2c2-column', default=None, type=str)
 
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
-parser.add_argument('--central-column-template', default='central_%s', type=str,
+parser.add_argument('--central-column-template', default=sequences.DEFAULT_CENTRAL_COLUMN_TEMPLATE, type=str,
     help='the template used to define column names associated with eos columns')
 
 parser.add_argument('--formalism', default=sequences.DEFAULT_FORMALISM, type=str,
@@ -106,23 +106,17 @@ central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
 if args.verbose:
     print('    evaluated %d stellar models'%len(central_pressurec2))
 
-### figure out the central values of all the EoS columns
-if args.verbose:
-    print('extracting central values of all EoS parameters')
-Neos = len(args.central_eos_column)
-Nmac = len(macro_cols)
-
-sequence = np.empty((len(central_pressurec2), Neos+Nmac), dtype=float)
-columns = []
-
-# extract the central EoS parameters 
-for i, col in enumerate(args.central_eos_column):
-    sequence[:,i] = np.interp(central_pressurec2, pressurec2, data[:,cols.index(col)])
-    columns.append(args.central_column_template%col)
-
-# add in the macro properties
-sequence[:,Neos:] = macro
-columns += macro_cols
+sequence, columns = sequences.append_central_values(
+    central_pressurec2,
+    pressurec2,
+    data,
+    cols,
+    macro,
+    macro_cols,
+    central_eos_column=args.central_eos_column,
+    central_column_template=args.central_column_template,
+    verbose=args.verbose,
+)
 
 ### write the output
 if args.verbose:

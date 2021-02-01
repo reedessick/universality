@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import numpy as np
 
 from .ode import (standard, logenthalpy)
+from universality.utils import (io, utils)
 
 #-------------------------------------------------
 
@@ -27,7 +28,134 @@ KNOWN_FORMALISMS = [
 ]
 DEFAULT_FORMALISM = KNOWN_FORMALISMS[0]
 
+DEFAULT_CENTRAL_COLUMN_TEMPLATE = 'central_%s'
+
+DEFAULT_PRESSUREC2_COLUMN = 'pressurec2'
+DEFAULT_ENERGY_DENSITYC2_COLUMN = 'energy_densityc2'
+DEFAULT_BARYON_DENSITY_COLUMN = 'baryon_density'
+
 #-------------------------------------------------
+
+def process2sequences(
+        eos,
+        eostmp,
+        mactmp,
+        min_central_pressurec2,
+        max_central_pressurec2,
+        mod=1000,
+        pressurec2_column=DEFAULT_PRESSUREC2_COLUMN,
+        energy_densityc2_column=DEFAULT_ENERGY_DENSITYC2_COLUMN,
+        baryon_density_column=DEFAULT_BARYON_DENSITY_COLUMN,
+        cs2c2_column=None,
+        central_eos_column=[],
+        central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
+        formalism=DEFAULT_FORMALISM,
+        verbose=False,
+        Verbose=False,
+        **kwargs
+    ):
+    '''integrate stellar models for a whole set of EoS in a process
+    '''
+    verbose |= Verbose
+
+    for draw in eos:
+        tmp = {'draw':draw, 'moddraw':draw//mod}
+        eospath = eostmp%tmp
+
+        if verbose:
+            print('loading EoS data from: '+eospath)
+        cols = [pressurec2_column, energy_densityc2_column, baryon_density_column]
+        if cs2c2_column is not None:
+            cols.append(cs2c2_column)
+
+        data, cols = io.load(eospath, cols+central_eos_column) ### NOTE: this will not produce duplicated columns
+
+        pressurec2 = data[:,cols.index(pressurec2_column)]
+        energy_densityc2 = data[:,cols.index(energy_densityc2_column)]
+        baryon_density = data[:, cols.index(baryon_density_column)]
+
+        if cs2c2_column is not None:
+            cs2c2 = data[:,cols.index(cs2c2_column)]
+        else:
+            cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
+
+        ### sanity check that our integration range is compatible with the EoS data available
+        max_pressurec2 = np.max(pressurec2)
+        if max_central_pressurec2 > max_pressurec2:
+            if verbose:
+                print('limitting central_pressurec2 <= %.6e based on EoS data\'s range'%max_pressurec2)
+            max_central_pressurec2 = max_pressurec2
+
+        min_pressurec2 = np.min(pressurec2)
+        if min_central_pressurec2 < min_pressurec2:
+            if verbose:
+                print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
+            min_central_pressurec2 = min_pressurec2
+
+        ### now compute the stellar sequence
+        if verbose:
+            print('solving for sequence of stellar models with formalism=%s'%formalism)
+        central_pressurec2, macro, macro_cols = stellar_sequence(
+            min_central_pressurec2,
+            max_central_pressurec2,
+            (pressurec2, energy_densityc2, baryon_density, cs2c2),
+            verbose=Verbose,
+            formalism=formalism,
+            **kwargs
+        )
+
+        if verbose:
+            print('    evaluated %d stellar models'%len(central_pressurec2))
+
+        sequence, columns = append_central_values(
+            central_pressurec2,
+            pressurec2,
+            data,
+            cols,
+            macro,
+            macro_cols,
+            central_eos_column=central_eos_column,
+            central_column_template=central_column_template,
+            verbose=verbose,
+        )
+
+        ### write the output
+        macpath = mactmp%tmp
+        if verbose:
+            print('writing stellar sequence to: '+macpath)
+        io.write(macpath, sequence, columns)
+
+def append_central_values(
+        central_pressurec2,
+        pressurec2,
+        eosdata,
+        eoscols,
+        macdata,
+        maccols,
+        central_eos_column=[],
+        central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
+        verbose=False,
+    ):
+
+    ### figure out the central values of all the EoS columns
+    if verbose:
+        print('extracting central values of all EoS parameters')
+    Neos = len(central_eos_column)
+    Nmac = len(maccols)
+
+    sequence = np.empty((len(central_pressurec2), Neos+Nmac), dtype=float)
+    columns = []
+
+    # extract the central EoS parameters 
+    for i, col in enumerate(central_eos_column):
+        sequence[:,i] = np.interp(central_pressurec2, pressurec2, eosdata[:,eoscols.index(col)])
+        columns.append(central_column_template%col)
+
+    # add in the macro properties
+    sequence[:,Neos:] = macdata
+    columns += maccols
+
+    return sequence, columns
 
 def stellar_sequence(
         min_central_pressurec2,
