@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
 
 from universality.utils import io
@@ -141,11 +143,16 @@ def process2branch_properties(
         macro_mass,
         output_eos_columns=DEFAULT_EOS_COLUMNS,
         output_macro_columns=DEFAULT_MACRO_COLUMNS,
-        suppress_individual_branches=True,
+        branch_template=None,
         verbose=False,
     ):
     """extract the branches for each EoS specified
     """
+    tmp = dict()
+    if branch_template is not None: # do this backflip to make sure we can build string correctly
+        branch_template = branch_template.replace('%(branch)06d', '%(branch_string)s')
+        tmp['branch_string'] = '%(branch)06d'
+
     N = len(data)
     for ind, eos in enumerate(data):
 
@@ -153,7 +160,7 @@ def process2branch_properties(
         # where we're going to read in data
         eos_path = eos_template%{'moddraw':eos//eos_num_per_dir, 'draw':eos}
 
-        tmp = {'moddraw':eos//macro_num_per_dir, 'draw':eos}
+        tmp.update({'moddraw':eos//macro_num_per_dir, 'draw':eos})
         mac_path = mac_template%tmp
 
         # where we're going to write data
@@ -174,10 +181,10 @@ def process2branch_properties(
         M = mac_data[:,mac_cols.index(macro_mass)]
         rhoc = mac_data[:,mac_cols.index(macro_rhoc)]
 
-        if not suppress_individual_branches:
-            branch_template = os.path(sum_path[:-4], os.path.basename(mac_path)[:-4]+'-%(branch)06d.csv')
+        if branch_template is not None:
+            branch_tmp = branch_template%tmp
         else:
-            branch_template = None
+            branch_tmp = None 
 
         params, names = data2branch_properties(
             rhoc,
@@ -187,7 +194,7 @@ def process2branch_properties(
             mac_cols,
             eos_data,
             eos_cols,
-            branch_template=branch_template,
+            branch_template=branch_tmp,
             verbose=verbose,
         )
         if verbose:

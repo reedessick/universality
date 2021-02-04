@@ -47,6 +47,9 @@ lgroup.add_argument('--macro-num-per-dir', default=None, type=int,
     help='if not specified, will use the value assigned to --eos-num-per-dir')
 lgroup.add_argument('--macro-basename', default='draw-macro-%d.csv', type=str,
     help='a string into which the EOS number can be substituted when building filenames for macro files.')
+lgroup.add_argument('--branch-basename', default=None, type=str)
+#    help='a string used to set the names of individual macro files. If not supplied, will suppress the individual macro files. \
+#eg "--branch-basename MACROdraw-%(draw)06d/MACROdraw-%(draw)06d-%(branch)06d.csv"')
 
 # samples arguments
 sgroup = parser.add_argument_group('samples-specific argument')
@@ -144,6 +147,11 @@ assert args.macro_basename[-4:]==".csv", 'do not understand suffix of the macro 
 basename = args.macro_basename[:-4] ### expect macro basename to end in ".csv"
 summary_template = os.path.join(newdir_template, basename+'-branches.csv') #
 
+if args.branch_basename is not None:
+    branch_template = os.path.join(newdir_template, args.branch_basename)
+else:
+    branch_template = None
+
 #------------------------
 
 ### iterate to touch all EoS
@@ -162,6 +170,6 @@ branches.process2branch_properties(
     args.mass_column,
     output_eos_columns=args.output_eos_column,
     output_macro_columns=args.output_macro_column,
-    suppress_individual_branches=args.suppress_individual_branches,
+    branch_template=branch_template,
     verbose=args.Verbose,
 )
