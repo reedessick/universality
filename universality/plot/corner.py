@@ -167,7 +167,7 @@ def kde_corner(
                     ### figure out levels for 1D histograms
                     lines = []
                     if levels1D:     
-                        for level, (m, M) in zip(levels1D, stats.logkde2crbounds(d[:,0], logkde, levels1D)):
+                        for level, (m, M) in zip(levels1D, stats.logkde2crbounds(vects[col], kde, levels1D)):
                             if verbose:
                                 print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
                             lines.append((m, M))
@@ -176,7 +176,7 @@ def kde_corner(
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
-                            print('WARNING: filled1D only works when rotate==False')
+                            ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
                         ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
@@ -184,8 +184,8 @@ def kde_corner(
                             xmax = max(xmax, np.max(n)*1.05)
 
                         for m, M in lines:
-                            ax.plot([xmin, xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed')
-                            ax.plot([xmin, xmax], [M]*2, color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed') ### plot for a bigger range incase axes change later
+                            ax.plot([0, 10*xmax], [M]*2, color=color, alpha=alpha, linestyle='dashed')
 
                         ax.set_xlim(xmin=0, xmax=xmax)
 
@@ -199,8 +199,8 @@ def kde_corner(
                             ymax = max(ymax, np.max(n)*1.05)
 
                         for m, M in lines:
-                            ax.plot([m]*2, [0, ymax], color=color, alpha=alpha, linestyle='dashed')
-                            ax.plot([M]*2, [0, ymax], color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed') ### plot for bigger range in case axes change later
+                            ax.plot([M]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed')
 
                         ax.set_ylim(ymin=0, ymax=ymax)
 

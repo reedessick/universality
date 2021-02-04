@@ -146,9 +146,9 @@ pgroup.add_argument('--include-neff', default=False, action='store_true',
 
 pgroup.add_argument('--reference-legend', default=False, action='store_true')
 
-pgroup.add_argument('--filled', default=False, action='store_true',
+pgroup.add_argument('--filled', default=[], type=str, action='append',
     help='fill in the contours plotted in corner plots')
-pgroup.add_argument('--filled1D', default=False, action='store_true',
+pgroup.add_argument('--filled1D', default=[], type=str, action='append',
     help='fill in the 1D distributions plotted along the diagonal')
 
 pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
@@ -260,6 +260,11 @@ alphas = dict((label, plot.DEFAULT_ALPHA) for label in names)
 for label, alpha in args.alpha:
     assert label in names, 'specifying --alpha for unknown samples set: '+label
     alphas[label] = float(alpha)
+
+for label in args.filled:
+    assert label in names, 'specifying --filled for unknown set: '+label
+for label in args.filled1D:
+    assert label in names, 'specifying --filled1D for unknown set: '+label
 
 filled_alphas = dict((label, plot.DEFAULT_ALPHA) for label in names)
 for label, alpha in args.filled_alpha:
@@ -409,8 +414,8 @@ for ind, (label, path) in enumerate(args.samples):
         hist1D=args.hist1D,
         levels1D=args.level1D,
         levels=args.level,
-        filled=args.filled,
-        filled1D=args.filled1D,
+        filled=label in args.filled,
+        filled1D=label in args.filled1D,
         filled_alpha=filled_alphas[label],
         scatter=not args.no_scatter,
         rotate=args.rotate,
