@@ -132,6 +132,7 @@ if args.verbose:
 data, cols = utils.marginalize(data, np.zeros(len(data), dtype=float), cols)
 
 data = data[:,0]
+data.sort() ### put these into a predictable order
 N = len(data)
 
 #------------------------
