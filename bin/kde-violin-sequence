@@ -50,10 +50,14 @@ parser.add_argument('-s', '--samples', nargs=2, type=str, default=[], action='ap
 parser.add_argument('--x-value', nargs=2, default=[], type=str, action='append',
     help='specify the x-value at which to center the data for this samples set. \
 If this is specified for any sample set, it must be specified for all sample sets.')
+parser.add_argument('--alt-x-value', nargs=2, default=[], type=str, action='append',
+    help='an x-value to put on the top axis')
+
 parser.add_argument('--dx', nargs=2, default=[], type=str, action='append',
     help='the width to plot the violin plot or credible interval markers for this sapmle set')
 
 parser.add_argument('--x-label', default='', type=str)
+parser.add_argument('--alt-x-label', default='', type=str)
 
 parser.add_argument('--natural-xticklabels', default=False, action='store_true',
     help='let python pick the ticklabels for you')
@@ -137,6 +141,11 @@ else:
     x_values = dict((label, ind) for ind, label in enumerate(names))
     dx = 0.5
 
+alt_x_values = dict()
+for label, val in args.alt_x_value:
+    assert label in names, 'specifying --alt-x-value for unkown sample set: '+label
+    alt_x_values[label] = val ### keep this as a str because we only use it for a label
+
 dxs = dict((label, dx) for label in names)
 for label, val in args.dx:
     assert label in names, 'specifying --dx for unknown sample set: '+label
@@ -155,10 +164,14 @@ if args.band_color is None:
 ### set up figure, axes
 fig = plot.figure(figsize=(args.figwidth, args.figheight))
 if args.cr_width_subplot:
-    ax = fig.add_axes([0.15, 0.35, 0.8, 0.6])
-    subax = fig.add_axes([0.15, 0.10, 0.8, 0.24])
+    left, bottom, width, height = plot.MAIN_AXES_POSITION
+    subax = fig.add_axes(plot.RESIDUAL_AXES_POSITION)
 else:
-    ax = fig.gca()
+    left, bottom, width, height = plot.AXES_POSITION
+
+if args.alt_x_value: ### we're labeling something on top, so give ourselves more room
+    height = 1 - 2*bottom # same amount of room on bottom and top
+ax = fig.add_axes([left, bottom, width, height])
 
 ### define these once here since they don't change throughout the loop
 ones = np.ones(args.num_points, dtype=float)
@@ -265,6 +278,8 @@ dx = xmax - xmin
 xmin -= args.xaxis_padding_fraction*dx
 xmax += args.xaxis_padding_fraction*dx
 
+xlim = (xmin, xmax)
+
 ### decorate
 
 if args.no_xticklabels:
@@ -274,6 +289,19 @@ elif args.natural_xticklabels: ### override the default tick labeling on the x-a
 else:
     ax.set_xticks([x_values[label] for label in names])
 
+if args.alt_x_value: ### at least one alternate x-value specified
+    AX = ax.twiny()
+    ticks = []
+    labels = []
+    for label, key in alt_x_values.items():
+        ticks.append(x_values[label]) ### we can rely on this existing for all labels
+        labels.append(key)
+    AX.set_xticks(ticks)
+    AX.set_xticklabels(labels)
+    AX.set_xlim(xlim)
+
+    AX.set_xlabel(args.alt_x_label)
+    
 if args.cr_width_subplot:
     plot.setp(ax.get_xticklabels(), visible=False)
     subax.set_xticks(ax.get_xticks())
@@ -289,7 +317,6 @@ else:
         ax.set_ylim(args.column_range)
     ax.set_ylabel(args.column_label)
 
-xlim = (xmin, xmax)
 for column_truth in args.column_truth:
     ax.plot(xlim, [column_truth]*2, color=args.truth_color)
 for m, M in args.column_band:
@@ -310,7 +337,8 @@ if args.x_label:
             ax.set_xlabel(args.x_label)
     else:
         ax.set_xlabel(args.x_label)
-        ax.xaxis.set_label_position('top')
+        if not args.alt_x_value: ### we're not plotting anything else there, so might as well move this out of the way
+            ax.xaxis.set_label_position('top')
 
 if args.no_xticklabels:
     if args.cr_width_subplot:
