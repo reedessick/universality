@@ -13,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import io
+from universality.utils import (utils, io)
 from universality import stats
 
 #-------------------------------------------------
@@ -28,6 +28,9 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('--max-num-samples', default=io.DEFAULT_MAX_NUM_SAMPLES, type=int)
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_argument('--prior-column', default=[], type=str, action='append')
+parser.add_argument('--prior-column-is-log', default=[], type=str, action='append')
 
 args = parser.parse_args()
 
@@ -45,10 +48,23 @@ weights = io.load_weights(
 )
 N = len(weights)
 
+if args.prior_column:
+    if args.verbose:
+        print('loading nontrivial prior from: '+args.inpath)
+    prior = io.load_weights(
+        args.inpath,
+        args.prior_column,
+        logweightcolumns=args.prior_column_is_log,
+        max_num_samples=args.max_num_samples,
+        normalize=True, ### we wnat the prior to be normalized
+    )
+else:
+    prior = np.ones(N, dtype=float)/N
+
 if args.verbose:
     print('N    = %5d'%N)
-    print('Neff = %9.3f'%stats.neff(weights/np.sum(weights)))
+    print('Neff = %9.3f'%stats.neff(weights*prior/np.sum(weights*prior)))
 
 #------------------------
 
-print('  Z = +%.6e +/- %.6e'%(np.mean(weights), np.std(weights)/N**0.5))
+print('  Z = +%.6e +/- %.6e'%utils.estimate_evidence(weights, prior=prior))

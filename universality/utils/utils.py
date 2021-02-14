@@ -87,6 +87,31 @@ def exp_weights(logweights, normalize=True):
 # basic utilities for manipulating existing samples
 #-------------------------------------------------
 
+def estimate_evidence(weights, prior=None):
+    """estimate the evidence from a set of weights. Incorporates prior weights if samples are not equally likely a priori
+    """
+    if prior is None:
+        prior = np.ones(len(weights), dtype=float)
+    prior /= np.sum(prior) ### make sure this is normalized
+
+    z = np.sum(weights * prior)
+    z2 = np.sum(weights**2 * prior)
+
+    dz = (np.sum(prior**2) * (z2 - z**2) )**0.5 ### sqrt of variance of the mean
+
+    return z, dz
+
+def estimate_bayes(weights1, weights2, prior1=None, prior2=None):
+    z1, dz1 = estimate_evidence(weights1, prior=prior1)
+    z2, dz2 = estimate_evidence(weights2, prior=prior2)
+
+    return evidence2bayes(z1, dz1, z2, dz2)
+
+def evidence2bayes(z1, dz1, z2, dz2):
+    b = z1 / z2
+    db = ( (1./z2)**2 * dz1**2 + (z1/z2**2)**2 * dz2**2 )**0.5
+    return b, db
+
 def marginalize(data, logweights, columns):
     """marginalize to get equivalent weights over unique sets of columns
     """

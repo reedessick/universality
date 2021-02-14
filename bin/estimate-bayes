@@ -13,7 +13,7 @@ import numpy as np
 from argparse import ArgumentParser
 
 ### non-standard libraries
-from universality.utils import io
+from universality.utils import (utils, io)
 from universality import stats
 
 #-------------------------------------------------
@@ -28,6 +28,9 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('--max-num-samples', nargs=2, default=[], type=str)
 parser.add_argument('--weight-column-is-log', nargs=2, default=[], type=str, action='append',
     help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+
+parser.add_argument('--prior-column', nargs=2, default=[], type=str, action='append')
+parser.add_argument('--prior-column-is-log', nargs=2, default=[], type=str, action='append')
 
 args = parser.parse_args()
 
@@ -66,6 +69,26 @@ for label, num in args.max_num_samples:
     else:
         raise ValueError('specifying --max-num-samples for unknown samples set %s'%label)
 
+prior1_columns = []
+prior2_columns = []
+for label, col in args.prior_column:
+    if label == label1:
+        prior1_columns.append(col)
+    elif label == label2:
+        prior2_columns.append(col)
+    else:
+        raise ValueError('specifying --prior-column for unknown samples set %s'%label)
+
+logprior1_columns = []
+logprior2_columns = []
+for label, col in args.weight_column_is_log:
+    if label == label1:
+        logprior1_columns.append(col)
+    elif label == label2:
+        logprior2_columns.append(col)
+    else:
+        raise ValueError('specifying --prior-column-is-log for unknown samples set %s'%label)
+
 #-------------------------------------------------
 
 ### read in source samples
@@ -74,33 +97,41 @@ if args.verbose:
 weights1 = io.load_weights(inpath1, weight1_columns, logweightcolumns=logweight1_columns, max_num_samples=max_num_samples1, normalize=False)
 N1 = len(weights1)
 
+if prior1_columns:
+    if args.verbose:
+        print('reading nontrivial prior from: '+inpath1)
+    prior1 = io.load_weights(inpath1, prior1_columns, logweightcolumns=logprior1_columns, max_num_samples=max_num_samples1, normalize=True)
+else:
+    prior1 = np.ones(N1, dtype=float)/N1
+
 if args.verbose:
     print('N1    = %5d'%N1)
-    print('N1eff = %9.3f'%stats.neff(weights1/np.sum(weights1)))
+    print('N1eff = %9.3f'%stats.neff(weights1*prior1/np.sum(weights1*prior1)))
+
+#------------------------
 
 if args.verbose:
     print('reading samples from: '+inpath2)
 weights2 = io.load_weights(inpath2, weight2_columns, logweightcolumns=logweight2_columns, max_num_samples=max_num_samples2, normalize=False)
 N2 = len(weights2)
 
+if prior2_columns:
+    if args.verbose:
+        print('reading nontrivial prior from: '+inpath2)
+    prior2 = io.load_weights(inpath2, prior2_columns, logweightcolumns=logprior2_columns, max_num_samples=max_num_samples2, normalize=True)
+else:
+    prior2 = np.ones(N2, dtype=float)/N2
+
 if args.verbose:
     print('N2    = %5d'%N2)
-    print('N2eff = %9.3f'%stats.neff(weights2/np.sum(weights2)))
+    print('N2eff = %9.3f'%stats.neff(weights2*prior2/np.sum(weights2*prior2)))
 
-#------------------------
-
-Z1 = np.mean(weights1)
-V1 = np.var(weights1)/N1
-
-Z2 = np.mean(weights2)
-V2 = np.var(weights2)/N2
+#-------------------------------------------------
 
 ### NOTE!
 ###     this does not account for the covariance between samples!
-B = Z1/Z2
-V = (1./Z2)**2 * V1 + (Z1/Z2**2)**2 * V2
-print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label1, label2, B, V**0.5))
+B, dB = utils.estimate_bayes(weights1, weights2, prior1=prior1, prior2=prior2)
+print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label1, label2, B, dB))
 
-B = Z2/Z1
-V = (1./Z1)**2 * V2 + (Z2/Z1**2)**2 * V1
-print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label2, label1, B, V**0.5))
+B, dB = utils.estimate_bayes(weights2, weights1, prior1=prior2, prior2=prior1)
+print('  B^{%s}_{%s} = +%.6e +/- %.6e'%(label2, label1, B, dB))
