@@ -22,7 +22,7 @@ def Mrhoc2branches(M, rhoc):
     Note! assumes models are ordered by increasing rhoc
     returns a list of boolean arrays denoting where each branch starts and ends
     """
-    assert np.all(np.diff(rhoc)>0), 'rhoc must be ordered from smallest to largest!'
+    assert np.all(np.diff(rhoc)>=0), 'rhoc must be ordered from smallest to largest! (drhoc >= 0)'
 
     N = len(M)
     N1 = N - 1
