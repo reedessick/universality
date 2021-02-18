@@ -36,8 +36,9 @@ def envelope(
         reference_colors=None,
         residuals=False,
         ratios=False,
-        filled=False,
-        alpha=plt.DEFAULT_ALPHA,
+        filled=[],
+        hatch=None,
+        alphas=None,
         fig=None,
         figwidth=plt.DEFAULT_FIGWIDTH,
         figheight=plt.DEFAULT_FIGHEIGHT,
@@ -61,17 +62,47 @@ def envelope(
     Nn, Nq, Nx = np.shape(quantiles)
     assert Nn == len(names), 'bad shape for quantiles!'
 
+    if hatch is None:
+        hatch = dict((label, None) for label in names)
+
+    if alphas is None:
+        alphas = dict((label, plt.DEFAULT_ALPHA) for label in names)
+    elif isinstance(alphas, float):
+        alphas = dict((label, alpha) for label in names)
+
     # iterate through data and plot
     for ind, label in enumerate(names):
         color = colors[label]
+        alpha = alphas[label]
         # add quantiles
         for i in range(Nq/2): ### fill between pairs of quantiles
-            if filled: ### fill in inter-quantile regions
-                ax.fill_between(x, quantiles[ind,2*i,:], quantiles[ind,2*i+1,:], alpha=alpha, color=color)
+            if (label in filled) or (hatch[label] is not None): ### fill in inter-quantile regions
+                ax.fill_between(
+                    x,
+                    quantiles[ind,2*i,:],
+                    quantiles[ind,2*i+1,:],
+                    alpha=alpha,
+                    color=color,
+                    hatch=hatch[label],
+                )
                 if residuals:
-                    ax_res.fill_between(x, quantiles[ind,2*i,:]-y_reference, quantiles[ind,2*i+1,:]-y_reference, alpha=alpha, color=color)
+                    ax_res.fill_between(
+                        x,
+                        quantiles[ind,2*i,:]-y_reference,
+                        quantiles[ind,2*i+1,:]-y_reference,
+                        alpha=alpha,
+                        color=color,
+                        hatch=hatch[label],
+                    )
                 elif ratios:
-                    ax_res.fill_between(x, quantiles[ind,2*i,:]/y_reference, quantiles[ind,2*i+1,:]/y_reference, alpha=alpha, color=color)
+                    ax_res.fill_between(
+                        x,
+                        quantiles[ind,2*i,:]/y_reference,
+                        quantiles[ind,2*i+1,:]/y_reference,
+                        alpha=alpha,
+                        color=color,
+                        hatch=hatch[label],
+                    )
 
             ### plot quantile boundaries
             ax.plot(x, quantiles[ind,2*i,:], alpha=alpha, color=color)

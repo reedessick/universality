@@ -83,10 +83,11 @@ If "sym", plots symmetric quantiles between (q, 1-q) for every quantile specifie
 If "hpd", plots the highest-probability-density region for every quantile specified via --quantile, each of which may not be contiguous. \
 DEFAULT="sym".')
 
-parser.add_argument('--filled', default=False, action='store_true',
+parser.add_argument('--filled', default=[], type=str, action='append',
     help='fill in the region between quantiles')
-parser.add_argument('--alpha', default=0.25, type=float,
-    help='DEFAULT=0.25')
+parser.add_argument('--hatch', nargs=2, default=[], type=str, action='append')
+
+parser.add_argument('--alpha', nargs=2, default=[], type=str, action='append')
 
 parser.add_argument('--residuals', default=False, action='store_true',
     help='if True, plot the residuals between the median of the process and the reference curves. Cannot be supplied simultanesoulsy with --ratios')
@@ -178,6 +179,19 @@ else:
 Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
     Nquantiles *= 2 ### we need twice as many as are in the list
+
+for label in args.filled:
+    assert label in names, 'specifying --filled for unknown sample set: '+label
+
+hatch = dict((label, None) for label in names)
+for label, h in args.hatch:
+    assert label in names, 'specifying --hatch for unknown sample set: '+label
+    hatch[label] = h
+
+alpha = dict((label, plot.DEFAULT_ALPHA) for label in names)
+for label, a in args.alpha:
+    assert label in names, 'specifying --alpha for unknown sample set: '+label
+    alpha[label] = float(a)
 
 # annotation options
 signposts = defaultdict(list)
@@ -297,7 +311,8 @@ fig, ax = plot.envelope(
         ratios=args.ratios,
         y_reference=y_reference if args.residuals or args.ratios else None,
         filled=args.filled,
-        alpha=args.alpha,
+        hatch=hatch,
+        alphas=alpha,
         figwidth=args.figwidth,
         figheight=args.figheight,
 )

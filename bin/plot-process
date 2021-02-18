@@ -139,10 +139,11 @@ If "sym", plots symmetric quantiles between (q, 1-q) for every quantile specifie
 If "hpd", plots the highest-probability-density region for every quantile specified via --quantile, each of which may not be contiguous. \
 DEFAULT="sym".')
 
-pgroup.add_argument('--filled', default=False, action='store_true',
+pgroup.add_argument('--filled', default=[], type=str, action='append',
     help='fill in the region between quantiles')
-pgroup.add_argument('--alpha', default=0.25, type=float,
-    help='DEFAULT=0.25')
+pgroup.add_argument('--hatch', nargs=2, default=[], type=str, action='append')
+pgroup.add_argument('--alpha', nargs=2, default=[], type=str, action='append')
+
 pgroup.add_argument('--draws-alpha', default=0.25, type=float,
     help='the alpha used when overlaying fair draws. DEFAULT=%.1f'%plot.DEFAULT_ALPHA)
 
@@ -266,7 +267,7 @@ else:
 # plotting options
 colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
 for label, color in args.color:
-    assert label in names, 'specifying --color for uknown sample set: '+label
+    assert label in names, 'specifying --color for unknown sample set: '+label
     colors[label] = color
 
 reference_colors = dict((label, plot.DEFAULT_TRUTH_COLOR) for label in reference_names)
@@ -295,6 +296,19 @@ else:
 Nquantiles = len(quantiles)
 if args.quantile_type=="hpd":
     Nquantiles *= 2 ### we need twice as many as are in the list
+
+for label in args.filled:
+    assert label in names, 'specifying --filled for unknown sample set: '+label
+
+hatch = dict((label, None) for label in names)
+for label, h in args.hatch:
+    assert label in names, 'specifying --hatch for unknown sample set: '+label
+    hatch[label] = h
+
+alpha = dict((label, plot.DEFAULT_ALPHA) for label in names)
+for label, a in args.alpha:
+    assert label in names, 'specifying --alpha for unknown sample set: '+label
+    alpha[label] = float(a)
 
 # overlay KDE options
 overlay_names = [a for a, b in args.overlay_samples] ### maintain order in which these were supplied
@@ -548,7 +562,8 @@ if Nquantiles: ### plot quantiles from each posterior
             ratios=args.ratios,
             y_reference=y_reference,
             filled=args.filled,
-            alpha=args.alpha,
+            hatch=hatch,
+            alphas=alpha,
             figwidth=args.figwidth,
             figheight=args.figheight,
     )
