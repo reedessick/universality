@@ -77,12 +77,14 @@ def envelope(
         # add quantiles
         for i in range(Nq/2): ### fill between pairs of quantiles
             if (label in filled) or (hatch[label] is not None): ### fill in inter-quantile regions
+                facecolor = color if (label in filled) else "none"
                 ax.fill_between(
                     x,
                     quantiles[ind,2*i,:],
                     quantiles[ind,2*i+1,:],
                     alpha=alpha,
-                    color=color,
+                    edgecolor=color,
+                    facecolor=facecolor,
                     hatch=hatch[label],
                 )
                 if residuals:
@@ -91,7 +93,8 @@ def envelope(
                         quantiles[ind,2*i,:]-y_reference,
                         quantiles[ind,2*i+1,:]-y_reference,
                         alpha=alpha,
-                        color=color,
+                        edgecolor=color,
+                        facecolor=facecolor,
                         hatch=hatch[label],
                     )
                 elif ratios:
@@ -100,7 +103,8 @@ def envelope(
                         quantiles[ind,2*i,:]/y_reference,
                         quantiles[ind,2*i+1,:]/y_reference,
                         alpha=alpha,
-                        color=color,
+                        edgecolor=color,
+                        facecolor=facecolor,
                         hatch=hatch[label],
                     )
 
