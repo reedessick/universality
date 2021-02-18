@@ -227,7 +227,7 @@ def stellar_sequence(
 
     macro = [integrate(central_pc2[-1], eos, rtol=integration_rtol, **kwargs)]
 
-    ### perform recursive search to get a good integrator
+    ### perform recursive search to get a good interpolator
     for max_pc2 in central_pressurec2[1:]:
         new_central_pc2, new_macro = bisection_stellar_sequence(
             central_pc2[-1],
