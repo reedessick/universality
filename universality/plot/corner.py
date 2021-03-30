@@ -43,6 +43,8 @@ def kde_corner(
         grid=True,
         color=plt.DEFAULT_COLOR1,
         truth_color=plt.DEFAULT_TRUTH_COLOR,
+        truth_alpha=plt.DEFAULT_ALPHA,
+        truth_linestyle=plt.DEFAULT_LINESTYLE,
         band_color=None,
         band_alpha=plt.DEFAULT_LIGHT_ALPHA,
         linewidth=plt.DEFAULT_LINEWIDTH,
@@ -260,17 +262,17 @@ def kde_corner(
                 for val in truths[col]:
                     if rotate and (row==(Ncol-1)) and (row==col):
                         xlim = ax.get_xlim()
-                        ax.plot(xlim, [val]*2, color=truth_color)
+                        ax.plot(xlim, [val]*2, color=truth_color, linestyle=truth_linestyle, alpha=truth_alpha)
                         ax.set_xlim(xlim)
                     else:
                         ylim = ax.get_ylim()
-                        ax.plot([val]*2, ylim, color=truth_color)
+                        ax.plot([val]*2, ylim, color=truth_color, linestyle=truth_linestyle, alpha=truth_alpha)
                         ax.set_ylim(ylim)
 
             if (row!=col) and (truths[row] is not None):
                 for val in truths[row]:
                     xlim = ax.get_xlim()
-                    ax.plot(xlim, [val]*2, color=truth_color)
+                    ax.plot(xlim, [val]*2, color=truth_color, linestyle=truth_linestyle, alpha=truth_alpha)
                     ax.set_xlim(xlim)
 
             if bands[col] is not None:
@@ -316,6 +318,8 @@ def curve_corner(
         alpha=plt.DEFAULT_ALPHA,
         grid=True,
         truth_color=plt.DEFAULT_TRUTH_COLOR,
+        truth_alpha=plt.DEFAULT_ALPHA,
+        truth_linestyle=plt.DEFAULT_LINESTYLE,
         band_color=None,
         band_alpha=plt.DEFAULT_LIGHT_ALPHA,
         linestyle=plt.DEFAULT_LINESTYLE,
@@ -399,12 +403,12 @@ def curve_corner(
             if truths[col] is not None:
                 for val in truths[col]:
                     ylim = ax.get_ylim()
-                    ax.plot([val]*2, ylim, color=truth_color)
+                    ax.plot([val]*2, ylim, color=truth_color, linestyle=truth_linestyle, alpha=truth_alpha)
                     ax.set_ylim(ylim)
             if (row!=col) and (truths[row] is not None):
                 for val in truths[row]:
                     xlim = ax.get_xlim()
-                    ax.plot(xlim, [val]*2, color=truth_color)
+                    ax.plot(xlim, [val]*2, color=truth_color, linestyle=truth_linestyle, alpha=truth_alpha)
                     ax.set_xlim(xlim)
 
             if bands[col] is not None:

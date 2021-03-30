@@ -117,6 +117,8 @@ pgroup.add_argument('--filled-alpha', nargs=2, action='append', default=[], type
     help='e.g. "--filled-alpha label 0.5"')
 
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
+pgroup.add_argument('--truth-alpha', default=plot.DEFAULT_ALPHA, type=float)
+pgroup.add_argument('--truth-linestyle', default=plot.DEFAULT_LINESTYLE, type=str)
 
 pgroup.add_argument('--band-color', default=None, type=str)
 pgroup.add_argument('--band-alpha', default=plot.DEFAULT_LIGHT_ALPHA, type=str)
@@ -400,6 +402,8 @@ for ind, (label, path) in enumerate(args.samples):
         bandwidths=bandwidths[:Ncol],
         truths=these_truths,
         truth_color=args.truth_color,
+        truth_alpha=args.truth_alpha,
+        truth_linestyle=args.truth_linestyle,
         bands=these_bands,
         band_color=args.band_color,
         band_alpha=args.band_alpha,
