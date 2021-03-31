@@ -75,6 +75,8 @@ parser.add_argument('--weight-column-is-log', nargs=2, type=str, default=[], act
 
 parser.add_argument('--color', nargs=2, action='append', default=[], type=str)
 parser.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
+parser.add_argument('--truth-alpha', default=plot.DEFAULT_ALPHA, type=float)
+parser.add_argument('--truth-linestyle', default=plot.DEFAULT_LINESTYLE, type=str)
 parser.add_argument('--band-color', default=None, type=str)
 parser.add_argument('--band-alpha', default=plot.DEFAULT_LIGHT_ALPHA, type=float)
 
@@ -352,7 +354,7 @@ else:
     ax.set_ylabel(args.column_label)
 
 for column_truth in args.column_truth:
-    ax.plot(xlim, [column_truth]*2, color=args.truth_color)
+    ax.plot(xlim, [column_truth]*2, color=args.truth_color, alpha=args.truth_alpha, linestyle=args.truth_linestyle)
 
 for m, M in args.column_band:
     ax.fill_between(xlim, [m]*2, [M]*2, color=args.band_color, alpha=args.band_alpha)
