@@ -363,7 +363,7 @@ for ind, (label, path) in enumerate(args.samples):
     ### updatee weights based on conditioning
     ### NOTE!: this relies on the assumption of a diagonal kernel, implying we can separate the contributions into factors
     logcond = np.zeros(len(data), dtype=float)
-    for cond_col in condition_columns[label]:
+    for i, cond_col in enumerate(condition_columns[label]):
         val, cond_type = conditions[label][cond_col]
 
         if args.verbose:
