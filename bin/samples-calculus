@@ -56,21 +56,23 @@ if args.new_column is None:
 args.verbose |= args.Verbose
 
 ### figure out if we want to scale or shift by a default unit
-if hasattr(units, args.scale):
-    args.scale = getattr(units. args.scale)
-else:
-    args.scale = float(args.scale)
+if isinstance(args.scale, str):
+    if hasattr(units, args.scale):
+        args.scale = getattr(units. args.scale)
+    else:
+        args.scale = float(args.scale)
 
-if hasattr(units, args.shift):
-    args.shift = getattr(units, args.shift)
-else:
-    args.shift = float(args.shift)
+if isinstance(args.shift, str):
+    if hasattr(units, args.shift):
+        args.shift = getattr(units, args.shift)
+    else:
+        args.shift = float(args.shift)
 
 #-------------------------------------------------
 
 if args.verbose:
     print('reading data from: '+args.inpath)
-data, cols = io.oad(args.inpath)
+data, cols = io.load(args.inpath)
 
 data, cols = samples.calculus(data, cols, args.xcolumn, args.fcolumn, foo, args.new_column, scale=args.scale, shift=args.shift, overwrite=args.overwrite)
 
