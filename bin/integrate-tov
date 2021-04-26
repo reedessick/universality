@@ -26,6 +26,11 @@ parser.add_argument('--energy_densityc2-column', default=sequences.DEFAULT_ENERG
 parser.add_argument('--baryon_density-column', default=sequences.DEFAULT_BARYON_DENSITY_COLUMN, type=str)
 parser.add_argument('--cs2c2-column', default=None, type=str)
 
+parser.add_argument('--central-baryon-density-range', nargs=2, type=float, default=None,
+    help='If specified, limits the stellar sequence to within this range of central baryon_density.')
+parser.add_argument('--central-energy-densityc2-range', nargs=2, type=float, default=None,
+    help='If specified, limits the stellar sequence to within this range of central energy_densityc2')
+
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
 parser.add_argument('--central-column-template', default=sequences.DEFAULT_CENTRAL_COLUMN_TEMPLATE, type=str,
@@ -86,6 +91,41 @@ if min_central_pressurec2 < min_pressurec2:
     if args.verbose:
         print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
     min_central_pressurec2 = min_pressurec2
+
+### additionally check whether we're obeying the requested bounds on central baryon and energy densities
+if args.central_baryon_density_range is not None:
+    min_baryon_density, max_baryon_density = args.central_baryon_density_range
+
+    # check minimum
+    min_pc2 = np.interp(min_baryon_density, baryon_density, pressurec2)
+    if min_pc2 > min_central_pressurec2:
+        if args.verbose:
+            print('limitting central_pressurec2 >= %.6e based on min_baryon_density = %.6e'%(min_pc2, min_baryon_density))
+        min_central_pressurec2 = min_pc2
+
+    # check maximum
+    max_pc2 = np.interp(max_baryon_density, baryon_density, pressurec2)
+    if max_pc2 < max_central_pressurec2:
+        if args.verbose:
+            print('limitting central_pressurec2 <= %.6e based on max_baryon_density = %.6e'%(max_pc2, max_baryon_density))
+        max_central_pressurec2 = max_pc2
+
+if args.central_energy_densityc2_range is not None:
+    min_energy_densityc2, max_energy_densityc2 = args.central_energy_densityc2_range
+
+    # check minimum
+    min_pc2 = np.interp(min_energy_densityc2, energy_densityc2, pressurec2)
+    if min_pc2 > min_central_pressurec2:
+        if args.verbose:
+            print('limitting central_pressurec2 >= %.6e based on min_energy_densityc2 = %.6e'%(min_pc2, min_energy_densityc2))
+        min_central_pressurec2 = min_pc2
+
+    # check maximum
+    max_pc2 = np.interp(max_baryon_density, energy_densityc2, pressurec2)
+    if max_pc2 < max_central_pressurec2:
+        if args.verbose:
+            print('limitting central_pressurec2 <= %.6e based on max_energy_densityc2 = %.6e'%(max_pc2, max_energy_densityc2))
+        max_central_pressurec2 = max_pc2
 
 ### FIXME? add a sanity check that sound speed never vanishes (or becomes too small?)
 

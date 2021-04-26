@@ -26,6 +26,11 @@ parser.add_argument('--energy_densityc2-column', default=sequences.DEFAULT_ENERG
 parser.add_argument('--baryon_density-column', default=sequences.DEFAULT_BARYON_DENSITY_COLUMN, type=str)
 parser.add_argument('--cs2c2-column', default=None, type=str)
 
+parser.add_argument('--central-baryon-density-range', nargs=2, type=float, default=None,
+    help='If specified, limits the stellar sequence to within this range of central baryon_density.')
+parser.add_argument('--central-energy-densityc2-range', nargs=2, type=float, default=None,
+    help='If specified, limits the stellar sequence to within this range of central energy_densityc2')
+
 parser.add_argument('--central-eos-column', default=[], type=str, action='append',
     help='record the values of these eos columns at the center of each stellar model')
 parser.add_argument('--central-column-template', default=sequences.DEFAULT_CENTRAL_COLUMN_TEMPLATE, type=str,
@@ -75,6 +80,8 @@ sequences.process2sequences(
     mactmp,
     min_central_pressurec2,
     max_central_pressurec2,
+    central_baryon_density_range=args.central_baryon_density_range,
+    central_energy_densityc2_range=args.central_energy_densityc2_range,
     mod=args.eos_num_per_dir,
     pressurec2_column=args.pressurec2_column,
     energy_densityc2_column=args.energy_densityc2_column,

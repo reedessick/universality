@@ -42,6 +42,8 @@ def process2sequences(
         mactmp,
         min_central_pressurec2,
         max_central_pressurec2,
+        central_baryon_density_range=None,
+        central_energy_densityc2_range=None,
         mod=1000,
         pressurec2_column=DEFAULT_PRESSUREC2_COLUMN,
         energy_densityc2_column=DEFAULT_ENERGY_DENSITYC2_COLUMN,
@@ -91,6 +93,41 @@ def process2sequences(
             if verbose:
                 print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
             min_central_pressurec2 = min_pressurec2
+
+        ### additionally check whether we're obeying the requested bounds on central baryon and energy densities
+        if central_baryon_density_range is not None:
+            min_baryon_density, max_baryon_density = central_baryon_density_range
+
+            # check minimum
+            min_pc2 = np.interp(min_baryon_density, baryon_density, pressurec2)
+            if min_pc2 > min_central_pressurec2:
+                if verbose:
+                    print('limitting central_pressurec2 >= %.6e based on min_baryon_density = %.6e'%(min_pc2, min_baryon_density))
+                min_central_pressurec2 = min_pc2
+
+            # check maximum
+            max_pc2 = np.interp(max_baryon_density, baryon_density, pressurec2)
+            if max_pc2 < max_central_pressurec2:
+                if verbose:
+                    print('limitting central_pressurec2 <= %.6e based on max_baryon_density = %.6e'%(max_pc2, max_baryon_density))
+                max_central_pressurec2 = max_pc2
+
+        if central_energy_densityc2_range is not None:
+            min_energy_densityc2, max_energy_densityc2 = central_energy_densityc2_range
+
+            # check minimum
+            min_pc2 = np.interp(min_energy_densityc2, energy_densityc2, pressurec2)
+            if min_pc2 > min_central_pressurec2:
+                if verbose:
+                    print('limitting central_pressurec2 >= %.6e based on min_energy_densityc2 = %.6e'%(min_pc2, min_energy_densityc2))
+                min_central_pressurec2 = min_pc2
+
+            # check maximum
+            max_pc2 = np.interp(max_baryon_density, energy_densityc2, pressurec2)
+            if max_pc2 < max_central_pressurec2:
+                if verbose:
+                    print('limitting central_pressurec2 <= %.6e based on max_energy_densityc2 = %.6e'%(max_pc2, max_energy_densityc2))
+                max_central_pressurec2 = max_pc2
 
         ### now compute the stellar sequence
         if verbose:
