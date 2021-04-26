@@ -153,8 +153,8 @@ for i, (ind, color) in enumerate(zip(\
         utils.draw_from_weights(weights, size=args.num_draws),
         plot.weights2color(np.ones(args.num_draws, dtype=float)/args.num_draws, 'b', prefact=0.25, minimum=0.)
     )):
-    i += args.start ### increment by the starting index
-    fmt = {'draw':i, 'moddraw':i//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
+    index = i + args.start ### increment by the starting index
+    fmt = {'draw':index, 'moddraw':index//args.num_per_directory} ### only allow a certain number of EoSs within each subdirectory
 
     csvdir = directory%fmt
     csvpath = path%fmt
@@ -174,7 +174,7 @@ for i, (ind, color) in enumerate(zip(\
 
     # add to plot
     if args.plot:
-        plot.overlay([(x_tst, y_tst, str(i))], colors=[color], alphas=[0.25], figtup=(fig, ax))
+        plot.overlay([(x_tst, y_tst, str(index))], colors=[color], alphas=[0.25], figtup=(fig, ax))
 
     # integrate
     if args.integrate_phi:
