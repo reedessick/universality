@@ -1,0 +1,179 @@
+#!/usr/bin/env python
+
+"""a script that computes the associated weights for target_samples.csv based on the distribution within source_samples.csv.
+
+NOTE:
+This is only meant as a quick stand-in for NICER samples to deal with cases where the NS Mmax may truncate the mass posterior. In the future,
+we expect to deal with this issue by changing the way mass samples are drawn for each EOS (ie, better control the mass prior conditioned on the EOS).
+In that case, one can use the regular weigh-samples without any additional logic needed.
+However, this script is better than nothing. It is correct, even if it is less flexible than the more general approach of directly manipulating the mass prior.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import (utils, io)
+from universality import kde
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('source', type=str)
+parser.add_argument('target', type=str)
+parser.add_argument('output', type=str)
+
+parser.add_argument('mass_column', type=str)
+parser.add_argument('radius_column', type=str)
+
+parser.add_argument('--Mmax-column', type=str, default='Mmax')
+parser.add_argument('--mass-prior-range', nargs=2, type=float, default=(0.5, 3.0),
+    help='the population prior range for the mass. Assumed to be flat so that the normalization is just 1/(min(eosMmax, popMmax) - Mmin).\
+eg: "--mass-prior-range 0.5 3.0", DEFAULT=(0.5, 3.0)')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('--weight-column', default=[], type=str, action='append',
+    help='if provided, thie numerical values from this column will be used as weights in the KDE')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append',
+    help='if supplied, interpret the values in weight_column as log(weight), meaning we exponentiate them before using them in the KDE')
+parser.add_argument('--invert-weight-column', default=[], type=str, action='append',
+    help='After extracting the weights from source_samples.csv, this will compute the KDE using the inverse of those values; e.g.: weight by the inverse of the prior for a set of posterior samples so the effective sampling is with respect to the likelihood. The inversion is done after exponentiation when --weight-column-is-log is supplied.')
+
+parser.add_argument('-r', '--column-range', nargs=3, default=[], action='append', type=str,
+    help='specify the ranges used in corner.corner (eg.: "--column-range column minimum maximum"). \
+Can specify ranges for multiple columns by repeating this option. \
+DEFAULT will use the minimum and maximum observed sample points.')
+parser.add_argument('--reflect', default=False, action='store_true',
+    help='reflect the points about their boundaries within the KDE')
+parser.add_argument('--prune', default=False, action='store_true',
+    help='throw away samples that live outside the specified ranges')
+
+parser.add_argument('--output-weight-column', default=utils.DEFAULT_WEIGHT_COLUMN, type=str,
+    help='the name of the new weight-column in the output file. **BE CAREFUL!** You should make sure this is consistent with whether or not you specified --do-not-log-output-weight! \
+DEFAULT='+utils.DEFAULT_WEIGHT_COLUMN)
+parser.add_argument('--do-not-log-output-weights', default=False, action='store_true',
+    help='record the raw weights instead of the log(weight) in the output CVS. **BE CAREFUL!** You should make sure this is consistent with the name specified by --output-weight-column.')
+
+parser.add_argument('-b', '--bandwidth', default=0.03, type=float,
+    help='the bandwidth (standard deviation) used within the Gaussian KDE over whitened data. \
+DEFAULT=0.03')
+
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='number of processes for parallelized computation of logkde. \
+DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
+
+args = parser.parse_args()
+
+### NOTE: hard-coded to deal only with NICER
+columns = [args.mass_column, args.radius_column]
+Ncol = 2
+
+### parse ranges
+rangesdict = dict()
+for column, _min, _max in args.column_range:
+    assert column in columns, 'specifying --column-range for unknown column: '+column
+    rangesdict[column] = (float(_min), float(_max))
+
+#-------------------------------------------------
+
+### read in source samples
+if args.verbose:
+    print('reading source samples from: '+args.source)
+srcdata, srccolumns = io.load(args.source, columns)
+if not len(srcdata):
+    raise RuntimeError('no samples present in %s!'%args.source)
+srcdata, srcmeans, srcstds = utils.whiten(srcdata, verbose=args.verbose) ### whiten data
+
+if args.weight_column:
+    if args.verbose:
+        print('reading in non-trivial weights from: '+args.source)
+    weights = io.load_weights(args.source, args.weight_column, logweightcolumns=args.weight_column_is_log, invweightcolumns=args.invert_weight_column)
+
+else:
+    N = len(srcdata)
+    weights = np.ones(N, dtype=float)/N
+
+### figure out ranges based on data
+ranges = []
+for i, col in enumerate(srccolumns):
+    if rangesdict.has_key(col):
+        m, M = rangesdict[col]
+        ranges.append(((m-srcmeans[i])/srcstds[i], (M-srcmeans[i])/srcstds[i]))
+    else:
+        ranges.append(None)
+
+if args.prune:
+    srcdata, weights = utils.prune(srcdata, ranges, weights=weights)
+
+if args.reflect:
+    srcdata, weights = utils.reflect(srcdata, ranges, weights=weights)
+
+#------------------------
+
+### read in target samples
+if args.verbose:
+    print("reading in target samples from: "+args.target)
+
+tgtdata, tgtcolumns = io.load(args.target) ### load in all the columns!
+io.check_columns(tgtcolumns, columns+[args.Mmax_column]) ### make sure we have the columns we need to
+
+Mmax = tgtdata[:,-1] ### NOTE: this could be fragile in general, but should be good enough for this script
+mass = tgtdata[:,0]
+
+tgtdata = tgtdata[:,:-1] ### we don't want to include Mmax in this
+
+if len(tgtdata): ### we need to weigh things
+
+    tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
+    for i, column in enumerate(srccolumns): ### whiten the target data with the same transformation used for source data
+        tgtsamples[:,i] = (tgtdata[:,tgtcolumns.index(column)] - srcmeans[i])/srcstds[i]
+
+    #---------------------------------------------
+
+    if args.verbose:
+        print('computing weighted KDE at %d samples from %s based on %d samples from %s with %d cores'%\
+            (len(tgtsamples), args.target, len(srcdata), args.source, args.num_proc))
+    logkde = kde.logkde(
+        tgtsamples,
+        srcdata,
+        np.ones(Ncol, dtype=float)*args.bandwidth**2,
+        weights=weights,
+        num_proc=args.num_proc
+    )
+else:
+    if args.verbose:
+        print('no target samples in %s; nothing to do...'%args.target)
+    logkde = np.empty(0, dtype=float) ### make a place-holder so the rest of the logic holds
+
+#------------------------
+
+if args.verbose:
+    print('computing prior weights for each mass sample')
+
+popMmin, popMmax = args.mass_prior_range
+Mmax[Mmax > popMmax] = popMmax
+
+logkde[mass > Mmax] = - np.infty ### zero the weights for any samples that are too big
+logkde -= np.log(Mmax - popMmin)       ### divide out the prior volume
+
+#------------------------
+
+if args.do_not_log_output_weights:
+    if args.verbose:
+        print('exponentiating weights')
+    logkde = np.exp(logkde)
+
+if args.verbose:
+    print('writing results with weight-column=%s into: %s'%(args.output_weight_column, args.output))
+
+### now actually write stuff to disk
+atad = np.empty((len(tgtdata), len(tgtcolumns)+1), dtype=float)
+atad[:,:-1] = tgtdata
+atad[:,-1] = logkde
+io.write(args.output, atad, tgtcolumns+[args.output_weight_column])
