@@ -129,6 +129,14 @@ if args.central_energy_densityc2_range is not None:
 
 ### FIXME? add a sanity check that sound speed never vanishes (or becomes too small?)
 
+### check to make sure the pressure bounds are sane, futz them if they are not
+if max_central_pressurec2 < min_central_pressurec2:
+    if args.verbose:
+        print('''WARNING: central pressure bounds are out of order! Switching them, but something unexpected may be happening with this EoS!
+    min_central_pressurec2 = %.6e
+    max_central_pressurec2 = %.6e'''%(max_central_pressurec2, min_central_pressurec2))
+    min_central_pressurec2, max_central_pressurec2 = max_central_pressurec2, min_central_pressurec2
+
 ### now compute the stellar sequence
 if args.verbose:
     print('solving for sequence of stellar models with formalism=%s'%args.formalism)

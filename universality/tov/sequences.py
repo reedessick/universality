@@ -129,6 +129,14 @@ def process2sequences(
                     print('limitting central_pressurec2 <= %.6e based on max_energy_densityc2 = %.6e'%(max_pc2, max_energy_densityc2))
                 max_central_pressurec2 = max_pc2
 
+        ### check to make sure the pressure bounds are sane, futz them if they are not
+        if max_central_pressurec2 < min_central_pressurec2:
+            if verbose:
+                print('''WARNING: central pressure bounds are out of order! Switching them, but something unexpected may be happening with this EoS!
+    min_central_pressurec2 = %.6e
+    max_central_pressurec2 = %.6e'''%(max_central_pressurec2, min_central_pressurec2))
+            min_central_pressurec2, max_central_pressurec2 = max_central_pressurec2, min_central_pressurec2
+
         ### now compute the stellar sequence
         if verbose:
             print('solving for sequence of stellar models with formalism=%s'%formalism)
