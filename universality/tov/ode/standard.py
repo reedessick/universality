@@ -21,6 +21,7 @@ DEFAULT_GUESS_FRAC = 0.1 ### how much of the way to the vanishing pressure we gu
 DEFAULT_INITIAL_FRAC = 1e-3 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-4
+DEFAULT_MXSTEP = 10000
 
 #------------------------
 
@@ -109,6 +110,7 @@ def engine(
         guess_frac=DEFAULT_GUESS_FRAC,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
+        mxstp=DEFAULT_MXSTEP,
     ):
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density)
@@ -123,7 +125,7 @@ def engine(
         r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr_func(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr)[-1,:] ### retain only the last point
+        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr, mxstep=mxstep)[-1,:] ### retain only the last point
 
     ### return to client, who will then interpolate to find the surface
     ### interpolate to find stellar surface

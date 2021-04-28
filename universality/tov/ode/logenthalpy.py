@@ -17,6 +17,7 @@ from .standard import (dmdr, dmbdr, detadr, domegadr)
 DEFAULT_INITIAL_FRAC = 1e-8 ### the initial change in pressure we allow when setting the intial conditions
 
 DEFAULT_RTOL = 1e-6
+DEFAULT_MXSTEP = 10000
 
 #------------------------
 
@@ -70,6 +71,7 @@ def engine(
         eos,
         dvecdlogh_func,
         rtol=DEFAULT_RTOL,
+        mxstep=DEFAULT_MXSTEP,
     ):
     """integrate the TOV equations with central pressure "pc2i" and equation of state described by energy density "eps/c2" and pressure "p/c2"
     expects eos = (logenthalpy, pressurec2, energy_densityc2, baryon_density, cs2c2)
@@ -81,6 +83,7 @@ def engine(
         (logh, 0.),
         args=(eos,),
         rtol=rtol,
+        mxstep=mxstep,
     )[-1,:]
 
 #-------------------------------------------------
