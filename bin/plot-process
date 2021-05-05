@@ -486,7 +486,7 @@ for ind, (label, path) in enumerate(args.samples):
             alphas = weights[draws]
             alphas *= args.draws_alpha / np.max(alphas)
 
-        for draw, alpha in zip(draws, alphas):
+        for draw, _alpha in zip(draws, alphas):
             eos = data[draw]
             paths = sorted(glob.glob(eos_temps[label]%{'moddraw':eos//eos_num_per_dir[label], 'draw':eos}))
             for path in paths:
@@ -494,7 +494,7 @@ for ind, (label, path) in enumerate(args.samples):
                     print('    loading: %s'%path)
                 d, _ = io.load(path, [args.xcolumn, args.ycolumn])
                 _curves.append((d[:,0]*args.x_multiplier, d[:,1]*args.y_multiplier, None))
-                _alphas.append(alpha)
+                _alphas.append(_alpha)
 
             if len(paths) and (args.default_y_value is not None) and np.any(x_test <= np.max(d[:,0]*args.x_multiplier)):
                 X = x_test[x_test <= np.max(d[:,0]*args.x_multiplier)]
