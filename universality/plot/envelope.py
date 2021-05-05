@@ -68,7 +68,7 @@ def envelope(
     if alphas is None:
         alphas = dict((label, plt.DEFAULT_ALPHA) for label in names)
     elif isinstance(alphas, float):
-        alphas = dict((label, alpha) for label in names)
+        alphas = dict((label, alphas) for label in names)
 
     # iterate through data and plot
     for ind, label in enumerate(names):
