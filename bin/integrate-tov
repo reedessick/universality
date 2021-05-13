@@ -79,18 +79,22 @@ if args.cs2c2_column is not None:
 else:
     cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
 
+### get local copy of bounds for just this EoS
+max_central_pc2 = max_central_pressurec2
+min_central_pc2 = min_central_pressurec2
+
 ### sanity check that our integration range is compatible with the EoS data available
 max_pressurec2 = np.max(pressurec2)
-if max_central_pressurec2 > max_pressurec2:
+if max_central_pc2 > max_pressurec2:
     if args.verbose:
         print('limitting central_pressurec2 <= %.6e based on EoS data\'s range'%max_pressurec2)
-    max_central_pressurec2 = max_pressurec2
+    max_central_pc2 = max_pressurec2
 
 min_pressurec2 = np.min(pressurec2)
-if min_central_pressurec2 < min_pressurec2:
+if min_central_pc2 < min_pressurec2:
     if args.verbose:
         print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
-    min_central_pressurec2 = min_pressurec2
+    min_central_pc2 = min_pressurec2
 
 ### additionally check whether we're obeying the requested bounds on central baryon and energy densities
 if args.central_baryon_density_range is not None:
@@ -98,44 +102,50 @@ if args.central_baryon_density_range is not None:
 
     # check minimum
     min_pc2 = np.interp(min_baryon_density, baryon_density, pressurec2)
-    if min_pc2 > min_central_pressurec2:
+    if min_pc2 > min_central_pc2:
         if args.verbose:
             print('limitting central_pressurec2 >= %.6e based on min_baryon_density = %.6e'%(min_pc2, min_baryon_density))
-        min_central_pressurec2 = min_pc2
+        min_central_pc2 = min_pc2
 
     # check maximum
     max_pc2 = np.interp(max_baryon_density, baryon_density, pressurec2)
-    if max_pc2 < max_central_pressurec2:
+    if max_pc2 < max_central_pc2:
         if args.verbose:
             print('limitting central_pressurec2 <= %.6e based on max_baryon_density = %.6e'%(max_pc2, max_baryon_density))
-        max_central_pressurec2 = max_pc2
+        max_central_pc2 = max_pc2
 
 if args.central_energy_densityc2_range is not None:
     min_energy_densityc2, max_energy_densityc2 = args.central_energy_densityc2_range
 
     # check minimum
     min_pc2 = np.interp(min_energy_densityc2, energy_densityc2, pressurec2)
-    if min_pc2 > min_central_pressurec2:
+    if min_pc2 > min_central_pc2:
         if args.verbose:
             print('limitting central_pressurec2 >= %.6e based on min_energy_densityc2 = %.6e'%(min_pc2, min_energy_densityc2))
-        min_central_pressurec2 = min_pc2
+        min_central_pc2 = min_pc2
 
     # check maximum
     max_pc2 = np.interp(max_baryon_density, energy_densityc2, pressurec2)
-    if max_pc2 < max_central_pressurec2:
+    if max_pc2 < max_central_pc2:
         if args.verbose:
             print('limitting central_pressurec2 <= %.6e based on max_energy_densityc2 = %.6e'%(max_pc2, max_energy_densityc2))
-        max_central_pressurec2 = max_pc2
+        max_central_pc2 = max_pc2
 
 ### FIXME? add a sanity check that sound speed never vanishes (or becomes too small?)
 
 ### check to make sure the pressure bounds are sane, futz them if they are not
-if max_central_pressurec2 < min_central_pressurec2:
+if max_central_pc2 < min_central_pc2:
     if args.verbose:
-        print('''WARNING: central pressure bounds are out of order! Switching them, but something unexpected may be happening with this EoS!
+        print('''WARNING: central pressure bounds are out of order! Reverting to original bounds!
     min_central_pressurec2 = %.6e
-    max_central_pressurec2 = %.6e'''%(max_central_pressurec2, min_central_pressurec2))
-    min_central_pressurec2, max_central_pressurec2 = max_central_pressurec2, min_central_pressurec2
+    max_central_pressurec2 = %.6e'''%(min_central_pressurec2, max_central_pressurec2))
+    min_central_pc2, max_central_pc2 = min_central_pressurec2, max_central_pressurec2
+
+if args.verbose:
+    print('''proceeding with central pressure bounds:
+    min_central_pressurec2 = %.6e
+    max_central_pressurec2 = %.6e'''%(min_central_pc2, max_central_pc2))
+
 
 ### now compute the stellar sequence
 if args.verbose:
