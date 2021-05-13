@@ -67,7 +67,11 @@ def logcdf(samples, data, prior_bounds, weights=None, direction=DEFAULT_CUMULATI
 def _logcdf_worker(samples, data, cweights, bounds, direction=DEFAULT_CUMULATIVE_INTEGRAL_DIRECTION, conn=None):
     ### we have to account for prior volume differences between different models to properly do the model-selection integral
     ### this is handled by explicitly passing the bounds for the overall prior that may or may not be truncated by samples
-    local_samples = samples[:] ### make a copy so I can modify it in-place
+
+    ### make a copy so I can modify it in-place
+    local_samples = np.empty(len(samples), dtype=float) 
+    local_samples[:] = samples[:]
+
     local_samples[local_samples<bounds[0]] = bounds[0]
     local_samples[local_samples>bounds[1]] = bounds[1]
 
