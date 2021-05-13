@@ -81,18 +81,22 @@ def process2sequences(
         else:
             cs2c2 = utils.num_dfdx(energy_densityc2, pressurec2)
 
+        ### get local copy of bounds for just this EoS
+        max_central_pc2 = max_central_pressurec2
+        min_central_pc2 = min_central_pressurec2
+
         ### sanity check that our integration range is compatible with the EoS data available
         max_pressurec2 = np.max(pressurec2)
-        if max_central_pressurec2 > max_pressurec2:
+        if max_central_pc2 > max_pressurec2:
             if verbose:
                 print('limitting central_pressurec2 <= %.6e based on EoS data\'s range'%max_pressurec2)
-            max_central_pressurec2 = max_pressurec2
+            max_central_pc2 = max_pressurec2
 
         min_pressurec2 = np.min(pressurec2)
-        if min_central_pressurec2 < min_pressurec2:
+        if min_central_pc2 < min_pressurec2:
             if verbose:
                 print('limitting central_pressurec2 >= %.6e based on EoS data\'s range'%min_pressurec2)
-            min_central_pressurec2 = min_pressurec2
+            min_central_pc2 = min_pressurec2
 
         ### additionally check whether we're obeying the requested bounds on central baryon and energy densities
         if central_baryon_density_range is not None:
@@ -100,49 +104,49 @@ def process2sequences(
 
             # check minimum
             min_pc2 = np.interp(min_baryon_density, baryon_density, pressurec2)
-            if min_pc2 > min_central_pressurec2:
+            if min_pc2 > min_central_pc2:
                 if verbose:
                     print('limitting central_pressurec2 >= %.6e based on min_baryon_density = %.6e'%(min_pc2, min_baryon_density))
-                min_central_pressurec2 = min_pc2
+                min_central_pc2 = min_pc2
 
             # check maximum
             max_pc2 = np.interp(max_baryon_density, baryon_density, pressurec2)
-            if max_pc2 < max_central_pressurec2:
+            if max_pc2 < max_central_pc2:
                 if verbose:
                     print('limitting central_pressurec2 <= %.6e based on max_baryon_density = %.6e'%(max_pc2, max_baryon_density))
-                max_central_pressurec2 = max_pc2
+                max_central_pc2 = max_pc2
 
         if central_energy_densityc2_range is not None:
             min_energy_densityc2, max_energy_densityc2 = central_energy_densityc2_range
 
             # check minimum
             min_pc2 = np.interp(min_energy_densityc2, energy_densityc2, pressurec2)
-            if min_pc2 > min_central_pressurec2:
+            if min_pc2 > min_central_pc2:
                 if verbose:
                     print('limitting central_pressurec2 >= %.6e based on min_energy_densityc2 = %.6e'%(min_pc2, min_energy_densityc2))
-                min_central_pressurec2 = min_pc2
+                min_central_p2 = min_pc2
 
             # check maximum
             max_pc2 = np.interp(max_baryon_density, energy_densityc2, pressurec2)
-            if max_pc2 < max_central_pressurec2:
+            if max_pc2 < max_central_pc2:
                 if verbose:
                     print('limitting central_pressurec2 <= %.6e based on max_energy_densityc2 = %.6e'%(max_pc2, max_energy_densityc2))
-                max_central_pressurec2 = max_pc2
+                max_central_pc2 = max_pc2
 
         ### check to make sure the pressure bounds are sane, futz them if they are not
-        if max_central_pressurec2 < min_central_pressurec2:
+        if max_central_pc2 < min_central_pc2:
             if verbose:
-                print('''WARNING: central pressure bounds are out of order! Switching them, but something unexpected may be happening with this EoS!
+                print('''WARNING: central pressure bounds are out of order! Reverting to original bounds!
     min_central_pressurec2 = %.6e
     max_central_pressurec2 = %.6e'''%(max_central_pressurec2, min_central_pressurec2))
-            min_central_pressurec2, max_central_pressurec2 = max_central_pressurec2, min_central_pressurec2
+            min_central_pc2, max_central_p2 = min_central_pressurec2, max_central_pressurec2
 
         ### now compute the stellar sequence
         if verbose:
             print('solving for sequence of stellar models with formalism=%s'%formalism)
         central_pressurec2, macro, macro_cols = stellar_sequence(
-            min_central_pressurec2,
-            max_central_pressurec2,
+            min_central_pc2,
+            max_central_pc2,
             (pressurec2, energy_densityc2, baryon_density, cs2c2),
             verbose=Verbose,
             formalism=formalism,
