@@ -138,8 +138,13 @@ def process2sequences(
             if verbose:
                 print('''WARNING: central pressure bounds are out of order! Reverting to original bounds!
     min_central_pressurec2 = %.6e
-    max_central_pressurec2 = %.6e'''%(max_central_pressurec2, min_central_pressurec2))
-            min_central_pc2, max_central_p2 = min_central_pressurec2, max_central_pressurec2
+    max_central_pressurec2 = %.6e'''%(min_central_pressurec2, max_central_pressurec2))
+            min_central_pc2, max_central_pc2 = min_central_pressurec2, max_central_pressurec2
+
+        if verbose:
+            print('''proceeding with central pressure bounds:
+    min_central_pressurec2 = %.6e
+    max_central_pressurec2 = %.6e'''%(min_central_pc2, max_central_pc2))
 
         ### now compute the stellar sequence
         if verbose:
