@@ -58,6 +58,8 @@ along with column names to map the parameters in the eos files (--eos-basename) 
 Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
 eg "--branches-basename \'label branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
 
+rgroup.add_argument('--branches-dir', nargs=2, type=str, default=[], action='append')
+
 rgroup.add_argument('--default-y-value', default=None, type=float)
 
 rgroup.add_argument('--overlay-samples', nargs=2, type=str, default=[], action='append',
@@ -255,10 +257,15 @@ for label, column in args.eos_column:
     assert label in names, 'specifying --eos-column for unknown sample set: '+label
     eos_columns[label] = column
 
+branches_dirs = dict((label, eos_dirs[label]) for label in names:
+for label, directory in args.branches_dir:
+    assert label in names, 'specifying --branches-dir for unknown sample set: '+label
+    branches_dirs[label] = directory
+
 branches_mappings= dict((label, None) for label in names)
 for label, basename, affine, start, stop in args.branches_basename:
     assert label in names, 'specifying --branches-basename for unknown sample set: '+label
-    basename = os.path.join(eos_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', basename)
+    basename = os.path.join(branches_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', basename)
     branches_mappings[label] = basename, affine, start, stop
 
 # verbosity options

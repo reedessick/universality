@@ -46,6 +46,8 @@ along with column names to map the parameters in the eos files (--eos-basename) 
 Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
 eg "--branches-basename \'branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
 
+rgroup.add_argument('--branches-dir', type=str, default=None)
+
 rgroup.add_argument('--default-y-value', default=None, type=float)
 
 # verbosity arguments
@@ -93,6 +95,9 @@ else:
     args.quantile.sort()
 Nquantiles = len(args.quantile)
 
+if args.branches_dir is None:
+    args.branches_dir = args.eos_dir
+
 #-------------------------------------------------
 
 if args.verbose:
@@ -134,7 +139,7 @@ if args.verbose:
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 if args.branches_basename is not None:
     basename, affine, start, stop = args.branches_basename
-    branches_mapping = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
+    branches_mapping = os.path.join(args.branches_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
 else:
     branches_mapping = None
 

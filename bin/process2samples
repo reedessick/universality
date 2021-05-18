@@ -46,6 +46,8 @@ along with column names to map the parameters in the eos files (--eos-basename) 
 Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
 eg "--branches-basename \'branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
 
+rgroup.add_argument('--branches-dir', default=None, type=str)
+
 rgroup.add_argument('--default-value', nargs=2, type=str, action='append', default=[],
     help='the default value to return if the reference is not on a stable branch but --select-from-stable-branches is specified. \
 Should be specified separately for each column that we wish to extract. eg "--default-value Lambda 0.0"')
@@ -85,9 +87,12 @@ args.reference_value.sort()
 assert args.selection_rule in samples.KNOWN_SELECTION_RULES, '--selection-rule must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES))
 
 default_value = dict((key, float(val)) for key, val in args.default_value)
-if args.branches_basename is not None:
+if (args.branches_basename is not None) and (args.selection_rule != 'nearest_neighbor'):
     for column in args.columns:
-        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None'%column
+        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None unless --selection-rule=nearest_neighbor'%column
+
+if args.branches_dir is None:
+    args.branches_dir = args.eos_dir ### fall back if not specified otherwise
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
@@ -134,7 +139,7 @@ ans[:,:Nkeep+1] = keep ### fill in existing data
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 if args.branches_basename is not None:
     basename, affine, start, stop = args.branches_basename
-    branches_mapping = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
+    branches_mapping = os.path.join(args.branches_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
 else:
     branches_mapping = None
 
@@ -149,7 +154,7 @@ ans[:,Nkeep+1:] = samples.process2samples(
     verbose=args.Verbose,
     selection_rule=args.selection_rule,
     branches_mapping=branches_mapping,
-    default_values=[args.default_values[col] for col in args.columns],
+    default_values=[default_value.get(col, None) for col in args.columns],
 )
 
 ### set up output columns

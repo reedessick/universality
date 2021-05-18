@@ -5,7 +5,7 @@ __author__ = "Reed Essick (reed.essick@gmai.com)"
 #-------------------------------------------------
 
 import os
-import glob
+import sys
 
 import numpy as np
 
@@ -140,6 +140,10 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
     if branches is None:
         branches = [np.ones_like(x, dtype=bool)]
 
+    branches = [branch for branch in branches if np.any(branch)] ### NOTE: this may be fragile because we may have "sparse sampling"
+                                                                 ###     that just happens to not have any points within the branch.
+                                                                 ###     We may be able to improve upon this in the future...
+
     for branch in branches:
         assert np.all(np.diff(x[branch]) > 0), 'reference value must monotonically increase on each branch!'
 
@@ -148,9 +152,9 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
         ### NOTE: we do not require default_values to be provided with this logic!
 
         # set up holders for the indecies used in each branch...
-        ref_inds = np.empty(Nrefn, dtype=int)
+        ref_inds = np.empty(Nref, dtype=int)
         ref_dx = np.empty(Nref, dtype=float)
-        ref_dx[:] = np.infty
+        ref_dx[:] = +np.infty
 
         # iterate over branches, finding the nearest neighbor from any branch
         for branch in branches:
@@ -158,9 +162,19 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
             for i, X in enumerate(x_test): ### extract values from static and dynamic at the same time
                 dX = np.abs(x[branch]-X)
                 m = np.min(dX)
+
+                print " "
+                print dX
+                print m, inds[branch][np.argmin(dX)]
+
                 if m < ref_dx[i]: ### closer than we have previously seen
                     ref_dx[i] = m
                     ref_inds[i] = inds[branch][np.argmin(dX)] ### the corresponding index of x
+
+        if np.any(ref_inds >= len(x)):
+            print branches ### require a default value in case there are no stable branches?
+            print ref_inds
+            raise RuntimeError
 
         # extract values corresponding to the nearest neighbor indecies and assign to ans
         for j in range(Ncols):
@@ -178,10 +192,14 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
                 if (minX <= X) and (X <= maxX): ### we have coverage on this branch
                     datum = []
                     for j in range(Ncols):
-                        datum.append(np.interp(X, x[branch], data[branch][j]))
-                    values[i].append(datum)
+                        datum.append(np.interp(X, x[branch], data[branch,j]))
+                    vals[i].append(datum)
 
         ### iterate through vals and pick based on selection rule
+
+        print "\n"
+        print len(branches)
+        print vals
 
         # fill in default values as needed
         for i, val in enumerate(vals): ### one for each x_test
@@ -203,6 +221,9 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
         else:
             raise ValueError('selection_rule=%s not understood!'%selection_rule)
+
+        print vals
+        print "\n"
 
         ### iterate again to map results into ans
         vals = np.transpose(vals) ### map from Nref*Ncol --> Ncol*Nref
@@ -246,7 +267,7 @@ def process2samples(
     if static_x_test is None:
         static_x_test = []
     static_x_test = list(static_x_test) ### make sure this is a list
-    len(static_x_test)
+    Nref = len(static_x_test)
 
     if dynamic_x_test is not None:
         assert len(dynamic_x_test)==len(data)
@@ -273,7 +294,9 @@ def process2samples(
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    %d/%d %s'%(i+1, N, path))
+            sys.stdout.write('\r    %d/%d %s'%(i+1, N, path))
+            sys.stdout.flush()
+
         d, c = io.load(path, loadcolumns)
         if branches_mapping is not None:
             a = d[:,c.index(affine)]
@@ -284,7 +307,9 @@ def process2samples(
         if branches_tmp is not None:
             branches_path = branches_tmp%{'moddraw':eos//mod, 'draw':eos}
             if verbose:
-                print('    %d/%d %s'%(i+1, N, branches_path))
+                sys.stdout.write('\r    %d/%d %s'%(i+1, N, branches_path))
+                sys.stdout.flush()
+
             b, _ = io.load(branches_path, [affine_start, affine_stop])
             branches = [(start <= a)*(a <= stop) for start, stop in b] ### define booleans to represent branches
 
@@ -299,6 +324,10 @@ def process2samples(
             branches=branches,
             default_values=default_values,
         )
+
+    if verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
     return ans
 

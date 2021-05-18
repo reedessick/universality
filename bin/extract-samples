@@ -79,7 +79,7 @@ ans = samples.data2samples(
     args.reference_value,
     selection_rule=args.selection_rule,
     branches_mapping=args.branches,
-    default_values=[args.default_value[col] for col in args.columns],
+    default_values=[default_value[col] for col in args.columns],
 )
 
 outcols = samples.output_columns(args.columns, args.reference, reference_values=args.reference_value)
