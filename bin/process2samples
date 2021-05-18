@@ -38,14 +38,14 @@ rgroup.add_argument('-R', '--reference-value-column', default=[], type=str, acti
 
 rgroup.add_argument('--selection-rule', default=samples.DEFAULT_SELECTION_RULE, type=str,
     help='the rule used to choose between multiple values if the the curves are not one-to-one. \
-Must be one of: '%(', '.join(samples.KNOWN_SELECTION_RULES)))
+Must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES)))
 
 rgroup.add_argument('--branches-basename', nargs=4, type=str, default=None,
     help='if specified, will only select from stable branches. This must be a basename template that points to a summary of stable branches \
 along with column names to map the parameters in the eos files (--eos-basename) to the start/end parameters in the branches summary. \
 Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
-eg "--branches-basename \'macro-draw-%(draw)06d-branches.csv baryon_density start_central_baryon_density end_central_baryon_density"')
-    help='only select from stable branches. Primarily relevant when looking at multivalued curves')
+eg "--branches-basename \'branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
+
 rgroup.add_argument('--default-value', nargs=2, type=str, action='append', default=[],
     help='the default value to return if the reference is not on a stable branch but --select-from-stable-branches is specified. \
 Should be specified separately for each column that we wish to extract. eg "--default-value Lambda 0.0"')
@@ -144,7 +144,7 @@ ans[:,Nkeep+1:] = samples.process2samples(
     verbose=args.Verbose,
     selection_rule=args.selection_rule,
     branches_mapping=args.branches_template,
-    default_values=args.default_values,
+    default_values=[args.default_values[col] for col in args.columns],
 )
 
 ### set up output columns
