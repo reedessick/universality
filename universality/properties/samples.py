@@ -308,10 +308,12 @@ def process2samples(
         else:
             branches = None
 
+        x_test = static_x_test + (list(dynamic_x_test[i]) if dynamic_x_test is not None else [])
+
         ans[i] = data2samples(
             x,
             d,
-            static_x_test+list(dynamic_x_test[i]),
+            x_test,
             selection_rule=selection_rule,
             branches=branches,
             default_values=default_values,
