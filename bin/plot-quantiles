@@ -29,8 +29,8 @@ rgroup = parser.add_argument_group('required arguments')
 rgroup.add_argument('-s', '--samples', required=True, nargs=2, default=[], type=str, action='append',
     help='e.g.: "--samples label path/to/samples.csv"')
 
-rgroup.add_argument('ycolumn', type=str)
 rgroup.add_argument('xcolumn', type=str)
+rgroup.add_argument('ycolumn', type=str)
 
 rgroup.add_argument('xmin', type=float)
 rgroup.add_argument('xmax', type=float)
