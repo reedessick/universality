@@ -36,6 +36,18 @@ rgroup.add_argument('xmax', type=float)
 rgroup.add_argument('--quantile', default=[], type=float, action='append',
     help='generate these quantiles. DEFAULT is each percentile between 0 and 100.')
 
+rgroup.add_argument('--selection-rule', default=samples.DEFAULT_SELECTION_RULE, type=str,
+    help='the rule used to choose between multiple values if the the curves are not one-to-one. \
+Must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES)))
+
+rgroup.add_argument('--branches-basename', nargs=4, type=str, default=None,
+    help='if specified, will only select from stable branches. This must be a basename template that points to a summary of stable branches \
+along with column names to map the parameters in the eos files (--eos-basename) to the start/end parameters in the branches summary. \
+Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
+eg "--branches-basename \'branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
+
+rgroup.add_argument('--branches-dir', type=str, default=None)
+
 rgroup.add_argument('--default-y-value', default=None, type=float)
 
 # verbosity arguments
@@ -83,6 +95,9 @@ else:
     args.quantile.sort()
 Nquantiles = len(args.quantile)
 
+if args.branches_dir is None:
+    args.branches_dir = args.eos_dir
+
 #-------------------------------------------------
 
 if args.verbose:
@@ -122,6 +137,11 @@ if args.verbose:
     print('extacting data and computing quantiles')
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+if args.branches_basename is not None:
+    basename, affine, start, stop = args.branches_basename
+    branches_mapping = os.path.join(args.branches_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
+else:
+    branches_mapping = None
 
 ans = np.empty((Nquantiles, 1+args.num_points), dtype=float)
 ans[:,0] = args.quantile
@@ -135,6 +155,8 @@ ans[:,1:], _ = samples.process2quantiles(
     args.quantile,
     quantile_type='sym',
     weights=weights,
+    selection_rule=args.selection_rule,
+    branches_mapping=branches_mapping,
     default_y_value=args.default_y_value,
     verbose=args.Verbose,
 )
