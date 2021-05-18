@@ -35,8 +35,20 @@ DEFAULT=[]')
 rgroup.add_argument('-R', '--reference-value-column', default=[], type=str, action='append',
     help='look up the reference value from this column in the input data')
 
-rgroup.add_argument('--nearest-neighbor', default=False, action='store_true',
-    help='if supplied, we take the nearest neighbor when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
+
+rgroup.add_argument('--selection-rule', default=samples.DEFAULT_SELECTION_RULE, type=str,
+    help='the rule used to choose between multiple values if the the curves are not one-to-one. \
+Must be one of: '%(', '.join(samples.KNOWN_SELECTION_RULES)))
+
+rgroup.add_argument('--branches-basename', nargs=4, type=str, default=None,
+    help='if specified, will only select from stable branches. This must be a basename template that points to a summary of stable branches \
+along with column names to map the parameters in the eos files (--eos-basename) to the start/end parameters in the branches summary. \
+Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
+eg "--branches-basename \'macro-draw-%(draw)06d-branches.csv baryon_density start_central_baryon_density end_central_baryon_density"')
+    help='only select from stable branches. Primarily relevant when looking at multivalued curves')
+rgroup.add_argument('--default-value', nargs=2, type=str, action='append', default=[],
+    help='the default value to return if the reference is not on a stable branch but --select-from-stable-branches is specified. \
+Should be specified separately for each column that we wish to extract. eg "--default-value Lambda 0.0"')
 
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column. Can be repeated to specify multiple columns. If not specified, will copy over all columns by default.')
@@ -69,6 +81,13 @@ Ncol = len(args.columns)
 Nref = len(args.reference_value)+len(args.reference_value_column)
 Nkeep = len(args.copy_column)
 args.reference_value.sort()
+
+assert args.selection_rule in samples.KNOWN_SELECTION_RULES, '--selection-rule must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES))
+
+default_value = dict((key, float(val)) for key, val in args.default_value)
+if args.branches_basename is not None:
+    for column in args.columns:
+        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None'%column
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
@@ -123,7 +142,9 @@ ans[:,Nkeep+1:] = samples.process2samples(
     static_x_test=args.reference_value,
     dynamic_x_test=ref,
     verbose=args.Verbose,
-    nearest_neighbor=args.nearest_neighbor,
+    selection_rule=args.selection_rule,
+    branches_mapping=args.branches_template,
+    default_values=args.default_values,
 )
 
 ### set up output columns

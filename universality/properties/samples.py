@@ -14,6 +14,17 @@ from universality import stats
 
 #-------------------------------------------------
 
+KNOWN_SELECTION_RULES = [
+    'random',
+    'min',
+    'max',
+    'nearest_neighbor',
+]
+
+DEFAULT_SELECTION_RULE = KNOWN_SELECTION_RULES[0]
+
+#------------------------
+
 DEFAULT_COLUMN_NAME = {
     'identity': '%(fcolumn)s',
     'add': '(%(fcolumn)s)+(%(xcolumn)s)',
@@ -114,7 +125,7 @@ def process_calculus(
 # utility functions for processing process directory structures
 #-------------------------------------------------
 
-def data2samples(x, data, static, dynamic, nearest_neighbor=False):
+def data2samples(x, data, static, dynamic, selection_rule=DEFAULT_SELECTION_RULE):
     """logic for exactly how we extract samples from (possibly non-monotonic) data
     """
     Nref, static_x_test = static
@@ -122,6 +133,11 @@ def data2samples(x, data, static, dynamic, nearest_neighbor=False):
 
     Ndata, Ncols = data.shape
     ans = np.empty((Nref+Ndyn)*Ncols, dtype=float)
+
+    nearest_neighbor = (selection_rule == 'nearest_neighbor')
+
+    if not nearest_neighbor:
+        raise NotImplementedError('need to code up other selection rules!')
 
     if nearest_neighbor:
         if Nref > 0:
@@ -178,13 +194,18 @@ def process2samples(
         static_x_test=None,
         dynamic_x_test=None,
         verbose=False,
-        nearest_neighbor=False,
+        selection_rule=DEFAULT_SELECTION_RULE,
+        branches_mapping=None,
+        default_values=None,
     ):
     """manages I/O and extracts samples at the specified places
     returns an array that is ordered as follows
         for each ycolumn: for each static x_test
     """
     loadcolumns = [xcolumn] + ycolumns
+
+    if branches_mapping is not None:
+        raise NotImplementedError('need to code up a way to read out only the stable branches')
 
     if static_x_test is not None:
         Nref = len(static_x_test)
@@ -210,7 +231,7 @@ def process2samples(
         x = d[:,c.index(xcolumn)]
         d = d[:,1:]
 
-        ans[i] = data2samples(x, d, (Nref, static_x_test), (Ndyn, dynamic_x_test[i]), nearest_neighbor=nearest_neighbor)
+        ans[i] = data2samples(x, d, (Nref, static_x_test), (Ndyn, dynamic_x_test[i]), selection_rule=selection_rule)
 
     return ans
 
