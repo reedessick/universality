@@ -231,6 +231,7 @@ def process2samples(
         ycolumns,
         static_x_test=None,
         dynamic_x_test=None,
+        x_multiplier=1.,
         verbose=False,
         selection_rule=DEFAULT_SELECTION_RULE,
         branches_mapping=None,
@@ -241,9 +242,6 @@ def process2samples(
         for each ycolumn: for each static x_test
     """
     loadcolumns = [xcolumn] + ycolumns
-
-    if branches_mapping is not None:
-        raise NotImplementedError('need to code up a way to read out only the stable branches')
 
     if static_x_test is None:
         static_x_test = []
@@ -280,7 +278,7 @@ def process2samples(
         if branches_mapping is not None:
             a = d[:,c.index(affine)]
 
-        x = d[:,c.index(xcolumn)]
+        x = d[:,c.index(xcolumn)] * x_multiplier
         d = d[:,[c.index(col) for col in ycolumns]]
 
         if branches_tmp is not None:
@@ -318,13 +316,13 @@ def process2quantiles(
         x_multiplier=1.,
         y_multiplier=1.,
         weights=None,
+        selection_rule=DEFAULT_SELECTION_RULE,
+        branches_mapping=None,
         default_y_value=None,
         verbose=False,
     ):
     """manages I/O and extracts quantiles at the specified places
     """
-    y_test = [] ### keep this as a list because we don't know how many stable branches there are
-    w_test = []
     num_points = len(x_test)
 
     truth = np.empty(num_points, dtype=bool) ### used to extract values
@@ -332,40 +330,6 @@ def process2quantiles(
     columns = [xcolumn, ycolumn]
     if weights is None:
         weights = np.ones(N, dtype=float) / N
-
-    raise NotImplementedError('change the following to make use of data2samples logic!')
-
-    for ind, (eos, weight) in enumerate(zip(data, weights)): ### iterate over samples and compute weighted moments
-        paths = sorted(glob.glob(tmp%{'moddraw':eos//mod, 'draw':eos}))
-        for eos_path in paths:
-            if verbose:
-                print('    %d/%d %s'%(ind+1, N, eos_path))
-            d, _ = io.load(eos_path, columns)
-
-            d[:,0] *= x_multiplier
-            d[:,1] *= y_multiplier
-
-            _y = np.empty(num_points, dtype=float)
-            _y[:] = np.nan ### signal that nothing was available at this x-value
-
-            truth[:] = (np.min(d[:,0])<=x_test)*(x_test<=np.max(d[:,0])) ### figure out which x-test values are contained in the data
-            _y[truth] = np.interp(x_test[truth], d[:,0], d[:,1]) ### fill those in with interpolated values
-
-            y_test.append( _y ) ### add to the total list
-            w_test.append( weight )
-
-        if len(paths) and (default_y_value is not None) and np.any(x_test > np.max(d[:,0])):
-            _y = np.empty(num_points, dtype=float)
-            _y[:] = np.nan ### signal that nothing was available at this x-value
-            _y[x_test >= np.max(d[:,0])] = default_y_value
-            y_test.append( _y ) ### add to the total list
-            w_test.append( weight )
-
-    if len(y_test)==0:
-        raise RuntimeError('could not find any files matching "%s"'%tmp)
-
-    y_test = np.array(y_test) ### cast to an array
-    w_test = np.array(w_test)
 
     ### compute the quantiles
     Nquantiles = len(quantiles)
@@ -375,12 +339,33 @@ def process2quantiles(
     qs = np.empty((Nquantiles, num_points), dtype=float)
     med = np.empty(num_points, dtype=float)
 
+    ### delegate to process2samples to actually extract data from files
+    if default_y_value is None:
+        default_values = [np.nan] ### flag that we want to exclude this from the quantile calculation
+    else:
+        default_values = [default_y_value]
+
+    # returns an array of shape: (len(data), len(x_test))
+    samps = process2samples(
+        data,
+        tmp,
+        mod,
+        xcolumn,
+        [ycolumn],
+        static_x_test=x_test,
+        verbose=verbose,
+        selection_rule=selection_rule,
+        branches_mapping=branches_mapping,
+        default_values=default_values,
+    )
+
+    ### iterate over the corresponding samps, computing quantile for each x_test
     for i in xrange(num_points):
 
-        _y = y_test[:,i]
+        _y = samps[:,i] ### extract the values from this particular x_test
         truth = _y==_y
         _y = _y[truth] ### only keep things that are not nan
-        _w = w_test[truth]
+        _w = weights[truth]
 
         if quantile_type=="sym":
             qs[:,i] = stats.quantile(_y, quantiles, weights=_w)     ### compute quantiles

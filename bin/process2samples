@@ -132,6 +132,11 @@ ans = np.empty((N, 1+Nkeep+Nref*Ncol), dtype=float)
 ans[:,:Nkeep+1] = keep ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
+if args.branches_basename is not None:
+    basename, affine, start, stop = args.branches_basename
+    branches_mapping = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', basename), affine, start, stop
+else:
+    branches_mapping = None
 
 ans[:,Nkeep+1:] = samples.process2samples(
     data,
@@ -143,7 +148,7 @@ ans[:,Nkeep+1:] = samples.process2samples(
     dynamic_x_test=ref,
     verbose=args.Verbose,
     selection_rule=args.selection_rule,
-    branches_mapping=args.branches_template,
+    branches_mapping=branches_mapping,
     default_values=[args.default_values[col] for col in args.columns],
 )
 

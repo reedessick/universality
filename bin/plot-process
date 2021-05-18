@@ -48,6 +48,16 @@ rgroup.add_argument('--y-multiplier', default=1, type=str,
 rgroup.add_argument('--x-multiplier', default=1, type=str,
     help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
 
+rgroup.add_argument('--selection-rule', default=samples.DEFAULT_SELECTION_RULE, type=str,
+    help='the rule used to choose between multiple values if the the curves are not one-to-one. \
+Must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES)))
+
+rgroup.add_argument('--branches-basename', nargs=5, type=str, default=None,
+    help='if specified, will only select from stable branches. This must be a basename template that points to a summary of stable branches \
+along with column names to map the parameters in the eos files (--eos-basename) to the start/end parameters in the branches summary. \
+Note that the column used to look up branches should be monotonically increasing so that it uniquely defines each branch according to the contained range. \
+eg "--branches-basename \'label branches_summary_template baryon_density start_central_baryon_density end_central_baryon_density"')
+
 rgroup.add_argument('--default-y-value', default=None, type=float)
 
 rgroup.add_argument('--overlay-samples', nargs=2, type=str, default=[], action='append',
@@ -244,6 +254,12 @@ eos_columns = dict((label, DEFAULT_EOS_COLUMN) for label in names)
 for label, column in args.eos_column:
     assert label in names, 'specifying --eos-column for unknown sample set: '+label
     eos_columns[label] = column
+
+branches_mappings= dict((label, None) for label in names)
+for label, basename, affine, start, stop in args.branches_basename:
+    assert label in names, 'specifying --branches-basename for unknown sample set: '+label
+    basename = os.path.join(eos_dirs[label], 'DRAWmod%d'%eos_num_per_dir[label]+'-%(moddraw)06d', basename)
+    branches_mappings[label] = basename, affine, start, stop
 
 # verbosity options
 args.verbose |= args.Verbose
@@ -462,6 +478,8 @@ for ind, (label, path) in enumerate(args.samples):
             x_multiplier=args.x_multiplier,
             y_multiplier=args.y_multiplier,
             weights=weights,
+            selection_rule=args.selection_rule,
+            branches_mapping=branches_mappings[label],
             default_y_value=args.default_y_value,
             verbose=args.Verbose,
         )
