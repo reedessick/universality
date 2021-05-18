@@ -8,6 +8,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 from argparse import ArgumentParser
 
+from universality.properties import samples
+
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
@@ -25,8 +27,11 @@ rgroup.add_argument('columns', nargs='+', type=str,
 rgroup.add_argument('-r', '--reference-value', default=[], type=float, action='append',
     help='the reference values at which we extract values from the EOS parameters. \
 DEFAULT=[]')
-rgroup.add_argument('--nearest-neighbor', default=False, action='store_true',
-    help='if supplied, we take the nearest neighbor when looking up the sample instead of interpolation (which may fail if the curve is not monotonic)')
+
+rgroup.add_argument('--selection-rule', default=samples.DEFAULT_SELECTION_RULE, type=str)
+rgroup.add_argument('--branches', nargs=4, type=str, default=None,
+    help='eg "--branches path affine start stop"')
+rgroup.add_argument('--default-value', nargs=2, type=str, default=[], action='append')
 
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
@@ -44,6 +49,11 @@ args.reference_value.sort()
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
+
+default_value = dict((key, float(val)) for key, val in args.default_value)
+if args.branches is not None:
+    for column in args.columns:
+        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None'%column
 
 #-------------------------------------------------
 
@@ -66,9 +76,10 @@ ans = np.empty((N, Nref*Ncol), dtype=float)
 ans = samples.data2samples(
     x,
     data,
-    (Nref, args.reference_value),
-    (0, None), ### not used
-    nearest_neighbor=args.nearest_neighbor,
+    args.reference_value,
+    selection_rule=args.selection_rule,
+    branches_mapping=args.branches,
+    default_values=[args.default_value[col] for col in args.columns],
 )
 
 outcols = samples.output_columns(args.columns, args.reference, reference_values=args.reference_value)
