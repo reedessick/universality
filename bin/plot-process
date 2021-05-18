@@ -257,7 +257,7 @@ for label, column in args.eos_column:
     assert label in names, 'specifying --eos-column for unknown sample set: '+label
     eos_columns[label] = column
 
-branches_dirs = dict((label, eos_dirs[label]) for label in names:
+branches_dirs = dict((label, eos_dirs[label]) for label in names)
 for label, directory in args.branches_dir:
     assert label in names, 'specifying --branches-dir for unknown sample set: '+label
     branches_dirs[label] = directory

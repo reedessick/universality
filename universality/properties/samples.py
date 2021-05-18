@@ -149,36 +149,36 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
     # retrieve values from data on each branch separately
     if selection_rule == 'nearest_neighbor':
-        ### NOTE: we do not require default_values to be provided with this logic!
 
         # set up holders for the indecies used in each branch...
         ref_inds = np.empty(Nref, dtype=int)
+        ref_inds[:] = -1 ### flag that these have not been filled in
         ref_dx = np.empty(Nref, dtype=float)
         ref_dx[:] = +np.infty
 
         # iterate over branches, finding the nearest neighbor from any branch
         for branch in branches:
+            minX = np.min(x[branch])
+            maxX = np.max(x[branch])
+
             # find index for static x
             for i, X in enumerate(x_test): ### extract values from static and dynamic at the same time
-                dX = np.abs(x[branch]-X)
-                m = np.min(dX)
+                if (minX <= X) and (X <= maxX):
+                    dX = np.abs(x[branch]-X)
+                    m = np.min(dX)
 
-                print " "
-                print dX
-                print m, inds[branch][np.argmin(dX)]
-
-                if m < ref_dx[i]: ### closer than we have previously seen
-                    ref_dx[i] = m
-                    ref_inds[i] = inds[branch][np.argmin(dX)] ### the corresponding index of x
-
-        if np.any(ref_inds >= len(x)):
-            print branches ### require a default value in case there are no stable branches?
-            print ref_inds
-            raise RuntimeError
+                    if m < ref_dx[i]: ### closer than we have previously seen
+                        ref_dx[i] = m
+                        ref_inds[i] = inds[branch][np.argmin(dX)] ### the corresponding index of x
 
         # extract values corresponding to the nearest neighbor indecies and assign to ans
         for j in range(Ncols):
-            ans[j*Nref:(j+1)*Nref] = data[:,j][ref_inds]
+            s = j*Nref
+            for i, ref_ind in enumerate(ref_inds):
+                if ref_ind != -1: ### we found something on at least one stable branch
+                    ans[s+i] = data[ref_ind,j]
+                else: ### didn't find anything
+                    ans[s+i] = default_values[j]
 
     # the rest of the selection rules are more standard; we find all possible values
     else:
@@ -196,10 +196,6 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
                     vals[i].append(datum)
 
         ### iterate through vals and pick based on selection rule
-
-        print "\n"
-        print len(branches)
-        print vals
 
         # fill in default values as needed
         for i, val in enumerate(vals): ### one for each x_test
@@ -221,9 +217,6 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
         else:
             raise ValueError('selection_rule=%s not understood!'%selection_rule)
-
-        print vals
-        print "\n"
 
         ### iterate again to map results into ans
         vals = np.transpose(vals) ### map from Nref*Ncol --> Ncol*Nref
@@ -279,9 +272,8 @@ def process2samples(
     assert Ntot > 0, 'must provide at least one static_x_test or dynamic_x_test'
 
     if branches_mapping is not None:
-        if selection_rule != 'nearest_neighbor':
-            assert default_values is not None, 'must specify default_values when branches_mapping is not None'
-            assert len(default_values) == len(ycolumns), 'must specify exactly 1 default value for each ycolumn!'
+        assert default_values is not None, 'must specify default_values when branches_mapping is not None'
+        assert len(default_values) == len(ycolumns), 'must specify exactly 1 default value for each ycolumn!'
 
         branches_tmp, affine, affine_start, affine_stop = branches_mapping
         loadcolumns.append(affine)

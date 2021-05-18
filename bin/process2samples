@@ -87,9 +87,9 @@ args.reference_value.sort()
 assert args.selection_rule in samples.KNOWN_SELECTION_RULES, '--selection-rule must be one of: %s'%(', '.join(samples.KNOWN_SELECTION_RULES))
 
 default_value = dict((key, float(val)) for key, val in args.default_value)
-if (args.branches_basename is not None) and (args.selection_rule != 'nearest_neighbor'):
+if (args.branches_basename is not None):
     for column in args.columns:
-        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None unless --selection-rule=nearest_neighbor'%column
+        assert column in default_value, 'must specify --default-value for column=%s when --branches-basename is not None'%column
 
 if args.branches_dir is None:
     args.branches_dir = args.eos_dir ### fall back if not specified otherwise
