@@ -199,4 +199,12 @@ def process2branch_properties(
         )
         if verbose:
             print('    writing summary into: %s'%sum_path)
+
+        newdir = os.path.dirname(sum_path)
+        if not os.path.exists(newdir):
+            try:
+                os.makedirs(newdir)
+            except OSError:
+                pass ### directory already exists
+
         io.write(sum_path, params, names)
