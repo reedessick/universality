@@ -145,7 +145,7 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
                                                                  ###     We may be able to improve upon this in the future...
 
     for branch in branches:
-        assert np.all(np.diff(x[branch]) > 0), 'reference value must monotonically increase on each branch!'
+        assert np.all(np.diff(x[branch]) >= 0), 'reference value must not decrease at any point on each branch!'
 
     # retrieve values from data on each branch separately
     if selection_rule == 'nearest_neighbor':
@@ -205,7 +205,7 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
         # pick from the branches at random (independently for each x_test)
         if selection_rule == 'random': ### select from multivalued at random
-            vals = [val[np.random.randint(len(val), size=1)] for val in vals]
+            vals = [val[np.random.randint(len(val))] for val in vals]
 
         elif selection_rule == 'min': ### pick the minimum, requires Ncols==1
             assert Ncols == 1, 'cannot use selection_rul="min" with more than one column simultaneously!'
