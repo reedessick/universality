@@ -275,6 +275,11 @@ def process2samples(
     Ntot = Nref+Ndyn
     assert Ntot > 0, 'must provide at least one static_x_test or dynamic_x_test'
 
+    if (Nref > 0) and (selection_rule == 'nearest_neighbor'):
+        print('WARNING! selection_rule="nearest_neighbor" may not be safe when specifying static_x_test. \
+Instead, please use it only with dynamic_x_test that correspond to the exact values of individual samples \
+that have already been extracted from the curves (e.g., the maximum)')
+
     if branches_mapping is not None:
         assert default_values is not None, 'must specify default_values when branches_mapping is not None'
         assert len(default_values) == len(ycolumns), 'must specify exactly 1 default value for each ycolumn!'
