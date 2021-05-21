@@ -144,11 +144,12 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
                                                                  ###     that just happens to not have any points within the branch.
                                                                  ###     We may be able to improve upon this in the future...
 
-    for branch in branches:
-        assert np.all(np.diff(x[branch]) >= 0), 'reference value must not decrease at any point on each branch!'
-
     # retrieve values from data on each branch separately
     if selection_rule == 'nearest_neighbor':
+
+        ### NOTE:
+        ###    we do not require monotonicity within the branches because we just look for the nearest point.
+        ###    this could quickly get you into trouble if you don't know what you're doing, so be careful!
 
         # set up holders for the indecies used in each branch...
         ref_inds = np.empty(Nref, dtype=int)
@@ -182,6 +183,9 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
     # the rest of the selection rules are more standard; we find all possible values
     else:
+
+        for branch in branches:
+            assert np.all(np.diff(x[branch]) >= 0), 'reference value must not decrease at any point on each branch when interpolating!'
 
         # extract values from each branch where there is coverage
         vals = [[] for _ in range(Nref)] ### holder for values from each branch
