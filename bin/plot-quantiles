@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 from universality.utils import (utils, io, units)
 from universality import plot
 from universality import stats
+from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid)
 from universality.properties import samples
 
 #-------------------------------------------------
@@ -40,6 +41,9 @@ rgroup.add_argument('--y-multiplier', default=1, type=str,
 rgroup.add_argument('--x-multiplier', default=1, type=str,
     help='multiply all x-values by this before plotting. x-limits are applied after multiplying.')
 
+rgroup.add_argument('--overlay-samples', nargs=2, type=str, default=[], action='append',
+    help='e.g. "--overlay-samples name samples.csv"')
+
 # verbosity arguments
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -60,6 +64,24 @@ wgroup = parser.add_argument_group('workflow arguments')
 wgroup.add_argument('--num-points', default=101, type=int,
     help='the number of interpolation points used when plotting')
 
+# samples arguments
+sgroup = parser.add_argument_group('overlay samples arguments')
+
+sgroup.add_argument('--overlay-xcolumn', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-xcolumn name x"')
+sgroup.add_argument('--overlay-ycolumn', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-ycolumn name y"')
+
+sgroup.add_argument('--overlay-column-bandwidth', nargs=3, default=[], type=str, action='append',
+    help='e.g.: "--overlay-column-bandwidth name column 0.1"')
+
+sgroup.add_argument('--overlay-weight-column', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-weight-column name column"')
+sgroup.add_argument('--overlay-weight-column-is-log', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-weight-column name column"')
+sgroup.add_argument('--overlay-invert-weight-column', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-weight-column name column"')
+
 # plotting options
 pgroup = parser.add_argument_group('plotting options')
 
@@ -73,6 +95,21 @@ pgroup.add_argument('--color', nargs=2, action='append', default=[], type=str,
 pgroup.add_argument('--truth-color', default=plot.DEFAULT_TRUTH_COLOR, type=str)
 pgroup.add_argument('--reference-color', nargs=2, type=str, default=[], action='append',
     help='e.g.: "--reference-color name b"')
+
+pgroup.add_argument('--overlay-color', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-color name blue"')
+pgroup.add_argument('--overlay-alpha', nargs=2, default=[], type=str, action='append',
+    help='e.g.: "--overlay-alpha name 0.5"')
+
+pgroup.add_argument('--overlay-no-scatter', default=False, action='store_true',
+    help='do not plot the points from the overlay as a scatter')
+pgroup.add_argument('--overlay-level', default=[], type=float, action='append',
+    help='e.g.: "--overlay-level 0.9"')
+pgroup.add_argument('--overlay-filled', default=False, action='store_true')
+pgroup.add_argument('--overlay-num-points', default=101, type=int,
+    help='the number of grid points used in the KDE overlays')
+
+# other options
 
 parser.add_argument('--quantile', default=[], type=float, action='append',
     help='plot these quantiles. \
@@ -148,6 +185,9 @@ if isinstance(args.y_multiplier, str) and hasattr(units, args.y_multiplier):
 else:
     args.y_multiplier = float(args.y_multiplier)
 
+logx = args.xcolumn in args.logcolumn
+logy = args.ycolumn in args.logcolumn
+
 # plotting options
 colors = dict((label, plot.DEFAULT_COLOR1) for label in names)
 for label, color in args.color:
@@ -208,6 +248,58 @@ if args.output_dir and (not os.path.exists(args.output_dir)):
 
 if not args.figtype:
     args.figtype = plot.DEFAULT_FIGTYPES
+
+# overlay KDE options
+overlay_names = [a for a, b in args.overlay_samples] ### maintain order in which these were supplied
+overlay_paths = dict(args.overlay_samples)
+
+overlay_xcolumn = dict((name, args.xcolumn) for name in overlay_names)
+for name, xcolumn in args.overlay_xcolumn:
+    assert name in overlay_names, 'specifying --overlay-xcolumn for unknown overlay samples: '+name
+    overlay_xcolumn[name] = xcolumn
+
+overlay_ycolumn = dict((name, args.ycolumn) for name in overlay_names)
+for name, ycolumn in args.overlay_ycolumn:
+    assert name in overlay_names, 'specifying --overlay-ycolumn for unknown overlay samples: '+name
+    overlay_ycolumn[name] = ycolumn
+
+overlay_column_bandwidth = dict((name, {overlay_xcolumn[name]:None, overlay_ycolumn[name]:None}) for name in overlay_names)
+for name, column, bandwidth in args.overlay_column_bandwidth:
+    assert name in overlay_names, 'specifying --overlay-x-bandwidth for unknown overlay samples: '+name
+    assert column in overlay_column_bandwidth[name], 'specfying --overlay-column-bandwidth for unknown column: '+column
+    overlay_column_bandwidth[name][column] = float(bandwidth)
+
+overlay_weight_column = dict((name, []) for name in overlay_names)
+for name, column in args.overlay_weight_column:
+    assert name in overlay_names, 'specifying --overlay-weight-column for unknown overlay samples: '+name
+    overlay_weight_column[name].append(column)
+
+overlay_weight_column_is_log = dict((name, []) for name in overlay_names)
+for name, column in args.overlay_weight_column_is_log:
+    assert name in overlay_names, 'specifying --overlay-weight-column-is-log for unknown overlay samples: '+name
+    assert column in overlay_weight_column[name], 'specifying --overlay-weight-column-is-log for unkown column: '+column
+    overlay_weight_column_is_log[name].append(column)
+
+overlay_invert_weight_column = dict((name, []) for name in overlay_names)
+for name, column in args.overlay_invert_weight_column:
+    assert name in overlay_names, 'specifying --overlay-invert-weight-column for unknown overlay samples: '+name
+    assert column in overlay_weight_column[name], 'specifying --overlay-invert-weight-column for unknown column: '+column
+    overlay_invert_weight_column[name].append(column)
+
+overlay_alpha = dict((name, plot.DEFAULT_ALPHA) for name in overlay_names)
+for name, a in args.overlay_alpha:
+    assert name in overlay_names, 'specifying --overlay-alpha for unknown overlay samples: '+name
+    overlay_alpha[name] = float(a)
+
+overlay_color = dict((name, plot.DEFAULT_COLOR3) for name in overlay_names)
+for name, color in args.overlay_color:
+    assert name in overlay_names, 'specifying --overlay-color for unknown overlay samples: '+name
+    overlay_color[name] = color
+
+if not args.overlay_level:
+    args.overlay_level.append(0.9)
+    if args.overlay_filled:
+        args.overlay_level.append(0.90001)
 
 #-------------------------------------------------
 
@@ -285,7 +377,7 @@ if args.residuals or args.ratios:
 if args.verbose:
     print('plotting')
 
-fig, ax = plot.envelope(
+fig = plot.envelope(
         x_test,
         y,
         y_median,
@@ -295,8 +387,8 @@ fig, ax = plot.envelope(
         labels[args.ycolumn],
         [args.xmin, args.xmax],
         legend=args.legend,
-        logxcolumn=args.xcolumn in args.logcolumn,
-        logycolumn=args.ycolumn in args.logcolumn,
+        logxcolumn=logx,
+        logycolumn=logy,
         grid=args.grid,
         ymin=args.ymin,
         ymax=args.ymax,
@@ -316,6 +408,161 @@ fig, ax = plot.envelope(
         figwidth=args.figwidth,
         figheight=args.figheight,
 )
+
+### overlay KDEs as needed
+variances = np.empty(2, dtype=float)
+vects = np.empty((2, args.overlay_num_points), dtype=float)
+
+overlay_shape = (args.overlay_num_points, args.overlay_num_points)
+
+YMIN, YMAX = fig[1].get_ylim()
+
+for name in overlay_names:
+
+    path = overlay_paths[name]
+    xcolumn = overlay_xcolumn[name]
+    ycolumn = overlay_ycolumn[name]
+
+    # load samples
+    if args.verbose:
+        print('loading samples for overlay %s from: %s\n    xcolumn=%s\n    ycolumn=%s'%(name, path, xcolumn, ycolumn))
+
+    logcolumns = []
+
+    data, cols = io.load(path, [xcolumn, ycolumn])
+    data[:,0] *= args.x_multiplier
+    data[:,1] *= args.y_multiplier
+
+    if logx:
+        if args.Verbose:
+            print('computing KDE overlay in logarithmic x-coordinates to match plot scale')
+        data[:,0] = np.log(data[:,0])
+
+    if logy:
+        if args.Verbose:
+            print('computing KDE overlay in logarithmic y-coordinates to match plot scale')
+        data[:,1] = np.log(data[:,1])
+
+    if overlay_weight_column[name]:
+        if args.verbose:
+            print('loading non-trivial weights from: %s'%path)
+        weights = io.load_weights(
+            path,
+            overlay_weight_column[name],
+            logweightcolumns=overlay_weight_column_is_log[name],
+            invweightcolumns=overlay_invert_weight_column[name],
+        )
+    else:
+        weights = np.ones(len(data), dtype=float)/len(data)
+
+    # throw away samples that have zero weight
+    data = data[weights>0]
+    weights = weights[weights>0]
+
+    # set up variances
+
+    if overlay_column_bandwidth[name][xcolumn] is not None:
+        variances[0] = overlay_column_bandwidth[name][xcolumn]
+    else:
+        variances[0] = silverman_bandwidth(data[:,0], weights=weights)
+        if args.Verbose:
+            print('automatically chose %s bandwidth=%.3e'%(cols[0], variances[0]))
+
+    if overlay_column_bandwidth[name][ycolumn] is not None:
+        variances[1] = overlay_column_bandwidth[name][ycolumn]
+    else:
+        variances[1] = silverman_bandwidth(data[:,1], weights=weights)
+        if args.Verbose:
+            print('automatically chose %s bandwidth=%.3e'%(cols[1], variances[1]))
+
+    variances = variances**2
+
+    # set up vects
+    # need to figure out gridding so that we plot the PDF with the correct measure
+    # this is based on whether each column was logged or not
+
+    xmin, xmax = stats.samples2range(data[:,0])
+    if logx:
+        xmin = max(xmin, np.log(args.xmin))
+        xmax = min(xmax, np.log(args.xmax))
+    else:
+        xmin = max(xmin, args.xmin)
+        xmax = min(xmax, args.xmax)
+
+    if args.Verbose:
+        print('automatically chose %s range: %.3e, %.3e'%(cols[0], xmin, xmax))
+
+    vects[0] = np.linspace(xmin, xmax, args.overlay_num_points)
+
+    ymin, ymax = stats.samples2range(data[:,1])
+    if logy:
+        ymin = max(ymin, np.log(YMIN))
+        ymax = min(ymax, np.log(YMAX))
+    else:
+        ymin = max(ymin, YMIN)
+        ymax = min(ymax, YMAX)
+
+    if args.Verbose:
+        print('automatically chose %s range: %.3e, %.3e'%(cols[1], ymin, ymax))
+
+    vects[1] = np.linspace(ymin, ymax, args.overlay_num_points)
+
+    # compute and plot kde
+    if args.Verbose:
+        print('computing KDE')
+    kde = logkde(
+        vects2flatgrid(vects[0], vects[1]),
+        data,
+        variances,
+        weights=weights,
+    )
+    kde = np.exp(kde-np.max(kde)).reshape(overlay_shape)
+    # NOTE: we don't need to normalize the kde because that'll be taken care of within the call to stats.logkde2levels
+
+    ### actually plot the contours
+
+    # fix vects for plotting (ie, undo the fact that we computed the KDE in log coordinates)
+    if logx:
+        if args.Verbose:
+            print('undoing log-transform for x-column before plotting')
+        vects[0] = np.exp(vects[0])
+    if logy:
+        if args.Verbose:
+            print('undoing log-transform for y-column before plotting')
+        vects[1] = np.exp(vects[1])
+
+    # figure out the thresholds for credible regions
+    ### NOTE: the measure should be included in the grid placement, so this should give me the right levels
+    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), args.overlay_level)), reverse=True)
+
+    if args.Verbose:
+        print('plotting KDE contours')
+
+    if args.overlay_filled:
+        fig[1].contourf(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
+    fig[1].contour(vects[0], vects[1], kde.transpose(), colors=overlay_color[name], alpha=overlay_alpha[name], levels=thrs)
+
+    if not args.overlay_no_scatter:
+        if args.Verbose:
+            print('plotting scatter')
+        scatter_color = plot.weights2color(weights, overlay_color[name])
+
+        if logx:
+            data[:,0] = np.exp(data[:,0])
+        if logy:
+            data[:,1] = np.exp(data[:,1])
+
+        fig[1].scatter(
+            data[:,0],
+            data[:,1],
+            marker='o',
+            s=2,
+            color=scatter_color,
+        )
+
+### save
+
+fig = fig[0]
 
 plot.save('plot-quantiles%s'%args.tag, fig, directory=args.output_dir, figtypes=args.figtype, dpi=args.dpi, verbose=args.verbose)
 plot.close(fig)

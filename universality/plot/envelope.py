@@ -39,6 +39,7 @@ def envelope(
         filled=[],
         hatch=None,
         alphas=None,
+        plot_medians=False,
         fig=None,
         figwidth=plt.DEFAULT_FIGWIDTH,
         figheight=plt.DEFAULT_FIGHEIGHT,
@@ -119,11 +120,12 @@ def envelope(
                 ax_res.plot(x_test, quantiles[ind,2*i+1,:]/y_reference, alpha=alpha, color=color)
 
         # add median
-        ax.plot(x, medians[ind,:], color=color, alpha=1.0) ### plot the median
-        if residuals:
-            ax_res.plot(x, medians[ind,:]-y_reference, color=color, alpha=1.0)
-        elif ratios:
-            ax_res.plot(test, medians[ind,:]/y_reference, color=color, alpha=1.0)
+        if plot_medians:
+            ax.plot(x, medians[ind,:], color=color, alpha=1.0) ### plot the median
+            if residuals:
+                ax_res.plot(x, medians[ind,:]-y_reference, color=color, alpha=1.0)
+            elif ratios:
+                ax_res.plot(test, medians[ind,:]/y_reference, color=color, alpha=1.0)
 
     # add reference curves
     for ref_label, curve in reference:

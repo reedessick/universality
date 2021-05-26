@@ -376,9 +376,9 @@ for name, column in args.overlay_invert_weight_column:
     overlay_invert_weight_column[name].append(column)
 
 overlay_alpha = dict((name, plot.DEFAULT_ALPHA) for name in overlay_names)
-for name, alpha in args.overlay_alpha:
+for name, a in args.overlay_alpha:
     assert name in overlay_names, 'specifying --overlay-alpha for unknown overlay samples: '+name
-    overlay_alpha[name] = float(alpha)
+    overlay_alpha[name] = float(a)
 
 overlay_color = dict((name, plot.DEFAULT_COLOR3) for name in overlay_names)
 for name, color in args.overlay_color:
@@ -773,6 +773,7 @@ for name in overlay_names:
         vects2flatgrid(vects[0], vects[1]),
         data,
         variances,
+        weights=weights,
     )
     kde = np.exp(kde-np.max(kde)).reshape(overlay_shape)
     # NOTE: we don't need to normalize the kde because that'll be taken care of within the call to stats.logkde2levels
