@@ -118,7 +118,7 @@ if os.path.exists(args.output):
 
         if not np.all(truth): ### at least one row needs to be dropped
             if args.verbose:
-                print('WARNING! dropped %d / %d rows because their reference value was not present in all --samples'%(np.sum(truth), len(d)))
+                print('WARNING! dropped %d / %d rows because their reference value was not present in all --samples'%(len(d) - np.sum(truth), len(d)))
             d = d[truth]
 
     else:
