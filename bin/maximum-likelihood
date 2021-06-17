@@ -53,4 +53,7 @@ if args.column_range: ### need to determine which samples to keep
     _, weights = utils.prune(data, bounds, weights=weights)
 
 ### now report the maximum likelihood
-print('maxLikelihood = %.6e'%np.max(weights))
+m = np.max(weights)
+print('''\
+max{weights}      = %.6e
+max{log(weights)} = %.6e'''%(m, np.log(m)))
