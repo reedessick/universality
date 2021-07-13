@@ -123,11 +123,6 @@ if args.verbose:
 tgtdata, tgtcolumns = io.load(args.target) ### load in all the columns!
 io.check_columns(tgtcolumns, columns+[args.Mmax_column]) ### make sure we have the columns we need to
 
-Mmax = tgtdata[:,-1] ### NOTE: this could be fragile in general, but should be good enough for this script
-mass = tgtdata[:,0]
-
-tgtdata = tgtdata[:,:-1] ### we don't want to include Mmax in this
-
 if len(tgtdata): ### we need to weigh things
 
     tgtsamples = np.empty((len(tgtdata), Ncol), dtype='float')
@@ -156,11 +151,19 @@ else:
 if args.verbose:
     print('computing prior weights for each mass sample')
 
+### extract handy values
+mass = tgtdata[:,tgtcolumns.index(args.mass_column)]
+Mmax = tgtdata[:,tgtcolumns.index(args.Mmax_column)]
+
+### fix prior range
 popMmin, popMmax = args.mass_prior_range
 Mmax[Mmax > popMmax] = popMmax
 
-logkde[mass > Mmax] = - np.infty ### zero the weights for any samples that are too big
-logkde -= np.log(Mmax - popMmin)       ### divide out the prior volume
+### zero the weights for any samples that are too big
+logkde[mass > Mmax] = - np.infty
+
+### now divide out the prior volume, taking care to deal with cases where Mmax <= popMin to avoid nans
+logkde = np.where(Mmax <= popMmin, -np.infty, logkde - np.log(Mmax-popMmin))
 
 #------------------------
 
