@@ -157,7 +157,7 @@ Mmax = tgtdata[:,tgtcolumns.index(args.Mmax_column)]
 
 ### fix prior range
 popMmin, popMmax = args.mass_prior_range
-Mmax[Mmax > popMmax] = popMmax
+Mmax = np.where(Mmax > popMmax, popMmax, Mmax) ### this will make a copy so I don't modify tgtdata
 
 ### zero the weights for any samples that are too big
 logkde[mass > Mmax] = - np.infty
