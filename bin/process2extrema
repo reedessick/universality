@@ -126,7 +126,6 @@ ans[:,Nkeep+1:] = extrema.process2extrema(
     verbose=args.Verbose,
 )
 
-outcols = [args.eos_column] + args.copy_column
 outcols += extrema.outputcolumns(args.columns, custom_names=new_columns)
 
 #------------------------

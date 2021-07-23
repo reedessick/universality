@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import sys
+
 import numpy as np
 
 from universality.utils import io
@@ -90,12 +92,18 @@ def process2extrema(
     for i, eos in enumerate(data):
         path = tmp%{'moddraw':eos//mod, 'draw':eos}
         if verbose:
-            print('    %d/%d %s'%(i+1, N, path))
+            sys.stdout.write('\r    %d/%d %s'%(i+1, N, path))
+            sys.stdout.flush()
+
         d, _ = io.load(path, loadcolumns)
 
         minima = [(j, val[i]) for j, val in dynamic_minima]
         maxima = [(j, val[i]) for j, val in dynamic_maxima]
 
         ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=minima, dynamic_maxima=maxima)
+
+    if verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
     return ans
