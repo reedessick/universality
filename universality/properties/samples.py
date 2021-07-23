@@ -164,13 +164,12 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
 
             # find index for static x
             for i, X in enumerate(x_test): ### extract values from static and dynamic at the same time
-                if (minX <= X) and (X <= maxX):
-                    dX = np.abs(x[branch]-X)
-                    m = np.min(dX)
+                dX = np.abs(x[branch]-X)
+                m = np.min(dX)
 
-                    if m < ref_dx[i]: ### closer than we have previously seen
-                        ref_dx[i] = m
-                        ref_inds[i] = inds[branch][np.argmin(dX)] ### the corresponding index of x
+                if m < ref_dx[i]: ### closer than we have previously seen
+                    ref_dx[i] = m
+                    ref_inds[i] = inds[branch][np.argmin(dX)] ### the corresponding index of x
 
         # extract values corresponding to the nearest neighbor indecies and assign to ans
         for j in range(Ncols):
