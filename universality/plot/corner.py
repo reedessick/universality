@@ -37,6 +37,7 @@ def kde_corner(
         num_points=plt.DEFAULT_NUM_POINTS,
         levels=plt.DEFAULT_LEVELS,
         levels1D=[],
+        mean1D=False,  ### plot estimates of the means in 1D marginals
         hist1D=False,  ### plot a normed histogram on the 1D marginal panels in addition to the KDE estimate
         reflect=False, ### reflect data points about the boundaries when performing the KDE; may be expensive...
         verbose=False,
@@ -172,10 +173,17 @@ def kde_corner(
                         for level, (m, M) in zip(levels1D, stats.logkde2crbounds(vects[col], kde, levels1D)):
                             if verbose:
                                 print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
-                            lines.append((m, M))
+                            lines.append(((m, M), ':'))
 
                     kde = np.exp(kde - np.max(kde))
                     kde /= np.sum(kde)*dvects[col]
+
+                    if mean1D:
+                        mean = np.sum(kde*vects[col]) / np.sum(kde)
+                        if verbose:
+                            print('    mean : %.3e'%(mean))
+                            lines.append(((mean,), '-.'))
+
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
                             ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
@@ -185,9 +193,10 @@ def kde_corner(
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
                             xmax = max(xmax, np.max(n)*1.05)
 
-                        for m, M in lines:
-                            ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed') ### plot for a bigger range incase axes change later
-                            ax.plot([0, 10*xmax], [M]*2, color=color, alpha=alpha, linestyle='dashed')
+                        for tup, linestyle in lines:
+                            for m in tup:
+                                ### plot for a bigger range incase axes change later
+                                ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle=linestyle)
 
                         ax.set_xlim(xmin=0, xmax=xmax)
 
@@ -200,9 +209,10 @@ def kde_corner(
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
                             ymax = max(ymax, np.max(n)*1.05)
 
-                        for m, M in lines:
-                            ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed') ### plot for bigger range in case axes change later
-                            ax.plot([M]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed')
+                        for tup, linestyle in lines:
+                            for m in tup:
+                                ### plot for bigger range in case axes change later
+                                ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle=linestyle)
 
                         ax.set_ylim(ymin=0, ymax=ymax)
 

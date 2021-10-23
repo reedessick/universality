@@ -132,6 +132,8 @@ pgroup.add_argument('--level', default=[], type=float, action='append',
 
 pgroup.add_argument('--level1D', default=[], type=float, action='append',
     help='confidence level for the 1D histograms (shown with vertical lines). Can be repeated to specify multiple levels.')
+pgroup.add_argument('--mean1D', default=False, action='store_true',
+    help='plot an estimate of the mean in the 1D panels')
 
 pgroup.add_argument('--hist1D', default=False, action='store_true',
     help='include raw histrograms in 1D marginal panels')
@@ -429,6 +431,7 @@ for ind, (label, path) in enumerate(args.samples):
         reflect=args.reflect,
         verbose=args.Verbose,
         hist1D=args.hist1D,
+        mean1D=args.mean1D,
         levels1D=args.level1D,
         levels=args.level,
         filled=label in args.filled,
