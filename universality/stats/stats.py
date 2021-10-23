@@ -65,7 +65,10 @@ def samples2cdf(data, weights=None):
 def samples2range(data, pad=0.1):
     m = np.min(data)
     M = np.max(data)
-    delta = (M-m)*pad
+    if m!=M:
+        delta = (M-m)*pad
+    else:
+        delta = pad
     return (m-delta, M+delta)
 
 def samples2median(data, weights=None):
