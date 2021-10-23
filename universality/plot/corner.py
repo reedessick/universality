@@ -173,7 +173,7 @@ def kde_corner(
                         for level, (m, M) in zip(levels1D, stats.logkde2crbounds(vects[col], kde, levels1D)):
                             if verbose:
                                 print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
-                            lines.append(((m, M), ':'))
+                            lines.append(((m, M), 'dashed'))
 
                     kde = np.exp(kde - np.max(kde))
                     kde /= np.sum(kde)*dvects[col]
@@ -182,7 +182,7 @@ def kde_corner(
                         mean = np.sum(kde*vects[col]) / np.sum(kde)
                         if verbose:
                             print('    mean : %.3e'%(mean))
-                            lines.append(((mean,), '-.'))
+                            lines.append(((mean,), ':'))
 
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
@@ -193,10 +193,10 @@ def kde_corner(
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
                             xmax = max(xmax, np.max(n)*1.05)
 
-                        for tup, linestyle in lines:
+                        for tup, lnstyle in lines:
                             for m in tup:
                                 ### plot for a bigger range incase axes change later
-                                ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle=linestyle)
+                                ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle=lnstyle)
 
                         ax.set_xlim(xmin=0, xmax=xmax)
 
@@ -209,10 +209,10 @@ def kde_corner(
                             n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
                             ymax = max(ymax, np.max(n)*1.05)
 
-                        for tup, linestyle in lines:
+                        for tup, lnstyle in lines:
                             for m in tup:
                                 ### plot for bigger range in case axes change later
-                                ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle=linestyle)
+                                ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle=lnstyle)
 
                         ax.set_ylim(ymin=0, ymax=ymax)
 
