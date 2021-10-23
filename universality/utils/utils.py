@@ -175,7 +175,7 @@ def reflect(data, bounds, weights=None):
     Ndim = len(bounds)
 
     d = data[...]
-    for i in xrange(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
+    for i in range(Ndim): # by iterating through dimensions, we effectivly reflect previously reflected samples in other directions as needed
         if bounds[i] is None:
             continue
 
@@ -214,7 +214,7 @@ def whiten(data, verbose=False, outlier_stdv=np.infty):
 
     # adjust stds to reject outliers
     if outlier_stdv < np.infty:
-        for i in xrange(data.shape[1]):
+        for i in range(data.shape[1]):
             truth = np.abs(data[:,i]) < outlier_stdv
             refactor = np.std(data[truth,i])
 
