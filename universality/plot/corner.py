@@ -157,7 +157,8 @@ def kde_corner(
 
                     truth[col] = True
 
-                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect \
+                        else (data[:,truth], weights)
 
                     kde = logkde(
                         vects[col],
@@ -186,11 +187,27 @@ def kde_corner(
 
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
-                            ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                            ax.fill_betweenx(
+                                vects[col],
+                                kde,
+                                np.zeros_like(kde),
+                                color=color,
+                                linewidth=linewidth,
+                                linestyle=linestyle,
+                                alpha=filled_alpha,
+                            )
                         ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                            n, _, _ = ax.hist(
+                                data[:,col],
+                                bins=bins[col],
+                                histtype='step',
+                                color=color,
+                                density=True,
+                                weights=weights,
+                                orientation='horizontal',
+                            )
                             xmax = max(xmax, np.max(n)*1.05)
 
                         for tup, lnstyle in lines:
@@ -202,11 +219,26 @@ def kde_corner(
 
                     else:
                         if filled1D:
-                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                            ax.fill_between(
+                                vects[col],
+                                kde,
+                                np.zeros_like(kde),
+                                color=color,
+                                linewidth=linewidth,
+                                linestyle=linestyle,
+                                alpha=filled_alpha,
+                            )
                         ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                            n, _, _ = ax.hist(
+                                data[:,col],
+                                bins=bins[col],
+                                histtype='step',
+                                color=color,
+                                density=True,
+                                weights=weights,
+                            )
                             ymax = max(ymax, np.max(n)*1.05)
 
                         for tup, lnstyle in lines:
@@ -233,7 +265,8 @@ def kde_corner(
                             color=scatter_color,
                         )
 
-                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect \
+                        else (data[:,truth], weights)
 
                     kde = logkde(
                         vects2flatgrid(vects[col], vects[row]),
@@ -245,10 +278,27 @@ def kde_corner(
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
+                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)))
+
                     if filled:
-                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
-                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
+                        ax.contourf(
+                            vects[col],
+                            vects[row],
+                            kde.transpose(),
+                            colors=color,
+                            alpha=filled_alpha,
+                            levels=thrs,
+                        )
+                    ax.contour(
+                        vects[col],
+                        vects[row],
+                        kde.transpose(),
+                        colors=color,
+                        alpha=alpha,
+                        levels=thrs,
+                        linewidths=linewidth,
+                        linestyles=linestyle,
+                    )
 
             # decorate
             ax.grid(grid, which='both')
