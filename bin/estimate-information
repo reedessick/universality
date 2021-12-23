@@ -43,6 +43,12 @@ args = parser.parse_args()
 
 args.verbose |= args.Verbose
 
+variancedict = dict()
+for column, b in args.column_bandwidth:
+    assert column in args.columns, 'specifying --column-bandwidth for unknown column: '+column
+    variancedict[column] = float(b)**2
+variances = [bandwidthdict.get(col, None) for col in args.columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
+
 #-------------------------------------------------
 
 ### load data
@@ -68,11 +74,6 @@ if args.weight_column:
 else:
     weights = np.ones(Nsamp, dtype=float)/Nsamp
 
-#------------------------
-
-# figure out variances for KDEs
-raise NotImplementedError('''use the automated tools you set up for kde-corner-samples''')
-
 #-------------------------------------------------
 
 # compute entropy of each marginal distribution
@@ -81,9 +82,17 @@ if args.verbose:
 
 marginals = 0.0
 
-for i, column in enumerate(columns):
+for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: may break if user passes duplicate columns...
     if args.verbose:
         print('computing entropy of marginal distribution for: '+column)
+
+    ### determine bandwidth
+    v = variances[i]
+    if v is None:
+        b = plot.silverman_bandwidth(data[:,i], weights=weights) ### use bandwidth from overall marignal distrib
+        if args.Verbose:
+            print('automatically selected bandwidth=%.3e for col=%s'%(b, column))
+        variances[i] = b**2
 
     h = stats.montecarloentropy(data[:,1], weights=weights, variances=variances[i], verbose=args.Verbose)
     marginals += h

@@ -69,16 +69,17 @@ def montecarloentropy(samples, weights=None, variances=None, num_proc=DEFAULT_NU
     H = - \int dx P(x) ln[P(x)]
       ~ - \sum_i ln[KDE(x_i)] | x_i ~ P(x)
     """
+    if weights is None:
+        weights = np.ones(len(samples), dtype=float)
+    weights = weights/np.sum(weights) ### make sure weights are normalized (don't modify these in place)
+
+    # compute kde based on samples at the sample locations
     if verbose:
         print('computing KDE at %d points using %d processes'%(len(samples), num_proc))
+    logkde = kde.logkde(samples, samples, variances, weights=weights, num_proc=num_proc)
 
-    raise NotImplementedError('''
+    # now compute the monte carlo sum
+    h = - np.sum(logkde*weights)
 
-MORE IMPORTANTLY, universality.kde depends on universality.stats, so I can't import KDE here...
-
-  * kde.logkde(samples, data, variances, weights, num_proc=DEFAULT)
-  * stats.logkde2entropy(vects, logkde) ### can handle multi-dimensional data
-    -> requires KDE to be computed on a grid and then numerically integrates over that grid
-    -> we instead want to do a monte carlo sum over the values of the KDE evaulated at the sample points
-''')
-
+    # return
+    return h
