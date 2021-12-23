@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+
+"""estimate the mutual information and entropy of a joint distribution over all specified columns.
+Distributions are represented with KDEs and integrals are approximated with weighed Monte Carlo sums.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import numpy as np
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality.utils import (utils, io)
+from universality import kde
+
+#-------------------------------------------------
+
+DEFAULT_NUM_POINTS = 50
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('samples', type=str)
+parser.add_argument('--weight-column', default=[], type=str, action='append')
+parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
+
+parser.add_argument("-v", '--verbose', default=False, action='store_true')
+parser.add_argument("-V", '--Verbose', default=False, action='store_true')
+
+parser.add_argument('columns', nargs='+', type=str)
+parser.add_argument('--logcolumn', default=[], type=str, action='append')
+
+parser.add_argument('-b', '--column-bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float,
+    help='DEFAULT=%f'%kde.DEFAULT_BANDWIDTH)
+parser.add_argument('-n', '--num-points', default=DEFAULT_NUM_POINTS, type=int,
+    help='DEFAULT=%d'%DEFAULT_NUM_POINTS)
+
+args = parser.parse_args()
+
+args.verbose |= args.Verbose
+
+assert len(args.columns), 'must supply at least one column'
+
+#-------------------------------------------------
+
+### load data
+if args.verbose:
+    print('reading: '+args.samples)
+data, columns = io.load(args.samples, columns=args.columns, logcolumns=args.logcolumn)
+Nsamp = len(data)
+if args.verbose:
+    print('found %d samples for %d columns'%(Nsamp))
+
+if args.weight_column:
+    if args.verbose:
+        print('reading nontrivial weights from: %s'%(args.samples))
+    weights = io.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log)
+
+    truth = weights>0
+    data = data[truth,:]
+    weights = weights[truth]
+    Nsamp = len(data)
+    if args.verbose:
+        print('retained %d samples with non-zero weights'%Nsamp)
+
+else:
+    weights = np.ones(Nsamp, dtype=float)/Nsamp
+
+#-------------------------------------------------
+
+raise NotImplementedError('''\
+''')
