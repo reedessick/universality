@@ -13,12 +13,8 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (utils, io)
-from universality import kde
-from universality import stats
-
-#-------------------------------------------------
-
-DEFAULT_NUM_POINTS = 50
+from universality.kde.kde import DEFAULT_BANDWIDTH
+from universality.stats import information
 
 #-------------------------------------------------
 
@@ -28,16 +24,18 @@ parser.add_argument('samples', type=str)
 parser.add_argument('--weight-column', default=[], type=str, action='append')
 parser.add_argument('--weight-column-is-log', default=[], type=str, action='append')
 
+parser.add_argument('--max-num-samples', default=np.infty, type=float)
+
 parser.add_argument("-v", '--verbose', default=False, action='store_true')
 parser.add_argument("-V", '--Verbose', default=False, action='store_true')
 
 parser.add_argument('columns', nargs='+', type=str)
 parser.add_argument('--logcolumn', default=[], type=str, action='append')
 
-parser.add_argument('-b', '--column-bandwidth', default=kde.DEFAULT_BANDWIDTH, type=float,
-    help='DEFAULT=%f'%kde.DEFAULT_BANDWIDTH)
-parser.add_argument('-n', '--num-points', default=DEFAULT_NUM_POINTS, type=int,
-    help='DEFAULT=%d'%DEFAULT_NUM_POINTS)
+parser.add_argument('-b', '--column-bandwidth', default=DEFAULT_BANDWIDTH, type=float,
+    help='DEFAULT=%f'%DEFAULT_BANDWIDTH)
+parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
+    help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 
 args = parser.parse_args()
 
@@ -54,7 +52,7 @@ variances = [bandwidthdict.get(col, None) for col in args.columns] ### If None, 
 ### load data
 if args.verbose:
     print('reading: '+args.samples)
-data, columns = io.load(args.samples, columns=args.columns, logcolumns=args.logcolumn)
+data, columns = io.load(args.samples, columns=args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
 Nsamp = len(data)
 if args.verbose:
     print('found %d samples for %d columns'%(Nsamp))
@@ -62,7 +60,7 @@ if args.verbose:
 if args.weight_column:
     if args.verbose:
         print('reading nontrivial weights from: %s'%(args.samples))
-    weights = io.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log)
+    weights = io.load_weights(args.samples, args.weight_column, logweightcolumns=args.weight_column_is_log, max_num_samples=args.max_num_samples)
 
     truth = weights>0
     data = data[truth,:]
@@ -94,7 +92,13 @@ for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: 
             print('automatically selected bandwidth=%.3e for col=%s'%(b, column))
         variances[i] = b**2
 
-    h = stats.montecarloentropy(data[:,1], weights=weights, variances=variances[i], verbose=args.Verbose)
+    h = information.montecarloentropy(
+        data[:,1],
+        weights=weights,
+        variances=variances[i],
+        verbose=args.Verbose,
+        num_proc=args.num_proc,
+    )
     marginals += h
 
     # report
@@ -106,7 +110,13 @@ for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: 
 if args.verbose:
     print('computing entropy of the joint distribution')
 
-joint = stats.montecarloentropy(data, weights=weights, variances=variances, verbose=args.Verbose)
+joint = information.montecarloentropy(
+    data,
+    weights=weights,
+    variances=variances,
+    verbose=args.Verbose,
+    num_proc=args.num_proc,
+)
 
 # report
 print('H(joint) = %.6e bits'%(h))

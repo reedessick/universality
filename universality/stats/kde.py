@@ -6,9 +6,6 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 import numpy as np
 
-### bring in a few functions defined elsewhere as they depend on pre-computed KDEs
-from universality.stats.information import (logkde2entropy, logkde2information, kldiv, sym_kldiv)
-
 #-------------------------------------------------
 
 def vects2vol(vects):
@@ -180,3 +177,34 @@ def logkde2argmax(vects, logkde):
     grid = np.meshgrid(*vects, indexing='ij')
     arg = logkde.flatten().argmax()
     return np.array([g.flatten()[arg] for g in grid])
+
+def logkde2entropy(vects, logkde):
+    """
+    computes the entropy of the kde
+    incorporates vects so that kde is properly normalized (transforms into a truly discrete distribution)
+    """
+    vol = vects2vol(vects)
+    truth = logkde > -np.infty
+    return -vects2vol(vects)*np.sum(np.exp(logkde[truth])*logkde[truth])
+
+def logkde2information(vects, logkde):
+    """
+    computes the information of the kde
+    incorporates vects so that kde is properly normalized (transforms into a truly discrete distribution)
+    """
+    vol = vects2vol(vects)
+    return np.log(len(logkde.flatten())*vol) - logkde2entropy(vects, logkde)
+
+def kldiv(vects, logkde1, logkde2):
+    """
+    computes the KL divergence from kde1 to kde2
+        Dkl(k1||k2) = sum(k1*log(k1/k2))
+    """
+    truth = logkde1 > -np.infty
+    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]*(logkde1[truth] - logkde2[truth])))
+
+def sym_kldiv(vects, logkde1, logkde2):
+    """
+    Dkl(k1||k2) + Dkl(k2||k1)
+    """
+    return kldiv(vects, logkde1, logkde2) + kldiv(vects, logkde2, logkde1)
