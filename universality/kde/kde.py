@@ -9,7 +9,9 @@ from scipy.special import erf
 
 import multiprocessing as mp
 
-from universality import stats
+from universality.stats.samples import samples2cdf
+from universality.stats.montecarlo import neff
+
 from universality.utils import DEFAULT_NUM_PROC
 
 #-------------------------------------------------
@@ -31,7 +33,7 @@ def logcdf(samples, data, prior_bounds, weights=None, direction=DEFAULT_CUMULATI
     Does this directly by estimating the CDF from the weighted samples WITHOUT building a KDE"""
 
     ### this should be relatively quick (just an ordered summation), so we do it once
-    data, cweights = stats.samples2cdf(data, weights=weights)
+    data, cweights = samples2cdf(data, weights=weights)
     if direction=='increasing':
         pass ### we already integrate up from the lower values to higher values
     elif direction=='decreasing':
@@ -476,7 +478,7 @@ def silverman_bandwidth(data, weights=None):
     else: ### account for weights when computing std
         N = np.sum(weights)
         std = (np.sum(weights*data**2)/N - (np.sum(weights*data)/N)**2)**0.5
-        num = stats.neff(weights/N) ### approximate number of samples that matter
+        num = neff(weights/N) ### approximate number of samples that matter
     return 0.9 * std * num**(-0.2)
 
 def optimize_bandwidth(

@@ -4,4 +4,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
-from .stats import *
+from .montecarlo import *
+from .samples import *
+from .information import *
+from .kde import *

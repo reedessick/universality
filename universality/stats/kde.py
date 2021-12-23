@@ -1,4 +1,4 @@
-"""a module that houses utilities that compute statistics based on KDEs
+"""a module that houses utilities that compute statistics based on pre-computed KDEs
 """
 __author__ = "Reed Essick (reed.essick@gmail.com)"
 
@@ -6,120 +6,9 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 import numpy as np
 
-#-------------------------------------------------
-# basic statistical quantities about convergence of monte-carlo integrals
-#-------------------------------------------------
+### bring in a few functions defined elsewhere as they depend on pre-computed KDEs
+from universality.stats.information import (logkde2entropy, logkde2information, kldiv, sym_kldiv)
 
-def nkde(weights):
-    """the number of samples that determine the scaling of the variance of our KDE estimates"""
-    weights /= np.sum(weights)
-    return 1./np.sum(weights**2)
-
-def neff(weights):
-    """the effective number of samples based on a set of weights"""
-    return np.exp(entropy(weights, base=np.exp(1)))
-
-def entropy(weights, base=2.):
-    """compute the entropy of the distribution"""
-    weights = np.array(weights)
-    truth = weights > 0
-    weights /= np.sum(weights)
-    return -np.sum(weights[truth]*np.log(weights[truth])) / np.log(base)
-
-def information(weights, base=2.):
-    """compute the information in the distribution"""
-    return np.log(len(weights))/np.log(base) - entropy(weights, base=base)
-
-#-------------------------------------------------
-# basic statistical quantities to be derived from samples
-#-------------------------------------------------
-
-def quantile(x, quantiles, weights=None):
-    if weights is None:
-        return np.percentile(x, np.array(quantiles)*100)
-
-    else:
-        order = x.argsort()
-        x = x[order]
-        csum = np.cumsum(weights[order])
-        csum /= csum[-1]
-
-        return np.interp(quantiles, csum, x)
-#        return np.array([x[[csum<=q]][-1] for q in quantiles])
-
-def samples2cdf(data, weights=None):
-    """estimate a CDF (integrating from small values to large values in data) based on weighted samples
-    returns data, cweights (data is sorted from smallest to largest values)
-    """
-    if weights is None:
-        N = len(data)
-        weights = np.ones(N, dtype=float)/N
-
-    order = data.argsort()
-    data = data[order]
-    weights = weights[order]
-    cweights = np.cumsum(weights)/np.sum(weights)
-
-    return data, cweights
-
-def samples2range(data, pad=0.1):
-    m = np.min(data)
-    M = np.max(data)
-    delta = (M-m)*pad
-    return (m-delta, M+delta)
-
-def samples2median(data, weights=None):
-    data, cweights = samples2cdf(data, weights=weights)
-    return np.interp(0.5, cweights, data) ### find the median via interpolation
-
-def samples2mean(data, weights=None):
-    if weights is None:
-        weights = np.ones_like(data, dtype=float)
-    return np.sum(weights*data)/np.sum(weights)
-
-def samples2crbounds(data, levels, weights=None):
-    """
-    expects 1D data and returns the smallest contiguous confidence region that contains a certain amount of the cumulative weight
-    returns a contiguous confidence region for level
-    does this by trying all possible regions (defined by data's sampling) that have at least as much cumulative weight as each level and selecting the smallest
-    """
-    N = len(data)
-    stop = N-1
-    if weights is None:
-        weights = np.ones(N, dtype=float)/N
-
-    data, cweights = samples2cdf(data, weights=weights)
-
-    return cdf2crbounds(data, cweights, levels)
-
-def cdf2crbounds(data, cweights, levels):
-    N = len(data)
-    stop = N-1
-    bounds = []
-    for level in levels:
-        i = 0
-        j = 0
-        best = None
-        best_size = np.infty
-        while (i < stop):
-            while (j < stop) and (cweights[j]-cweights[i] < level): ### make the region big enough to get the confidence we want
-                j += 1
-
-            if cweights[j] - cweights[i] < level: ### too small!
-                break
-
-            size = data[j]-data[i]
-            if size < best_size:
-                best_size = size
-                best = (data[i], data[j])
-            i += 1 # increment starting point and then repeat
-
-        bounds.append( best )
-
-    return bounds
-
-#-------------------------------------------------
-# statistical interpretations of kdes
 #-------------------------------------------------
 
 def vects2vol(vects):
@@ -218,37 +107,6 @@ def logkde2crsize(vects, logkde, levels):
 
     ### finde confidence levels and associated sizes
     return [vol*np.sum(logkde>=thr) for thr in logkde2levels(logkde, levels)]
-
-def logkde2entropy(vects, logkde):
-    """
-    computes the entropy of the kde
-    incorporates vects so that kde is properly normalized (transforms into a truly discrete distribution)
-    """
-    vol = vects2vol(vects)
-    truth = logkde > -np.infty
-    return -vects2vol(vects)*np.sum(np.exp(logkde[truth])*logkde[truth])
-
-def logkde2information(vects, logkde):
-    """
-    computes the information of the kde
-    incorporates vects so that kde is properly normalized (transforms into a truly discrete distribution)
-    """
-    vol = vects2vol(vects)
-    return np.log(len(logkde.flatten())*vol) - logkde2entropy(vects, logkde)
-
-def kldiv(vects, logkde1, logkde2):
-    """
-    computes the KL divergence from kde1 to kde2
-        Dkl(k1||k2) = sum(k1*log(k1/k2))
-    """
-    truth = logkde1 > -np.infty
-    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]*(logkde1[truth] - logkde2[truth])))
-
-def sym_kldiv(vects, logkde1, logkde2):
-    """
-    Dkl(k1||k2) + Dkl(k2||k1)
-    """
-    return kldiv(vects, logkde1, logkde2) + kldiv(vects, logkde2, logkde1)
 
 '''
 def dlogkde(point, vects, logkde):

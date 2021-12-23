@@ -14,6 +14,7 @@ from argparse import ArgumentParser
 ### non-standard libraries
 from universality.utils import (utils, io)
 from universality import kde
+from universality import stats
 
 #-------------------------------------------------
 
@@ -42,8 +43,6 @@ args = parser.parse_args()
 
 args.verbose |= args.Verbose
 
-assert len(args.columns), 'must supply at least one column'
-
 #-------------------------------------------------
 
 ### load data
@@ -69,7 +68,46 @@ if args.weight_column:
 else:
     weights = np.ones(Nsamp, dtype=float)/Nsamp
 
+#------------------------
+
+# figure out variances for KDEs
+raise NotImplementedError('''use the automated tools you set up for kde-corner-samples''')
+
 #-------------------------------------------------
 
-raise NotImplementedError('''\
-''')
+# compute entropy of each marginal distribution
+if args.verbose:
+    print('computing entropy of marginal distributions')
+
+marginals = 0.0
+
+for i, column in enumerate(columns):
+    if args.verbose:
+        print('computing entropy of marginal distribution for: '+column)
+
+    h = stats.montecarloentropy(data[:,1], weights=weights, variances=variances[i], verbose=args.Verbose)
+    marginals += h
+
+    # report
+    print('    H(%s) = %.6e bits'%(column, h))
+
+#------------------------
+
+# compute marginal of the joint distribution
+if args.verbose:
+    print('computing entropy of the joint distribution')
+
+joint = stats.montecarloentropy(data, weights=weights, variances=variances, verbose=args.Verbose)
+
+# report
+print('H(joint) = %.6e bits'%(h))
+
+#------------------------
+
+# compute mutual information
+if args.verbose:
+    print('computing mutual information of the joint distribution')
+mutual_information = marginals - joint
+
+# report
+print('mutual information = %.6e bits'%mutual_information)
