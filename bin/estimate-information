@@ -13,8 +13,8 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (utils, io)
-from universality.kde.kde import DEFAULT_BANDWIDTH
-from universality.stats import information
+from universality.kde.kde import silverman_bandwidth
+from universality.stats.information import montecarloentropy
 
 #-------------------------------------------------
 
@@ -32,8 +32,8 @@ parser.add_argument("-V", '--Verbose', default=False, action='store_true')
 parser.add_argument('columns', nargs='+', type=str)
 parser.add_argument('--logcolumn', default=[], type=str, action='append')
 
-parser.add_argument('-b', '--column-bandwidth', default=DEFAULT_BANDWIDTH, type=float,
-    help='DEFAULT=%f'%DEFAULT_BANDWIDTH)
+parser.add_argument('-b', '--column-bandwidth', default=[], type=str, nargs=2,
+    help='--column-bandwidth column val')
 parser.add_argument('--num-proc', default=utils.DEFAULT_NUM_PROC, type=int,
     help='DEFAULT=%d'%utils.DEFAULT_NUM_PROC)
 
@@ -41,11 +41,14 @@ args = parser.parse_args()
 
 args.verbose |= args.Verbose
 
+for col in args.weight_column_is_log:
+    assert col in args.weight_column, 'specifying --weight-column-is-log for unknown weight-column: '+col
+
 variancedict = dict()
 for column, b in args.column_bandwidth:
     assert column in args.columns, 'specifying --column-bandwidth for unknown column: '+column
     variancedict[column] = float(b)**2
-variances = [bandwidthdict.get(col, None) for col in args.columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
+variances = [variancedict.get(col, None) for col in args.columns] ### If None, will estimate automatically with Silverman's rule of thumb (for univariate data)
 
 #-------------------------------------------------
 
@@ -53,9 +56,8 @@ variances = [bandwidthdict.get(col, None) for col in args.columns] ### If None, 
 if args.verbose:
     print('reading: '+args.samples)
 data, columns = io.load(args.samples, columns=args.columns, logcolumns=args.logcolumn, max_num_samples=args.max_num_samples)
-Nsamp = len(data)
 if args.verbose:
-    print('found %d samples for %d columns'%(Nsamp))
+    print('found %d samples for %d columns'%(len(data), len(columns)))
 
 if args.weight_column:
     if args.verbose:
@@ -65,11 +67,11 @@ if args.weight_column:
     truth = weights>0
     data = data[truth,:]
     weights = weights[truth]
-    Nsamp = len(data)
     if args.verbose:
-        print('retained %d samples with non-zero weights'%Nsamp)
+        print('retained %d samples with non-zero weights'%(len(data)))
 
 else:
+    Nsamp = len(data)
     weights = np.ones(Nsamp, dtype=float)/Nsamp
 
 #-------------------------------------------------
@@ -87,13 +89,13 @@ for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: 
     ### determine bandwidth
     v = variances[i]
     if v is None:
-        b = plot.silverman_bandwidth(data[:,i], weights=weights) ### use bandwidth from overall marignal distrib
+        b = silverman_bandwidth(data[:,i], weights=weights) ### use bandwidth from overall marignal distrib
         if args.Verbose:
             print('automatically selected bandwidth=%.3e for col=%s'%(b, column))
         variances[i] = b**2
 
-    h = information.montecarloentropy(
-        data[:,1],
+    h = montecarloentropy(
+        data[:,i],
         weights=weights,
         variances=variances[i],
         verbose=args.Verbose,
@@ -110,7 +112,9 @@ for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: 
 if args.verbose:
     print('computing entropy of the joint distribution')
 
-joint = information.montecarloentropy(
+variances = np.array(variances, dtype=float)
+
+joint = montecarloentropy(
     data,
     weights=weights,
     variances=variances,
