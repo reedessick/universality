@@ -80,7 +80,7 @@ else:
 if args.verbose:
     print('computing entropy of marginal distributions')
 
-marginals = 0.0
+marginals = []
 
 for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: may break if user passes duplicate columns...
     if args.verbose:
@@ -101,7 +101,7 @@ for i, (old_column, column) in enumerate(zip(args.columns, columns)): ### NOTE: 
         verbose=args.Verbose,
         num_proc=args.num_proc,
     )
-    marginals += h
+    marginals.append(h)
 
     # report
     print('    H(%s) = %.6e bits'%(column, h))
@@ -123,14 +123,14 @@ joint = montecarloentropy(
 )
 
 # report
-print('H(joint) = %.6e bits'%(h))
+print('    H(joint) = %.6e bits'%(joint))
 
 #------------------------
 
 # compute mutual information
 if args.verbose:
     print('computing mutual information of the joint distribution')
-mutual_information = marginals - joint
+mutual_information = np.sum(marginals) - joint
 
 # report
-print('mutual information = %.6e bits'%mutual_information)
+print('    mutual information = %.6e bits'%mutual_information)
