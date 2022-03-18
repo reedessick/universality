@@ -242,7 +242,7 @@ def kldiv(vects, logkde1, logkde2):
         Dkl(k1||k2) = sum(k1*log(k1/k2))
     """
     truth = logkde1 > -np.infty
-    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]*(logkde1[truth] - logkde2[truth])))
+    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]) * (logkde1[truth] - logkde2[truth]))
 
 def sym_kldiv(vects, logkde1, logkde2):
     """
