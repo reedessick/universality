@@ -252,7 +252,7 @@ def sym_kldiv(vects, logkde1, logkde2):
 
 def alpha_div(vects, logkde1, logkde2, alpha=0):
     """computes the alpha divergence between k1 and k2
-    Da(k1||k2) = (4/(1-a**2))*(1 - \int dx p**(0.5*(1-a)) * q**(0.5*(1+a))
+    Da(k1||k2) = (4/(1-a**2))*(1 - \int dx p**((1+a)/2) * q**((1-a)/2)
 when -1 < a < +1
 if a = 1:
     Da(k1||k2) = Dkl(k1||k2)
@@ -271,7 +271,7 @@ if a = -1:
     else:
         k1 = np.exp(logkde1)
         k2 = np.exp(logkde2)
-        return 4/(1-alpha**2) * (1 - vects2vol(vects)*np.sum(k1**(0.5*(1+a)) * k2**(0.5*(1-a))))
+        return 4/(1-alpha**2) * (1 - vects2vol(vects)*np.sum(k1**(0.5*(1+alpha)) * k2**(0.5*(1-alpha))))
 
 '''
 def dlogkde(point, vects, logkde):
