@@ -62,6 +62,12 @@ cgroup.add_argument('-l', '--logcolumn', default=[], type=str, action='append',
     help='convert the values read in for this column to natural log. \
 Can be repeated to specify multiple columns. \
 DEFAULT=[]')
+cgroup.add_argument('--logcolumn-plot-linear', default=[], type=str, action='append',
+    help='construct the KDE model for the log of this column but plot the corresponding density in terms of \
+the linear value. This is as opposed to --logcolumn which plots the log of the column. \
+Can be repeated to specify mulitple column. \
+DEFAULT=[]')
+
 cgroup.add_argument('-L', '--column-label', nargs=2, default=[], type=str, action='append',
     help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
 DEFAULT=[]')
@@ -82,8 +88,13 @@ If you do not specify a bandwidth for a column, a best-guess bandwidth will be u
 
 cgroup.add_argument('--column-multiplier', nargs=2, default=[], type=str, action='append',
     help='multiply the column by this number before computing statistics. This is applied when data is first read in \
-(but after taking the natural log if --logcolumn is specified), meaning bandwidths and ranges should be specified in \
-terms of the column times the multiplier. If no multiplier is specified for a column, that column is left unchanged.')
+(but after taking the natural log if --logcolumn or --logcolumn-plot-linear are specified), meaning bandwidths and \
+ranges should be specified in terms of the column times the multiplier. \
+If no multiplier is specified for a column, that column is left unchanged.')
+cgroup.add_argument('--column-shift', nargs=2, default=[], type=str, action='append',
+    help='subtract this number from the column before computing statistics. This is applied when data is first read in\
+(but after taking hte natural log if --logcolumn or --logcolumn-plot-linear are specified and after --column-multiplier is applied), meaning bandwidths and ranges should be specified in terms of the column times the multiplier minus the shift. \
+If no shift is specified for a column that column is left unchanged.')
 
 # conditioning arguments
 Cgroup = parser.add_argument_group('arguments for conditioning on specific vaules')
@@ -246,6 +257,14 @@ for column, m in args.column_multiplier:
     else:
         multiplierdict[column] = float(m)
 
+shiftdict = dict()
+for column, s in args.column_shift:
+    assert column in load_columns, 'specifying --column-shift for unknown column: '+column
+    if hasattr(units, s):
+        shiftdict[column] = getattr(units, s)
+    else:
+        shiftdict[column] = float(s)
+
 labeldict = dict()
 for column, label in args.column_label:
     assert column in args.columns, 'specifying --column-label for unknown column: '+column
@@ -312,11 +331,19 @@ global_ranges = [(np.infty, -np.infty) for _ in range(Ncol+Ncond)]
 for ind, (label, path) in enumerate(args.samples):
     if args.verbose:
         print('reading samples for %s from: %s'%(label, path))
-    data, columns = io.load(path, load_columns, logcolumns=args.logcolumn, max_num_samples=max_num_samples[label])
+    data, columns = io.load(
+        path,
+        load_columns,
+        logcolumns=args.logcolumn + args.logcolumn_plot_linear,
+        max_num_samples=max_num_samples[label],
+    )
 
     for i, column in enumerate(load_columns): ### apply multiplicative factor based on the original column names
         if column in multiplierdict:
             data[:,i] *= multiplierdict[column]
+
+        if column in shiftdict:
+            data[:,i] -= shiftdict[column]
 
     ranges = []
     for i, col in enumerate(args.columns):
@@ -412,6 +439,7 @@ for ind, (label, path) in enumerate(args.samples):
     fig = plot.kde_corner(
         data[:,:Ncol],
         bandwidths=bandwidths[:Ncol],
+        scales=['exp' if col in args.logcolumn_plot_linear else 'linear' for col in args.columns],
         truths=these_truths,
         truth_color=args.truth_color,
         truth_alpha=args.truth_alpha,

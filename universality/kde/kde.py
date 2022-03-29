@@ -154,6 +154,31 @@ def cumulative_gaussian_distribution(z):
 def vects2flatgrid(*vects):
     return np.transpose([_.flatten() for _ in np.meshgrid(*vects, indexing='ij')])
 
+KNOWN_SCALES = (
+    'log',    ### compute the grid and KDE in : log(col)
+    'linear', ### compute the grid and KDE in : col
+    'exp',    ### compute the grid and KDE in : exp(col)
+)
+
+def vect2logjac(vect, scale):
+    """return the jacobian needed to transform a KDE estimate based on the desired scaling
+returns log(|dy/vect|) where
+if scale == linear:
+    y = vect
+if scale == log
+    y = exp(vect)
+if scale == exp
+    y = log(vect)
+    """
+    if scale == 'linear':
+        return np.zeros_like(vect, dtype=float)
+    elif scale == 'log':
+        return vect
+    elif scale == 'exp':
+        return -np.log(np.abs(vect))
+    else:
+        raise ValueError('scale=%s not understood! Must be one of: %s'%(scale, ', '.join(KNOWN_SCALES)))
+
 def logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     """
     a wrapper around actually computing the KDE estimate at a collection of samples

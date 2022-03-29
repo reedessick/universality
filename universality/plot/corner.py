@@ -14,7 +14,7 @@ except ImportError:
 ### non-standard libraries
 from . import utils as plt
 
-from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid)
+from universality.kde import (logkde, silverman_bandwidth, vects2flatgrid, vect2logjac)
 from universality.utils import DEFAULT_NUM_PROC
 from universality.utils import reflect as reflect_samples
 from universality import stats
@@ -29,6 +29,7 @@ def corner(*args, **kwargs):
 def kde_corner(
         data,
         bandwidths=None,
+        scales=None,
         labels=None,
         range=None,
         truths=None,
@@ -75,6 +76,12 @@ def kde_corner(
     else:
         assert len(weights)==Nsamp, 'must have the same number of rows in data and weights'
     weights = np.array(weights)
+
+    if scales is None:
+        scales = ['linear' for _ in range(Ncol)]
+    else:
+        assert len(scales) == Ncol, 'must have the same number of columns in data and scales'
+    scales = np.array(scales)
 
     if labels is None:
         labels = [str(i) for i in xrange(Ncol)]
@@ -130,8 +137,28 @@ def kde_corner(
     truth =  np.empty(Ncol, dtype=bool) # used to index data within loop
     include = [np.all(data[:,i]==data[:,i]) for i in xrange(Ncol)] # used to determine which data we should skip
 
-    vects = [np.linspace(m, M, num_points) for m, M in range] ### grid placement
-    dvects = [v[1]-v[0] for v in vects]
+    kde_vects = []  # grid placement
+    plot_vects = []
+    for scale, (m, M) in zip(scales, range):
+        if scale == 'linear':
+            vect = np.linspace(m, M, num_points)
+            kde_vects.append(vect)
+            plot_vects.append(vect)
+
+        elif scale == 'exp':
+            vect = np.linspace(np.exp(m), np.exp(M), num_points)
+            kde_vects.append(np.log(vect))
+            plot_vects.append(vect)
+
+        elif scale == 'log':
+            vect = np.linspace(np.log(m), np.log(M), num_points)
+            kde_vects.append(np.exp(vect))
+            plot_vects.append(vect)
+
+        else:
+            raise ValueError('scale=%s not understood!'%scale)
+
+    dvects = [v[1]-v[0] for v in plot_vects]
 
     ### set colors for scatter points
     scatter_color = plt.weights2color(weights, color)
@@ -152,19 +179,26 @@ def kde_corner(
                 # 1D marginal posteriors
                 if row==col:
                     if verbose:
-                        print('row=col='+labels[col])
+                        print('row=col=%s (scale=%s)'%(labels[col], scales[col]))
 
                     truth[col] = True
 
                     d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
-                        vects[col],
+                        kde_vects[col],
                         d,
                         variances[col],
                         weights=w,
                         num_proc=num_proc,
                     )
+
+                    # transform coordinate for plotting (include jacobian)
+                    kde += vect2logjac(plot_vects[col], scales[col])
+
+                    # normalize
+                    kde = np.exp(kde - np.max(kde))
+                    kde /= np.sum(kde)*dvects[col]
 
                     ### figure out levels for 1D histograms
                     lines = []
@@ -174,16 +208,17 @@ def kde_corner(
                                 print('    @%.3f : [%.3e, %.3e]'%(level, m, M))
                             lines.append((m, M))
 
-                    kde = np.exp(kde - np.max(kde))
-                    kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
-                            ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
-                        ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
+                            ax.fill_betweenx(plot_vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                        ax.plot(kde, plot_vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
-                            xmax = max(xmax, np.max(n)*1.05)
+                            if scales[col] == 'linear':
+                                n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                                xmax = max(xmax, np.max(n)*1.05)
+                            else:
+                                print('WARNING: can only hist1D if scale==linear')
 
                         for m, M in lines:
                             ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed') ### plot for a bigger range incase axes change later
@@ -193,12 +228,15 @@ def kde_corner(
 
                     else:
                         if filled1D:
-                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
-                        ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
+                            ax.fill_between(plot_vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                        ax.plot(plot_vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
-                            ymax = max(ymax, np.max(n)*1.05)
+                            if scales[col] == 'linear':
+                                n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                                ymax = max(ymax, np.max(n)*1.05)
+                            else:
+                                print('WARNING: can only hist1D if scale==linear')
 
                         for m, M in lines:
                             ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed') ### plot for bigger range in case axes change later
@@ -208,20 +246,23 @@ def kde_corner(
 
                 else:
                     if verbose:
-                        print('row=%s ; col=%s'%(labels[row], labels[col]))
+                        print('row=%s (scale=%s); col=%s (scale=%s)'%(labels[row], scales[row], labels[col], scales[col]))
 
                     # marginalized KDE
                     truth[row] = True
                     truth[col] = True
 
                     if scatter:
-                        ax.scatter(
-                            data[:,col],
-                            data[:,row],
-                            marker='o',
-                            s=2,
-                            color=scatter_color,
-                        )
+                        if (scales[col]=='linear') and (scales[row]=='linear'):
+                            ax.scatter(
+                                data[:,col],
+                                data[:,row],
+                                marker='o',
+                                s=2,
+                                color=scatter_color,
+                            )
+                        else:
+                            print('WARNING: can only scatter if scale==linear for both axes')
 
                     d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
 
@@ -232,28 +273,36 @@ def kde_corner(
                         weights=w,
                         num_proc=num_proc,
                     )
+
+                    # transform coordinate (include jacobian)
+                    kde += np.sum(vects2flatgrid(
+                        vect2logjac(plot_vects[col], scales[col]),
+                        vect2logjac(plot_vects[row], scales[row]),
+                    ), axis=1)
+
+                    # normalize 
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
                     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
                     if filled:
-                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
-                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
+                        ax.contourf(plot_vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
+                    ax.contour(plot_vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate
             ax.grid(grid, which='both')
 
             if row!=col:
-                ax.set_ylim(range[row])
-                ax.set_xlim(range[col])
+                ax.set_ylim(ymin=plot_vects[row][0], ymax=plot_vects[row][-1])
+                ax.set_xlim(xmin=plot_vects[col][0], xmax=plot_vects[col][-1])
                 plt.setp(ax.get_yticklabels(), rotation=rotate_yticklabels)
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             elif rotate and row==(Ncol-1):
-                ax.set_ylim(range[row])            
+                ax.set_ylim(ymin=plot_vects[row][0], ymax=plot_vects[row][-1])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
                 ax.set_xticks([])
             else:
-                ax.set_xlim(range[col])
+                ax.set_xlim(xmin=plot_vects[col][0], xmax=plot_vects[col][-1])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
                 ax.set_yticks([])
 

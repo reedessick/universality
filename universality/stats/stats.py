@@ -242,13 +242,36 @@ def kldiv(vects, logkde1, logkde2):
         Dkl(k1||k2) = sum(k1*log(k1/k2))
     """
     truth = logkde1 > -np.infty
-    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]*(logkde1[truth] - logkde2[truth])))
+    return vects2vol(vects)*np.sum(np.exp(logkde1[truth]) * (logkde1[truth] - logkde2[truth]))
 
 def sym_kldiv(vects, logkde1, logkde2):
     """
     Dkl(k1||k2) + Dkl(k2||k1)
     """
     return kldiv(vects, logkde1, logkde2) + kldiv(vects, logkde2, logkde1)
+
+def alpha_div(vects, logkde1, logkde2, alpha=0):
+    """computes the alpha divergence between k1 and k2
+    Da(k1||k2) = (4/(1-a**2))*(1 - \int dx p**((1+a)/2) * q**((1-a)/2)
+when -1 < a < +1
+if a = 1:
+    Da(k1||k2) = Dkl(k1||k2)
+if a = -1:
+    Da(k1||k2) = Dkl(k2||k1)
+    """
+    if abs(alpha) > 1:
+        raise ValueError('alpha must be within [-1, +1]')
+
+    elif alpha == 1:
+        return kldiv(vects, logkde1, logkde2)
+
+    elif alpha == -1:
+        return kldiv(vects, logkde2, logkde1)
+
+    else:
+        k1 = np.exp(logkde1)
+        k2 = np.exp(logkde2)
+        return 4/(1-alpha**2) * (1 - vects2vol(vects)*np.sum(k1**(0.5*(1+alpha)) * k2**(0.5*(1-alpha))))
 
 '''
 def dlogkde(point, vects, logkde):
