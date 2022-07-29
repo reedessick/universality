@@ -110,7 +110,7 @@ def engine(
         guess_frac=DEFAULT_GUESS_FRAC,
         initial_frac=DEFAULT_INITIAL_FRAC,
         rtol=DEFAULT_RTOL,
-        mxstp=DEFAULT_MXSTEP,
+        mxstep=DEFAULT_MXSTEP,
     ):
     """integrate the TOV equations with central pressure "pc" and equation of state described by energy density "eps" and pressure "p"
     expects eos = (pressure, energy_density)
