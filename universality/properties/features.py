@@ -179,6 +179,8 @@ def data2moi_features(
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
+    print(ends) ### FIXME: for debugging!
+
     ### discard any local minima that are before the first stable branch
     while len(ends):
         end = ends[-1]
