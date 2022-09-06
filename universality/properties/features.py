@@ -158,6 +158,7 @@ def data2moi_features(
         diff_thr=DEFAULT_DIFF_THR,
         cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
+        debug_figname=None, ### this is a path into which we write the debug figure
     ):
     """
     looks for specific behavior in arctan(dlnI/dlnM) that seems to correspond to phase transitions.
@@ -173,13 +174,32 @@ def data2moi_features(
         names += [tmp%col for col in eos_cols]
     params = []
 
+    if debug_figname:
+        import matplotlib
+        matplotlib.use("Agg")
+        from matplotlib import pyplot as plt
+
+        fig = plt.figure()
+        ax = fig.gca()
+
     ### compute the absolute value of the curvature, which we use as an indicator variable
-    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(rhoc, M, I, flatten_thr=flatten_thr, smoothing_width=smoothing_width)
+    arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(
+        rhoc,
+        M,
+        I,
+        flatten_thr=flatten_thr,
+        smoothing_width=smoothing_width,
+    )
+
+    if debug_figname:
+        ax.plot(M, arctan_dlnI_dlnM, color='k', alpha=0.25)
 
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
-    print(ends) ### FIXME: for debugging!
+    if debug_figname:
+        for end in ends:
+            ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='.')
 
     ### discard any local minima that are before the first stable branch
     while len(ends):
@@ -188,6 +208,9 @@ def data2moi_features(
              break
         ends = ends[:-1] ### truncate this guy
 
+        if debug_figname:
+            ax.plot(M[end], arctan_dlnI_dlnM[end], color='b', marker='o')
+
     ### discard any local minima that are in the final unstable branch
     while len(ends):
         end = ends.pop(0)
@@ -195,14 +218,23 @@ def data2moi_features(
             ends.insert(0, end)
             break
 
+        if debug_figname:
+            ax.plot(M[end], arctan_dlnI_dlnM[end], color='r', marker='s')
+
     if ends: ### we have something to do
 
         ### if the lowest rhoc available is a minimum, we discard it since we can't tell if it is a local minimum or not
         if ends[-1] == 0:
             ends = ends[:-1]
 
+            if debug_figname:
+                ax.plot(M[0], arctan_dlnI_dlnM[0], color='g', marker='*')
+
         if ends[0] == len(rhoc)-1: ### same thing with the end point
             ends = ends[1:]
+
+            if debug_figname:
+                ax.plot(M[-1], arctan_dlnI_dlnM[-1], color='g', marker='*')
 
         ### local minima in sound speed
         min_cs2c2 = find_inclusive_minima(cs2c2)
@@ -213,7 +245,12 @@ def data2moi_features(
         max_cs2c2 = find_running_maxima(cs2c2)
 
         if not max_cs2c2: ### no qualifying maxima
+            if debug_figure:
+                for end in ends:
+                    ax.plot(M[end], arctan_dlnI_dlnM[0], color='y', marker='v')
+
             ends = [] ### this will make us skip all the ends because we can't match them to starting points
+
         else:
             max_cs2c2 = np.array(max_cs2c2)
             max_cs2c2_baryon_density = baryon_density[max_cs2c2]
@@ -236,6 +273,10 @@ def data2moi_features(
             except RuntimeError:
                 if verbose:
                     print('            WARNING! coult not find preceeding minimum in cs2c2')
+
+                if debug_figname:
+                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='orange', marker='h')
+
                 continue
 
             min_r = baryon_density[ind]
@@ -250,6 +291,10 @@ def data2moi_features(
             except RuntimeError:
                 if verbose:
                     print('            WARNING! could not find preceeding maximum in cs2c2')
+
+                if debug_figname:
+                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='c', marker='d')
+
                 continue
 
             max_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
@@ -258,16 +303,28 @@ def data2moi_features(
             if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(max_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
                 if verbose:
                     print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
+
+                if debug_figname:
+                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='>')
+
                 continue
 
             if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
                 if verbose:
                     print('            WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
+
+                if debug_figname:
+                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='<')
+
                 continue
 
             if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind]: ### recovery occurs at a larger sound speed than the onset...
                 if verbose:
                     print('            WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
+
+                if debug_figname:
+                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='^')
+
                 continue
 
             datum += [np.interp(max_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
@@ -282,6 +339,10 @@ def data2moi_features(
             if len(group) and (r < last_r): ### we already have a group and this would *not* overlap with something we've already declared a phase transition, so figure out which is best and add it
                 group.sort(key=lambda x:x[0]) ### sort so the smallest dlnI_drhoc is first
                 params.append(group[0][1]) ### append the datum
+
+#                if debug_figname:
+#                    raise NotImplementedError('add the ends that are skipped from this group to debug plot')
+
                 group = [] ### start a new group
 
             group.append((rhoc[end], datum)) ### FIXME: this whole "group" logic may be wasteful of memory if we know we're going to order by rhoc and we already iterate based on samples ordered by rhoc...
@@ -292,13 +353,25 @@ def data2moi_features(
             group.sort(key=lambda x: -x[0]) ### bigger rhoc first
             params.append(group[0][1])
 
+#            if debug_figname:
+#                raise NotImplementedError('add the ends that are skipped from this group to debug plot')
+
     params = [[ind]+thing for ind, thing in enumerate(params)] ### include a transition number for reference
 
     if not len(params):
-        params = np.empty((0,len(names)), dtype=float)
+        params = np.empty((0,len(names)), dtype=float) ### do this so we have a consistent shape
 
     else:
         params = np.array(params, dtype=float)
+
+    if debug_figname:
+
+#        raise NotImplementedError('add a legend for the different colors/markers used')
+
+        if verbose:
+            print('saving : '+debug_figname)
+        fig.savefig(debug_figname)
+        plt.close(fig)
 
     return params, names
 
