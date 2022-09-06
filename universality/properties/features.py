@@ -366,6 +366,8 @@ def data2moi_features(
 
     if debug_figname:
 
+        fig.suptitle('%d features'%len(params))
+
 #        raise NotImplementedError('add a legend for the different colors/markers used')
 
         if verbose:
