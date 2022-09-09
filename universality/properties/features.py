@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
 
 from argparse import ArgumentParser
@@ -99,7 +101,7 @@ MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 DEFAULT_FLATTEN_THR = 0.0
 DEFAULT_SMOOTHING_WIDTH = None
 DEFAULT_DIFF_THR = 0.0
-DEFAULT_CS2C2_COFACTOR = 3.0
+DEFAULT_CS2C2_COFACTOR = np.infty
 
 #------------------------
 
@@ -450,4 +452,12 @@ def process2moi_features(
 
         if verbose:
             print('    writing summary of %d identified moi-features into: %s'%(len(params), sum_path))
+
+        newdir = os.path.dirname(sum_path)
+        if not os.path.exists(newdir):
+            try:
+                os.makedirs(newdir)
+            except OSError:
+                pass ### directory already exists
+
         io.write(sum_path, params, names)

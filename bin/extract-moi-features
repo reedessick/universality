@@ -40,15 +40,15 @@ parser.add_argument("--macro-reference-column", default=[], action='append', typ
     help='Columns for which we report the values at identified points. Can be used to identify different stellar models. \
 For example, the central baryon density (rhoc) may be easier to connect to the EoS than just the mass and/or MoI')
 
-parser.add_argument('--flatten-thr', default=0.0, type=float,
+parser.add_argument('--flatten-thr', default=features.DEFAULT_FLATTEN_THR, type=float,
     help='the threshold on |dlnX/dlnrho| below which we set this to zero')
-parser.add_argument('--smoothing-width', default=None, type=float,
+parser.add_argument('--smoothing-width', default=features.DEFAULT_SMOOTHING_WIDTH, type=float,
     help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
 The kernel is defined over log(rhoc), and 0.02 seems to work well.')
-parser.add_argument('--diff-thr', type=float, default=0.0,
+parser.add_argument('--diff-thr', type=float, default=features.DEFAULT_DIFF_THR,
     help='a threshold on how big the "dip" in arctan(dlnI/dlnM) must be for us to record the possible phase transition. \
 This is useful for removing small numerical noise (likely from the somewhat "coarse grained" TOV solutions)')
-parser.add_argument('--cs2c2-cofactor', type=float, default=1.0,
+parser.add_argument('--cs2c2-cofactor', type=float, default=features.DEFAULT_CS2C2_COFACTOR,
     help='a threshold on how big the ratio of sound speeds can be between the local minimum in arctan(dlnI/dlnM) and the preceeding running maximum in cs2c2. \
 There are cases in which this helps reject things that stall the final collapse to a BH but do not look like obvious "classic" phase transitions in the sound speed.')
 
