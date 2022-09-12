@@ -181,8 +181,15 @@ def data2moi_features(
         matplotlib.use("Agg")
         from matplotlib import pyplot as plt
 
-        fig = plt.figure()
-        ax = fig.gca()
+        fig = plt.figure(figsize=(15, 5))
+
+        axp = plt.subplot(1, 3, 1)
+
+        ax1 = plt.subplot(3, 3, 2)
+        ax2 = plt.subplot(3, 3, 5)
+        ax3 = plt.subplot(3, 3, 8)
+
+        AX2 = plt.subplot(1, 3, 3)
 
     ### compute the absolute value of the curvature, which we use as an indicator variable
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(
@@ -194,14 +201,24 @@ def data2moi_features(
     )
 
     if debug_figname:
-        ax.plot(M, arctan_dlnI_dlnM, color='k', alpha=0.25)
+        kwargs = dict(color='k', alpha=0.75)
+        axp.plot(rhoc*dlnM_drhoc, rhoc*dlnI_drhoc, **kwargs)
+        ax1.plot(rhoc, I, **kwargs)
+        ax2.plot(rhoc, arctan_dlnI_dlnM, **kwargs)
+        ax3.plot(rhoc, np.log((dlnI_drhoc**2 + dlnM_drhoc**2)**0.5 * rhoc), **kwargs)
+
+        AX2.plot(baryon_density, cs2c2, **kwargs)
 
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
     if debug_figname:
+        kwargs = dict(color='k', marker='.')
         for end in ends:
-            ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='.')
+            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+            ax1.plot(rhoc[end], I[end], **kwargs)
+            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
     ### discard any local minima that are before the first stable branch
     while len(ends):
@@ -211,7 +228,11 @@ def data2moi_features(
         ends = ends[:-1] ### truncate this guy
 
         if debug_figname:
-            ax.plot(M[end], arctan_dlnI_dlnM[end], color='b', marker='o')
+            kwargs = dict(color='b', marker='o')
+            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+            ax1.plot(rhoc[end], I[end], **kwargs)
+            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
     ### discard any local minima that are in the final unstable branch
     while len(ends):
@@ -221,7 +242,11 @@ def data2moi_features(
             break
 
         if debug_figname:
-            ax.plot(M[end], arctan_dlnI_dlnM[end], color='r', marker='s')
+            kwargs = dict(color='r', marker='s')
+            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+            ax1.plot(rhoc[end], I[end], **kwargs)
+            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
     if ends: ### we have something to do
 
@@ -230,13 +255,21 @@ def data2moi_features(
             ends = ends[:-1]
 
             if debug_figname:
-                ax.plot(M[0], arctan_dlnI_dlnM[0], color='g', marker='*')
+                kwargs = dict(color='g', marker='*')
+                axp.plot(rhoc[0]*dlnM_drhoc[0], rhoc[0]*dlnI_drhoc[0], **kwargs)
+                ax1.plot(rhoc[0], I[0], **kwargs)
+                ax2.plot(rhoc[0], arctan_dlnI_dlnM[0], **kwargs)
+                AX2.plot(rhoc[0], np.interp(rhoc[0], baryon_density, cs2c2), **kwargs)
 
         if ends[0] == len(rhoc)-1: ### same thing with the end point
             ends = ends[1:]
 
             if debug_figname:
-                ax.plot(M[-1], arctan_dlnI_dlnM[-1], color='g', marker='*')
+                kwargs = dict(color='g', marker='*')
+                axp.plot(rhoc[-1]*dlnM_drhoc[-1], rhoc[-1]*dlnI_drhoc[-1], **kwargs)
+                ax1.plot(rhoc[-1], [-1], **kwargs)
+                ax2.plot(rhoc[-1], arctan_dlnI_dlnM[-1], **kwargs)
+                AX2.plot(rhoc[-1], np.interp(rhoc[-1], baryon_density, cs2c2), **kwargs)
 
         ### local minima in sound speed
         min_cs2c2 = find_inclusive_minima(cs2c2)
@@ -249,7 +282,9 @@ def data2moi_features(
         if not max_cs2c2: ### no qualifying maxima
             if debug_figure:
                 for end in ends:
-                    ax.plot(M[end], arctan_dlnI_dlnM[0], color='y', marker='v')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], color='y', marker='v')
+                    ax1.plot(rhoc[end], I[end], color='y', marker='v')
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], color='y', marker='v')
 
             ends = [] ### this will make us skip all the ends because we can't match them to starting points
 
@@ -277,7 +312,11 @@ def data2moi_features(
                     print('            WARNING! coult not find preceeding minimum in cs2c2')
 
                 if debug_figname:
-                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='orange', marker='h')
+                    kwargs = dict(color='orange', marker='h')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+                    ax1.plot(rhoc[end], I[end], **kwargs)
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
                 continue
 
@@ -295,7 +334,11 @@ def data2moi_features(
                     print('            WARNING! could not find preceeding maximum in cs2c2')
 
                 if debug_figname:
-                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='c', marker='d')
+                    kwargs = dict(color='c', marker='d')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+                    ax1.plot(rhoc[end], I[end], **kwargs)
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
                 continue
 
@@ -307,7 +350,11 @@ def data2moi_features(
                     print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
 
                 if debug_figname:
-                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='>')
+                    kwargs = dict(color='k', marker='>')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+                    ax1.plot(rhoc[end], I[end], **kwargs)
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
                 continue
 
@@ -316,7 +363,11 @@ def data2moi_features(
                     print('            WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
 
                 if debug_figname:
-                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='<')
+                    kwargs = dict(color='k', marker='<')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+                    ax1.plot(rhoc[end], I[end], **kwargs)
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
                 continue
 
@@ -325,7 +376,11 @@ def data2moi_features(
                     print('            WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
 
                 if debug_figname:
-                    ax.plot(M[end], arctan_dlnI_dlnM[end], color='k', marker='^')
+                    kwargs = dict(color='k', marker='^')
+                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
+                    ax1.plot(rhoc[end], I[end], **kwargs)
+                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
+                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
 
                 continue
 
@@ -371,6 +426,89 @@ def data2moi_features(
         fig.suptitle('%d features'%len(params))
 
 #        raise NotImplementedError('add a legend for the different colors/markers used')
+
+        #---
+
+#        xlim = axp.get_xlim()
+#        ylim = axp.get_ylim()
+        xlim = -1.5, +2.5 ### FIXME: chosen by hand to zoom in on the "interesting" mass ranges...
+        ylim = -2.0, +2.0
+
+        axp.plot(xlim, [0]*2, color='k', alpha=0.1)
+        axp.plot([0]*2, ylim, color='k', alpha=0.1)
+
+        if xlim[0] < 0:
+            axp.fill_between([xlim[0], 0], [ylim[0]]*2, [ylim[1]]*2, color='k', alpha=0.05)
+
+        axp.set_xlim(xlim)
+        axp.set_ylim(ylim)
+
+        axp.set_xlabel('dlnM/dlnrhoc')
+        axp.set_ylabel('dlnI/dlnrhoc')
+
+        #---
+
+        ax1.set_ylabel('I')
+#        ax1.yaxis.tick_right()
+#        ax1.yaxis.set_label_position('right')
+        plt.setp(ax1.get_xticklabels(), visible=False)
+
+        ax1.set_xscale('log')
+
+        ax1.grid(True, which='both')
+
+        #---
+
+        ax2.set_ylabel('arctan(dlnI/dlnM)')
+#        ax2.yaxis.tick_right()
+#        ax2.yaxis.set_label_position('right')
+        plt.setp(ax2.get_xticklabels(), visible=False)
+        ax2.set_xlim(ax1.get_xlim())
+        ax2.set_xscale(ax1.get_xscale())
+
+        ylim = ax2.get_ylim()
+        if ylim[0] < -0.5*np.pi:
+            ax2.fill_between(ax2.get_xlim(), [ylim[0]]*2, [-0.5*np.pi]*2, color='k', alpha=0.05)
+        if ylim[1] > +0.5*np.pi:
+            ax2.fill_between(ax2.get_xlim(), [ylim[1]]*2, [+0.5*np.pi]*2, color='k', alpha=0.05)
+
+        ax2.grid(True, which='both')
+
+        #---
+
+        ax3.set_ylabel('0.5*log( (dlnI/dlnrhoc)**2 + (dlnM/dlnrhoc)**2 )')
+#        ax3.yaxis.tick_right()
+#        ax3.yaxis.set_label_position('right')
+        ax3.set_xlabel('rhoc')
+        ax3.set_xlim(ax1.get_xlim())
+        ax3.set_xscale(ax1.get_xscale())
+
+        ax3.grid(True, which='both')
+
+        #---
+
+        AX2.set_ylabel('cs**2/c**2')
+        AX2.set_xlabel('rho')
+
+        AX2.yaxis.tick_right()
+        AX2.yaxis.set_label_position('right')
+
+        AX2.set_xscale('log')
+        AX2.set_yscale('log')
+
+        AX2.set_ylim(ymax=1.0)
+
+        xlim = AX2.get_xlim()
+        if xlim[0] < 2.8e13: ### 0.1*rho_nuc
+            AX2.set_xlim(xmin=2.8e13)
+            AX2.set_ylim(ymin=np.min(cs2c2[baryon_density>=2.8e13]))
+
+        if xlim[1] > rhoc[-1]:
+            AX2.set_xlim(xmax=rhoc[-1])
+
+        AX2.grid(True, which='both')
+
+        #---
 
         if verbose:
             print('saving : '+debug_figname)
