@@ -332,14 +332,17 @@ def data2moi_features(
             ### now perform sanity checks to make sure this candidate passes
 
             # does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
-            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(rmax_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr):
-                if verbose:
-                    print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
+            if (dlnM_drhoc[end] > 0): # on a stable branch
+                if arctan_dlnI_dlnM[end] > 0.5: # dip is close enough to "steady state" that we may not care
+                    if (np.max(arctan_dlnI_dlnM[(rmax_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### decrement is too small
+                        if verbose:
+                            print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
 
-                if debug_figname:
-                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
+                        if debug_figname:
+#                            regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
+                            regions.append(((rmax_r, max_r, min_r, r), dict(marker='>')))
 
-                continue
+                        continue
 
             # both rmax_cs2c2 and min_cs2c2 correspond to small arctan, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
             if max(rmax_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]:
@@ -347,7 +350,8 @@ def data2moi_features(
                     print('            WARNING! arctan(dlnI/dlnM) at rmax_cs2c2 and min_cs2c2 are less than at the local minimum in arctan(dlnI/dlnM); skipping this possible transition')
 
                 if debug_figname:
-                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='<')))
+#                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='<')))
+                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='<')))
 
                 continue
 
@@ -357,7 +361,8 @@ def data2moi_features(
                     print('            WARNING! sound-speed at local minimum is larger than onset sound speed (ratio > %.3e); skipping this possible transition'%cs2c2_cofactor)
 
                 if debug_figname:
-                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='^')))
+#                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='^')))
+                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='^')))
 
                 continue
 
@@ -367,7 +372,8 @@ def data2moi_features(
                     print('            WARNING! sound-speed at running maximum is less than %.3f times sound speed at local minimum; skipping this possible transition'%cs2c2_drop_ratio)
 
                 if debug_figname:
-                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='v')))
+#                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='v')))
+                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='v')))
 
                 continue
 
@@ -392,7 +398,8 @@ def data2moi_features(
             datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
             if debug_figname: # plot surviving candidates
-                regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='.')))
+#                regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='.', linewidth=2, alpha=0.25)))
+                regions.append(((rmax_r, max_r, min_r, r), dict(marker='.', linewidth=2)))
 
             #---
 
@@ -431,6 +438,7 @@ def data2moi_features(
 
         if verbose:
             print('plotting')
+
         fig = data2moi_features_figure(
             points,
             regions,
@@ -442,12 +450,37 @@ def data2moi_features(
             arctan_dlnI_dlnM,
             dlnM_drhoc,
             dlnI_drhoc,
+            '%d features'%len(params),
         )
 
         if verbose:
-            print('saving : '+debug_figname)
+            print('    saving : '+debug_figname)
         fig.savefig(debug_figname)
         plt.close(fig)
+
+        debug_figname = debug_figname.split('.')
+        tmp = '.'.join(debug_figname[:-1]) + '-%d.' + debug_figname[-1]
+
+        for ind, region in enumerate(regions):
+            fig = data2moi_features_figure(
+                points,
+                [region],
+                rhoc,
+                M,
+                I,
+                baryon_density,
+                cs2c2,
+                arctan_dlnI_dlnM,
+                dlnM_drhoc,
+                dlnI_drhoc,
+                '%d features'%len(params),
+            )
+
+            path = tmp % ind
+            if verbose:
+                print('    saving : '+path)
+            fig.savefig(path)
+            plt.close(fig)
 
     #---
 
@@ -475,6 +508,7 @@ def data2moi_features_figure(
         arctan_dlnI_dlnM,
         dlnM_drhoc,
         dlnI_drhoc,
+        title,
     ):
     """make a figure showing the logic encoded in data2moi_features
     """
@@ -511,10 +545,14 @@ def data2moi_features_figure(
 
     # plot individual points
     for rho, kwargs in points:
+        kwargs = dict(kwargs.items()) ### make a copy so we don't mess with caller
+
         x = rho*np.interp(rho, rhoc, dlnM_drhoc)
         y = rho*np.interp(rho, rhoc, dlnI_drhoc)
 
-        axp.plot(x, y, **kwargs)
+        color = axp.plot(x, y, **kwargs)[0].get_color()
+        kwargs['color'] = color
+
         axc.plot(rho, np.interp(rho, baryon_density, cs2c2), **kwargs)
 
         for a, A, y in [
@@ -530,24 +568,57 @@ def data2moi_features_figure(
     # plot regions
 
     for (rmax_rho, max_rho, min_rho, end_rho), kwargs in regions:
-        for rho in (rmax_rho, max_rho, min_rho, end_rho):  ### FIXME! need to plot lines or something instad of just points
-            x = rho*np.interp(rho, rhoc, dlnM_drhoc)
-            y = rho*np.interp(rho, rhoc, dlnI_drhoc)
+        kwargs = dict(kwargs.items()) ### make a copy
+        marker = kwargs.pop('marker', '.')
 
-            axp.plot(x, y, **kwargs)
-            axc.plot(rho, np.interp(rho, baryon_density, cs2c2), **kwargs)
+        # add lines
+        truth = (rmax_rho <= rhoc) * (rhoc <= end_rho)
+        lines = [(axp, dlnM_drhoc[truth]*rhoc[truth], dlnI_drhoc[truth]*rhoc[truth])]
+        for a, A, y in [
+                (axM1, axr1, I),
+                (axM2, axr2, arctan_dlnI_dlnM),
+                (axM3, axr3, rhoc*(dlnM_drhoc**2 + dlnI_drhoc**2)**0.5)
+            ]:
+            lines += [(a, M[truth], y[truth]), (A, rhoc[truth], y[truth])]
 
-            for a, A, y in [
-                    (axM1, axr1, np.interp(rho, rhoc, I)),
-                    (axM2, axr2, np.interp(rho, rhoc, arctan_dlnI_dlnM)),
-                    (axM3, axr3, (x**2 + y**2)**0.5)
-                ]:
-                a.plot(np.interp(rho, rhoc, M), y, **kwargs)
-                A.plot(rho, y, **kwargs)
+        truth = (rmax_rho <= baryon_density) * (baryon_density <= end_rho)
+        lines.append((axc, baryon_density[truth], cs2c2[truth]))
+
+        for a, x, y in lines:
+            color = a.plot(x, y, **kwargs)[0].get_color()
+            kwargs['color'] = color
+
+        # add point annotations
+        
+        kwargs['markeredgewidth'] = 2
+        kwargs['markeredgecolor'] = color
+        kwargs['markerfacecolor'] = 'none'
+        kwargs['alpha'] = 0.50
+
+        for rhos, mark, markersize in [
+                ((max_rho, min_rho), marker, 5),
+                ((rmax_rho, end_rho), '|', 15),
+            ]:
+            for rho in rhos:
+                x = rho*np.interp(rho, rhoc, dlnM_drhoc)
+                y = rho*np.interp(rho, rhoc, dlnI_drhoc)
+
+                axp.plot(x, y, marker=mark, markersize=markersize, **kwargs)
+                axc.plot(rho, np.interp(rho, baryon_density, cs2c2), marker=mark, markersize=markersize, **kwargs)
+
+                for a, A, y in [
+                        (axM1, axr1, np.interp(rho, rhoc, I)),
+                        (axM2, axr2, np.interp(rho, rhoc, arctan_dlnI_dlnM)),
+                        (axM3, axr3, (x**2 + y**2)**0.5)
+                    ]:
+                    a.plot(np.interp(rho, rhoc, M), y, marker=mark, markersize=markersize, **kwargs)
+                    A.plot(rho, y, marker=mark, markersize=markersize, **kwargs)
 
     #---
 
     # decorate
+
+    fig.suptitle(title)
 
 #    raise NotImplementedError('add a legend for the different colors/markers used')
 
@@ -669,7 +740,7 @@ def data2moi_features_figure(
     plt.subplots_adjust(
         left=0.10,
         right=0.90,
-        top=0.95,
+        top=0.92,
         bottom=0.05,
         hspace=0.08,
         wspace=0.03,
