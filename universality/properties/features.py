@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 
 ### non-standard libraries
 from universality.utils import (io, utils)
+from universality.plot.utils import plt
 
 #-------------------------------------------------
 
@@ -94,7 +95,7 @@ def find_inclusive_minima(x):
 
 # templates for column names relevant to MoI features
 MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
-#MAX_K_TEMPLATE = 'max_k_%s'
+RMAX_CS2C2_TEMPLATE = 'running_max_cs2c2_%s'
 MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
@@ -102,6 +103,7 @@ DEFAULT_FLATTEN_THR = 0.0
 DEFAULT_SMOOTHING_WIDTH = None
 DEFAULT_DIFF_THR = 0.0
 DEFAULT_CS2C2_COFACTOR = np.infty
+DEFAULT_CS2C2_DROP_RATIO = 0.0
 
 #------------------------
 
@@ -118,8 +120,8 @@ def arctan_transform(rhoc, M, I, flatten_thr=DEFAULT_FLATTEN_THR, smoothing_widt
         dlnM_drhoc = smooth(np.log(rhoc), dlnM_drhoc, smoothing_width)
 
     ### regularlize the derivatives so we don't get oscillatory behavior due to numerical precision when there is no change with respect to rhoc
-    ### only filter placed where we've touched both dM and dI to account for numerical error
-    spurious = (np.abs(dlnI_drhoc*rhoc)<flatten_thr) *(np.abs(dlnM_drhoc*rhoc)<flatten_thr)
+    ### only filter places where we've touched both dM and dI to account for numerical error
+    spurious = (np.abs(dlnI_drhoc*rhoc)<flatten_thr) * (np.abs(dlnM_drhoc*rhoc)<flatten_thr)
 
     dlnI_drhoc[spurious] = 0
     dlnM_drhoc[spurious] = 0
@@ -158,6 +160,7 @@ def data2moi_features(
         flatten_thr=DEFAULT_FLATTEN_THR,
         smoothing_width=DEFAULT_SMOOTHING_WIDTH,
         diff_thr=DEFAULT_DIFF_THR,
+        cs2c2_drop_ratio=DEFAULT_CS2C2_DROP_RATIO,
         cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
         debug_figname=None, ### this is a path into which we write the debug figure
@@ -170,26 +173,18 @@ def data2moi_features(
     for tmp in [
             MIN_CS2C2_TEMPLATE,
             MAX_CS2C2_TEMPLATE,
+            RMAX_CS2C2_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
         names += [tmp%col for col in macro_cols]
         names += [tmp%col for col in eos_cols]
     params = []
 
-    if debug_figname:
-        import matplotlib
-        matplotlib.use("Agg")
-        from matplotlib import pyplot as plt
+    if debug_figname: ### set up lists for plotting
+        points = []  # individual points
+        regions = [] # spans of density
 
-        fig = plt.figure(figsize=(15, 5))
-
-        axp = plt.subplot(1, 3, 1)
-
-        ax1 = plt.subplot(3, 3, 2)
-        ax2 = plt.subplot(3, 3, 5)
-        ax3 = plt.subplot(3, 3, 8)
-
-        AX2 = plt.subplot(1, 3, 3)
+    #---
 
     ### compute the absolute value of the curvature, which we use as an indicator variable
     arctan_dlnI_dlnM, (spurious, dlnM_drhoc, dlnI_drhoc) = arctan_transform(
@@ -200,53 +195,30 @@ def data2moi_features(
         smoothing_width=smoothing_width,
     )
 
-    if debug_figname:
-        kwargs = dict(color='k', alpha=0.75)
-        axp.plot(rhoc*dlnM_drhoc, rhoc*dlnI_drhoc, **kwargs)
-        ax1.plot(rhoc, I, **kwargs)
-        ax2.plot(rhoc, arctan_dlnI_dlnM, **kwargs)
-        ax3.plot(rhoc, np.log((dlnI_drhoc**2 + dlnM_drhoc**2)**0.5 * rhoc), **kwargs)
-
-        AX2.plot(baryon_density, cs2c2, **kwargs)
-
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
 
-    if debug_figname:
-        kwargs = dict(color='k', marker='.')
-        for end in ends:
-            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-            ax1.plot(rhoc[end], I[end], **kwargs)
-            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
-
-    ### discard any local minima that are before the first stable branch
+    # discard any local minima that are before the first stable branch
     while len(ends):
         end = ends[-1]
         if np.any(dlnM_drhoc[:end] > 0): ### something is stable before this
              break
         ends = ends[:-1] ### truncate this guy
 
-        if debug_figname:
-            kwargs = dict(color='b', marker='o')
-            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-            ax1.plot(rhoc[end], I[end], **kwargs)
-            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+        if debug_figname: # add to list for plotting
+            points.append((rhoc[end], dict(color='b', marker='o')))
 
-    ### discard any local minima that are in the final unstable branch
+    # discard any local minima that are in the final unstable branch
     while len(ends):
         end = ends.pop(0)
         if np.any(dlnM_drhoc[end:] > 0): ### not part of the 'final unstable branch'
             ends.insert(0, end)
             break
 
-        if debug_figname:
-            kwargs = dict(color='r', marker='s')
-            axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-            ax1.plot(rhoc[end], I[end], **kwargs)
-            ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-            AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+        if debug_figname: # add to list for plotting
+            points.append((rhoc[end], dict(color='r', marker='s')))
+
+    #---
 
     if ends: ### we have something to do
 
@@ -255,144 +227,180 @@ def data2moi_features(
             ends = ends[:-1]
 
             if debug_figname:
-                kwargs = dict(color='g', marker='*')
-                axp.plot(rhoc[0]*dlnM_drhoc[0], rhoc[0]*dlnI_drhoc[0], **kwargs)
-                ax1.plot(rhoc[0], I[0], **kwargs)
-                ax2.plot(rhoc[0], arctan_dlnI_dlnM[0], **kwargs)
-                AX2.plot(rhoc[0], np.interp(rhoc[0], baryon_density, cs2c2), **kwargs)
+                points.append((rhoc[0], dict(color='g', marker='*')))
 
         if ends[0] == len(rhoc)-1: ### same thing with the end point
             ends = ends[1:]
 
             if debug_figname:
-                kwargs = dict(color='g', marker='*')
-                axp.plot(rhoc[-1]*dlnM_drhoc[-1], rhoc[-1]*dlnI_drhoc[-1], **kwargs)
-                ax1.plot(rhoc[-1], [-1], **kwargs)
-                ax2.plot(rhoc[-1], arctan_dlnI_dlnM[-1], **kwargs)
-                AX2.plot(rhoc[-1], np.interp(rhoc[-1], baryon_density, cs2c2), **kwargs)
+                points.append((rhoc[-1], dict(color='g', marker='*')))
+
+        #---
 
         ### local minima in sound speed
-        min_cs2c2 = find_inclusive_minima(cs2c2)
-        min_cs2c2 = np.array(min_cs2c2)
+        min_cs2c2 = np.array(find_inclusive_minima(cs2c2))
         min_cs2c2_baryon_density = baryon_density[min_cs2c2]
 
-        ### global maxima in sound speed up to the current point
-        max_cs2c2 = find_running_maxima(cs2c2)
+        ### local maxima in sound speed
+        max_cs2c2 = np.array(find_inclusive_maxima(cs2c2))
+        max_cs2c2_baryon_density = baryon_density[max_cs2c2]
 
-        if not max_cs2c2: ### no qualifying maxima
+        ### global maxima in sound speed up to the current point
+        rmax_cs2c2 = find_running_maxima(cs2c2)
+
+        if not rmax_cs2c2: ### no qualifying maxima
             if debug_figure:
                 for end in ends:
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], color='y', marker='v')
-                    ax1.plot(rhoc[end], I[end], color='y', marker='v')
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], color='y', marker='v')
+                    points.append((rhoc[end], dict(color='y', marker='v')))
 
             ends = [] ### this will make us skip all the ends because we can't match them to starting points
 
         else:
-            max_cs2c2 = np.array(max_cs2c2)
-            max_cs2c2_baryon_density = baryon_density[max_cs2c2]
+            rmax_cs2c2 = np.array(rmax_cs2c2)
+            rmax_cs2c2_baryon_density = baryon_density[rmax_cs2c2]
 
-        # iterate through and grab the following associated with each "end"
+        #---
+
+        ### iterate through and grab the following associated with each "end"
         Neos = len(eos_cols)
         Nmac = len(macro_cols)
+
+        '''
+        ### FIXME: remove this group stuff?
         last_r = +np.infty ### logic to avoid overlapping phase transitions
         group = []
+        '''
+
         for end in ends:
             r = rhoc[end]
-            datum = []
 
             if verbose:
                 print('        processing end=%d/%d at rhoc=%.6e'%(end, len(rhoc), r))
 
+            #---
+
             ### min sound speed preceeding "end"
             try:
-                ind = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
+                ind_min_cs2c2 = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('            WARNING! coult not find preceeding minimum in cs2c2')
+                    print('            WARNING! coult not find local minimum in cs2c2 preceeding local minimum in arctan(dlogI/dlogM)')
 
                 if debug_figname:
-                    kwargs = dict(color='orange', marker='h')
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-                    ax1.plot(rhoc[end], I[end], **kwargs)
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+                    points.append((r, dict(color='orange', marker='h')))
 
                 continue
 
-            min_r = baryon_density[ind]
+            min_r = baryon_density[ind_min_cs2c2]
             min_cs2c2_arctan = np.interp(min_r, rhoc, arctan_dlnI_dlnM)
 
-            datum += [np.interp(baryon_density[ind], rhoc, macro_data[:,i]) for i in range(Nmac)]
-            datum += list(eos_data[ind])
+            #---
 
-            ### max sound speed preceeding "end"
+            ### max sound speed preceeding minimum sound speed
             try:
-                ind = find_preceeding(min_r, max_cs2c2_baryon_density, max_cs2c2) ### look for local max before the local min
+                ind_max_cs2c2 = find_preceeding(min_r, max_cs2c2_baryon_density, max_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('            WARNING! could not find preceeding maximum in cs2c2')
+                    print('            WARNING! coult not find local maximum in cs2c2 preceeding local minimum in cs2c2')
 
                 if debug_figname:
-                    kwargs = dict(color='c', marker='d')
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-                    ax1.plot(rhoc[end], I[end], **kwargs)
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+                    points.append((r, dict(color='orange', marker='h')))
 
                 continue
 
-            max_r = baryon_density[ind] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
-            max_cs2c2_arctan = np.interp(max_r, rhoc, arctan_dlnI_dlnM)
+            max_r = baryon_density[ind_max_cs2c2]
 
-            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(max_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
+            #---
+
+            ### running max sound speed preceeding maximum sound speed
+            try:
+                ind_rmax_cs2c2 = find_preceeding(max_r, rmax_cs2c2_baryon_density, rmax_cs2c2) ### look for local max before the local min
+            except RuntimeError:
                 if verbose:
-                    print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr; skipping this possible transition')
+                    print('            WARNING! could not find running maximum in cs2c2 preceeding local minimum in cs2c2')
 
                 if debug_figname:
-                    kwargs = dict(color='k', marker='>')
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-                    ax1.plot(rhoc[end], I[end], **kwargs)
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+                    points.append((r, dict(color='c', marker='d')))
 
                 continue
 
-            if max(max_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]: ### both are smaller, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
+            rmax_r = baryon_density[ind_rmax_cs2c2] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+            rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
+
+            #---
+
+            ### now perform sanity checks to make sure this candidate passes
+
+            # does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
+            if (dlnM_drhoc[end] > 0) and (np.max(arctan_dlnI_dlnM[(rmax_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr):
                 if verbose:
-                    print('            WARNING! arctan(dlnI/dlnM) at max_cs2c2 and min_cs2c2 is less than at the local minimum; skipping this possible transition')
+                    print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
 
                 if debug_figname:
-                    kwargs = dict(color='k', marker='<')
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-                    ax1.plot(rhoc[end], I[end], **kwargs)
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
 
                 continue
 
-            if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind]: ### recovery occurs at a larger sound speed than the onset...
+            # both rmax_cs2c2 and min_cs2c2 correspond to small arctan, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
+            if max(rmax_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]:
                 if verbose:
-                    print('            WARNING! sound-speed at local minimum is larger than onset sound speed; skipping this possible transition')
+                    print('            WARNING! arctan(dlnI/dlnM) at rmax_cs2c2 and min_cs2c2 are less than at the local minimum in arctan(dlnI/dlnM); skipping this possible transition')
 
                 if debug_figname:
-                    kwargs = dict(color='k', marker='^')
-                    axp.plot(rhoc[end]*dlnM_drhoc[end], rhoc[end]*dlnI_drhoc[end], **kwargs)
-                    ax1.plot(rhoc[end], I[end], **kwargs)
-                    ax2.plot(rhoc[end], arctan_dlnI_dlnM[end], **kwargs)
-                    AX2.plot(rhoc[end], np.interp(rhoc[end], baryon_density, cs2c2), **kwargs)
+                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='<')))
 
                 continue
 
+            # recovery occurs at a significantly larger sound speed than the onset...
+            if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind_rmax_cs2c2]:
+                if verbose:
+                    print('            WARNING! sound-speed at local minimum is larger than onset sound speed (ratio > %.3e); skipping this possible transition'%cs2c2_cofactor)
+
+                if debug_figname:
+                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='^')))
+
+                continue
+
+            # sound speed must drop by a certain fraction
+            if cs2c2_drop_ratio * np.interp(min_r, baryon_density, cs2c2) > np.interp(rmax_r, baryon_density, cs2c2):
+                if verbose:
+                    print('            WARNING! sound-speed at running maximum is less than %.3f times sound speed at local minimum; skipping this possible transition'%cs2c2_drop_ratio)
+
+                if debug_figname:
+                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='v')))
+
+                continue
+
+            #--- add parameters at identified points (same ordering as when we construct "names")
+
+            datum = []
+
+            # add local min in cs2c2
+            datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind_min_cs2c2])
+
+            # add local max in cs2c2
             datum += [np.interp(max_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
-            datum += list(eos_data[ind])
+            datum += list(eos_data[ind_max_cs2c2])
 
-            ### parameters at "end"
-            ind = end
+            # add running max in cs2c2
+            datum += [np.interp(rmax_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind_rmax_cs2c2])
+
+            # add parameters at "end"
             datum += list(macro_data[end])
             datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
+            if debug_figname: # plot surviving candidates
+                regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='.')))
+
+            #---
+
+            params.append(datum)
+
+            '''
             ### figure out if there is any overlap, keep the one with the minimum dlnI_drhoc[end]
+
             if len(group) and (r < last_r): ### we already have a group and this would *not* overlap with something we've already declared a phase transition, so figure out which is best and add it
                 group.sort(key=lambda x:x[0]) ### sort so the smallest dlnI_drhoc is first
                 params.append(group[0][1]) ### append the datum
@@ -406,6 +414,8 @@ def data2moi_features(
 
             last_r = max_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
 
+        #---
+
         if group: ### add the last identified transition
             group.sort(key=lambda x: -x[0]) ### bigger rhoc first
             params.append(group[0][1])
@@ -413,6 +423,35 @@ def data2moi_features(
 #            if debug_figname:
 #                raise NotImplementedError('add the ends that are skipped from this group to debug plot')
 
+        '''
+
+    #---
+
+    if debug_figname: ### make a plot
+
+        if verbose:
+            print('plotting')
+        fig = data2moi_features_figure(
+            points,
+            regions,
+            rhoc,
+            M,
+            I,
+            baryon_density,
+            cs2c2,
+            arctan_dlnI_dlnM,
+            dlnM_drhoc,
+            dlnI_drhoc,
+        )
+
+        if verbose:
+            print('saving : '+debug_figname)
+        fig.savefig(debug_figname)
+        plt.close(fig)
+
+    #---
+
+    ### finish formatting data
     params = [[ind]+thing for ind, thing in enumerate(params)] ### include a transition number for reference
 
     if not len(params):
@@ -421,101 +460,222 @@ def data2moi_features(
     else:
         params = np.array(params, dtype=float)
 
-    if debug_figname:
+    return params, names
 
-        fig.suptitle('%d features'%len(params))
+#------------------------
 
-#        raise NotImplementedError('add a legend for the different colors/markers used')
+def data2moi_features_figure(
+        points,
+        regions,
+        rhoc,
+        M,
+        I,
+        baryon_density,
+        cs2c2,
+        arctan_dlnI_dlnM,
+        dlnM_drhoc,
+        dlnI_drhoc,
+    ):
+    """make a figure showing the logic encoded in data2moi_features
+    """
+    fig = plt.figure(figsize=(10, 10))
 
-        #---
+    axp = plt.subplot(2, 2, 1)
+    axc = plt.subplot(2, 2, 2)
 
-#        xlim = axp.get_xlim()
-#        ylim = axp.get_ylim()
-        xlim = -1.5, +2.5 ### FIXME: chosen by hand to zoom in on the "interesting" mass ranges...
-        ylim = -2.0, +2.0
+    axM1 = plt.subplot(6, 2, 7)
+    axM2 = plt.subplot(6, 2, 9)
+    axM3 = plt.subplot(6, 2,11)
 
-        axp.plot(xlim, [0]*2, color='k', alpha=0.1)
-        axp.plot([0]*2, ylim, color='k', alpha=0.1)
+    axr1 = plt.subplot(6, 2, 8)
+    axr2 = plt.subplot(6, 2,10)
+    axr3 = plt.subplot(6, 2,12)
 
-        if xlim[0] < 0:
-            axp.fill_between([xlim[0], 0], [ylim[0]]*2, [ylim[1]]*2, color='k', alpha=0.05)
+    #---
 
-        axp.set_xlim(xlim)
-        axp.set_ylim(ylim)
+    # plot basic curves
+    kwargs = dict(color='k', alpha=0.75)
 
-        axp.set_xlabel('dlnM/dlnrhoc')
-        axp.set_ylabel('dlnI/dlnrhoc')
+    axp.plot(rhoc*dlnM_drhoc, rhoc*dlnI_drhoc, **kwargs)
+    axc.plot(baryon_density, cs2c2, **kwargs)
 
-        #---
+    for a, A, y in [
+            (axM1, axr1, I),
+            (axM2, axr2, arctan_dlnI_dlnM),
+            (axM3, axr3, (dlnI_drhoc**2 + dlnM_drhoc**2)**0.5 * rhoc),
+        ]:
+        a.plot(M, y, **kwargs)
+        A.plot(rhoc, y, **kwargs)
 
-        ax1.set_ylabel('I')
-#        ax1.yaxis.tick_right()
-#        ax1.yaxis.set_label_position('right')
-        plt.setp(ax1.get_xticklabels(), visible=False)
+    #---
 
-        ax1.set_xscale('log')
+    # plot individual points
+    for rho, kwargs in points:
+        x = rho*np.interp(rho, rhoc, dlnM_drhoc)
+        y = rho*np.interp(rho, rhoc, dlnI_drhoc)
 
-        ax1.grid(True, which='both')
+        axp.plot(x, y, **kwargs)
+        axc.plot(rho, np.interp(rho, baryon_density, cs2c2), **kwargs)
 
-        #---
+        for a, A, y in [
+                (axM1, axr1, np.interp(rho, rhoc, I)),
+                (axM2, axr2, np.interp(rho, rhoc, arctan_dlnI_dlnM)), 
+                (axM3, axr3, (x**2 + y**2)**0.5)
+            ]:
+            a.plot(np.interp(rho, rhoc, M), y, **kwargs)
+            A.plot(rho, y, **kwargs)
 
-        ax2.set_ylabel('arctan(dlnI/dlnM)')
-#        ax2.yaxis.tick_right()
-#        ax2.yaxis.set_label_position('right')
-        plt.setp(ax2.get_xticklabels(), visible=False)
-        ax2.set_xlim(ax1.get_xlim())
-        ax2.set_xscale(ax1.get_xscale())
+    #---
 
+    # plot regions
+
+    for (rmax_rho, max_rho, min_rho, end_rho), kwargs in regions:
+        for rho in (rmax_rho, max_rho, min_rho, end_rho):  ### FIXME! need to plot lines or something instad of just points
+            x = rho*np.interp(rho, rhoc, dlnM_drhoc)
+            y = rho*np.interp(rho, rhoc, dlnI_drhoc)
+
+            axp.plot(x, y, **kwargs)
+            axc.plot(rho, np.interp(rho, baryon_density, cs2c2), **kwargs)
+
+            for a, A, y in [
+                    (axM1, axr1, np.interp(rho, rhoc, I)),
+                    (axM2, axr2, np.interp(rho, rhoc, arctan_dlnI_dlnM)),
+                    (axM3, axr3, (x**2 + y**2)**0.5)
+                ]:
+                a.plot(np.interp(rho, rhoc, M), y, **kwargs)
+                A.plot(rho, y, **kwargs)
+
+    #---
+
+    # decorate
+
+#    raise NotImplementedError('add a legend for the different colors/markers used')
+
+    #---
+
+    xlim = axp.get_xlim()
+    ylim = axp.get_ylim()
+#    xlim = -1.5, +2.5 ### FIXME: chosen by hand to zoom in on the "interesting" mass ranges...
+#    ylim = -2.0, +2.0
+
+    axp.plot(xlim, [0]*2, color='k', alpha=0.1)
+    axp.plot([0]*2, ylim, color='k', alpha=0.1)
+
+    if xlim[0] < 0:
+        axp.fill_between([xlim[0], 0], [ylim[0]]*2, [ylim[1]]*2, color='k', alpha=0.05)
+
+    axp.set_xlim(xlim)
+    axp.set_ylim(ylim)
+
+    axp.set_xlabel('$d\ln M/d\ln \\rho_c$')
+    axp.set_ylabel('$d\ln I/d\ln \\rho_c$')
+
+    axp.xaxis.tick_top()
+    axp.xaxis.set_label_position('top')
+
+    #---
+
+    axc.set_ylabel('$c_s^2/c^2$')
+    axc.set_xlabel('$\\rho$')
+    axc.xaxis.tick_top()
+    axc.xaxis.set_label_position('top')
+
+    axc.yaxis.tick_right()
+    axc.yaxis.set_label_position('right')
+
+    axc.set_xscale('log')
+    axc.set_yscale('log')
+
+    axc.set_ylim(ymax=1.0)
+
+    xlim = axc.get_xlim()
+    if xlim[0] < 9.0e13: ### 0.1*rho_nuc
+        axc.set_xlim(xmin=9.0e13)
+        axc.set_ylim(ymin=np.min(cs2c2[baryon_density>=2.8e13]))
+
+    if xlim[1] > 1.1*rhoc[-1]:
+        axc.set_xlim(xmax=1.1*rhoc[-1])
+
+    axc.grid(True, which='both')
+
+    #---
+
+    axM1.set_ylabel('$I$')
+    axr1.set_ylabel(axM1.get_ylabel())
+    axr1.yaxis.tick_right()
+    axr1.yaxis.set_label_position('right')
+
+    plt.setp(axM1.get_xticklabels(), visible=False)
+    plt.setp(axr1.get_xticklabels(), visible=False)
+
+    axr1.set_xscale('log')
+    axr1.set_xlim(axc.get_xlim())
+
+    axM1.grid(True, which='both')
+    axr1.grid(True, which='both')
+
+    #---
+
+    axM2.set_ylabel('$\\tan^{-1}\left(\\frac{d\ln I}{d\ln M}\\right)$')
+    axr2.set_ylabel(axM2.get_ylabel())
+    axr2.yaxis.tick_right()
+    axr2.yaxis.set_label_position('right')
+
+    plt.setp(axM2.get_xticklabels(), visible=False)
+    plt.setp(axr2.get_xticklabels(), visible=False)
+
+    axM2.set_xscale(axM1.get_xscale())
+    axM2.set_xlim(axM1.get_xlim())
+
+    axr2.set_xscale(axr1.get_xscale())
+    axr2.set_xlim(axr1.get_xlim())
+
+    axM2.grid(True, which='both')
+    axr2.grid(True, which='both')
+
+    for ax2 in [axM2, axr2]:
         ylim = ax2.get_ylim()
         if ylim[0] < -0.5*np.pi:
             ax2.fill_between(ax2.get_xlim(), [ylim[0]]*2, [-0.5*np.pi]*2, color='k', alpha=0.05)
         if ylim[1] > +0.5*np.pi:
             ax2.fill_between(ax2.get_xlim(), [ylim[1]]*2, [+0.5*np.pi]*2, color='k', alpha=0.05)
+        ax2.set_ylim(ylim)
 
-        ax2.grid(True, which='both')
+    #---
 
-        #---
+#    axM3.set_ylabel('$\sqrt{(d\ln I/d\ln \\rho_c)^2 + (d\ln M/d\ln\\rho_c)^2}$')
+    axM3.set_ylabel('$\sqrt{(d\ln I)^2 + (d\ln M)^2}$')
+    axr3.set_ylabel(axM3.get_ylabel())
+    axr3.yaxis.tick_right()
+    axr3.yaxis.set_label_position('right')
 
-        ax3.set_ylabel('0.5*log( (dlnI/dlnrhoc)**2 + (dlnM/dlnrhoc)**2 )')
-#        ax3.yaxis.tick_right()
-#        ax3.yaxis.set_label_position('right')
-        ax3.set_xlabel('rhoc')
-        ax3.set_xlim(ax1.get_xlim())
-        ax3.set_xscale(ax1.get_xscale())
+    axM3.set_yscale('log')
+    axr3.set_yscale('log')
 
-        ax3.grid(True, which='both')
+    axM3.set_xlabel('$M$')
+    axr3.set_xlabel(axc.get_xlabel())
 
-        #---
+    axM3.set_xscale(axM1.get_xscale())
+    axM3.set_xlim(axM1.get_xlim())
 
-        AX2.set_ylabel('cs**2/c**2')
-        AX2.set_xlabel('rho')
+    axr3.set_xscale(axr1.get_xscale())
+    axr3.set_xlim(axr1.get_xlim())
 
-        AX2.yaxis.tick_right()
-        AX2.yaxis.set_label_position('right')
+    axM3.grid(True, which='both')
+    axr3.grid(True, which='both')
 
-        AX2.set_xscale('log')
-        AX2.set_yscale('log')
+    #---
 
-        AX2.set_ylim(ymax=1.0)
+    plt.subplots_adjust(
+        left=0.10,
+        right=0.90,
+        top=0.95,
+        bottom=0.05,
+        hspace=0.08,
+        wspace=0.03,
+    )
 
-        xlim = AX2.get_xlim()
-        if xlim[0] < 2.8e13: ### 0.1*rho_nuc
-            AX2.set_xlim(xmin=2.8e13)
-            AX2.set_ylim(ymin=np.min(cs2c2[baryon_density>=2.8e13]))
-
-        if xlim[1] > rhoc[-1]:
-            AX2.set_xlim(xmax=rhoc[-1])
-
-        AX2.grid(True, which='both')
-
-        #---
-
-        if verbose:
-            print('saving : '+debug_figname)
-        fig.savefig(debug_figname)
-        plt.close(fig)
-
-    return params, names
+    return fig
 
 #------------------------
 
@@ -536,6 +696,7 @@ def process2moi_features(
         flatten_thr=DEFAULT_FLATTEN_THR,
         smoothing_width=DEFAULT_SMOOTHING_WIDTH,
         diff_thr=DEFAULT_DIFF_THR,
+        cs2c2_drop_ratio=DEFAULT_CS2C2_DROP_RATIO,
         cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
     ):
@@ -584,6 +745,7 @@ def process2moi_features(
             flatten_thr=flatten_thr,
             smoothing_width=smoothing_width,
             diff_thr=diff_thr,
+            cs2c2_drop_ratio=cs2c2_drop_ratio,
             cs2c2_cofactor=cs2c2_cofactor,
             verbose=verbose,
         )
