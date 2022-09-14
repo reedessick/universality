@@ -334,8 +334,8 @@ def num_dfdx(x_obs, f_obs):
     dfdx[0] = df[0]/dx[0]   # handle boundary conditions as special cases
     dfdx[-1] = df[-1]/dx[-1]
 
-    dfdx[1:-1] = 0.5*(df[:-1]/dx[:-1] + df[1:]/dx[1:]) ### average in the bulk
-    ### NOTE: this is different than what numpy.gradient will yield...
+    # expression taken from Eq 1.3 of https://www.tandfonline.com/doi/pdf/10.3402/tellusa.v22i1.10155
+    dfdx[1:-1] = (df[:-1]/dx[:-1]) * (dx[1:]/(dx[:-1]+dx[1:])) + (df[1:]/dx[1:]) * (dx[:-1]/(dx[:-1]+dx[1:]))
 
     return dfdx
 
