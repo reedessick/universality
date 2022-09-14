@@ -97,6 +97,7 @@ def find_inclusive_minima(x):
 MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
 RMAX_CS2C2_TEMPLATE = 'running_max_cs2c2_%s'
 MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
+MAX_ARCTAN_DLNI_DLNM_TEMPLATE = 'max_arctan_dlnI_dlnM_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
 DEFAULT_FLATTEN_THR = 0.0
@@ -175,6 +176,7 @@ def data2moi_features(
             MIN_CS2C2_TEMPLATE,
             MAX_CS2C2_TEMPLATE,
             RMAX_CS2C2_TEMPLATE,
+            MAX_ARCTAN_DLNI_DLNM_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
         names += [tmp%col for col in macro_cols]
@@ -331,6 +333,11 @@ def data2moi_features(
             rmax_r = baryon_density[ind_rmax_cs2c2] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
             rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
 
+            ### now find the maximum arctan(...) between rmax_r and r
+            selected = (rmax_r<=rhoc)*(rhoc<=r)
+            max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
+            ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
+
             #---
 
             ### now perform sanity checks to make sure this candidate passes
@@ -397,13 +404,17 @@ def data2moi_features(
             datum += [np.interp(rmax_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind_rmax_cs2c2])
 
-            # add parameters at "end"
+            # add parameters at max arctan
+            datum += list(macro_data[ind_max_arctan])
+            datum += [np.interp(max_arctan_r, baryon_density, eos_data[:,i]) for i in range(Neos)]
+
+            # add parameters at "end" (min arctan)
             datum += list(macro_data[end])
             datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
             if debug_figname: # plot surviving candidates
 #                regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='.', linewidth=2, alpha=0.25)))
-                regions.append(((rmax_r, max_r, min_r, r), dict(marker='.', linewidth=2)))
+                regions.append((sorted([rmax_r, max_r, min_r, max_arctan_r, r]), dict(marker='.', linewidth=2)))
 
             #---
 
@@ -571,12 +582,12 @@ def data2moi_features_figure(
 
     # plot regions
 
-    for (rmax_rho, max_rho, min_rho, end_rho), kwargs in regions:
+    for rhos, kwargs in regions: ### assumes rhos are sorted from smallest to largest
         kwargs = dict(kwargs.items()) ### make a copy
         marker = kwargs.pop('marker', '.')
 
         # add lines
-        truth = (rmax_rho <= rhoc) * (rhoc <= end_rho)
+        truth = (rhos[0] <= rhoc) * (rhoc <= rhos[-1])
         lines = [(axp, dlnM_drhoc[truth]*rhoc[truth], dlnI_drhoc[truth]*rhoc[truth])]
         for a, A, y in [
                 (axM1, axr1, I),
@@ -585,7 +596,7 @@ def data2moi_features_figure(
             ]:
             lines += [(a, M[truth], y[truth]), (A, rhoc[truth], y[truth])]
 
-        truth = (rmax_rho <= baryon_density) * (baryon_density <= end_rho)
+        truth = (rhos[0] <= baryon_density) * (baryon_density <= rhos[-1])
         lines.append((axc, baryon_density[truth], cs2c2[truth]))
 
         for a, x, y in lines:
@@ -599,11 +610,11 @@ def data2moi_features_figure(
         kwargs['markerfacecolor'] = 'none'
         kwargs['alpha'] = 0.50
 
-        for rhos, mark, markersize in [
-                ((max_rho, min_rho), marker, 5),
-                ((rmax_rho, end_rho), '|', 15),
+        for points, mark, markersize in [
+                (rhos[1:-1], marker, 5),
+                ((rhos[0], rhos[-1]), '|', 15),
             ]:
-            for rho in rhos:
+            for rho in points:
                 x = rho*np.interp(rho, rhoc, dlnM_drhoc)
                 y = rho*np.interp(rho, rhoc, dlnI_drhoc)
 
