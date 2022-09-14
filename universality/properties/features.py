@@ -631,9 +631,6 @@ def data2moi_features_figure(
     xlim = axp.get_xlim()
     ylim = axp.get_ylim()
 
-    xlim = -0.5, +1.5
-    ylim = -1.0, +1.0
-
     axp.plot(xlim, [0]*2, color='k', alpha=0.1)
     axp.plot([0]*2, ylim, color='k', alpha=0.1)
 

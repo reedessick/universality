@@ -56,6 +56,8 @@ There are cases in which this helps reject things that stall the final collapse 
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+parser.add_argument('--debug-figname', default=None, type=str,
+    help='generate diagnostic plots and save them into this path')
 
 parser.add_argument('-p', '--plot', default=False, action='store_true')
 parser.add_argument('--energy-densityc2-column', default='energy_densityc2', type=str,
@@ -106,7 +108,7 @@ macro_data = macro_data[np.argsort(rhoc)]
 
 # separate things in a way that's convenient
 M = macro_data[:,macro_cols.index(args.macro_mass_column)]
-I = macro_data[:,marco_cols.index(args.macro_moi_column)]
+I = macro_data[:,macro_cols.index(args.macro_moi_column)]
 rhoc = macro_data[:,macro_cols.index(macro_baryon_density_column)]
 
 #------------------------
@@ -129,6 +131,7 @@ params, names = features.data2moi_features(
     cs2c2_cofactor=args.cs2c2_cofactor,
     cs2c2_drop_ratio=args.cs2c2_drop_ratio,
     verbose=args.Verbose,
+    debug_figname=args.debug_figname,
 )
 
 if args.outpath is not None:
@@ -143,6 +146,8 @@ io.write(args.outpath, params, names)
 if args.plot: ### make a big ol' plot
     if args.verbose:
         print('plotting the identified phase transitions')
+
+    raise NotImplementedError('combine this plot with debug_figname')
 
     TEMPLATES = [
         (features.MAX_CS2C2_TEMPLATE, 'm'),
