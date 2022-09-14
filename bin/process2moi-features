@@ -89,11 +89,13 @@ Can be repeated to specify multiple columns. If this is not specified, we will p
 vgroup = parser.add_argument_group('verbosity arguments')
 vgroup.add_argument('-v', '--verbose', default=False, action="store_true")
 vgroup.add_argument('-V', '--Verbose', default=False, action="store_true")
+vgroup.add_argument('--debug', default=False, action="store_true")
 
 args = parser.parse_args()
 
 macro_rhoc, eos_rho = args.macro2eos_central_baryon_density ### assign these to handy names
 
+args.Verbose |= args.debug
 args.verbose |= args.Verbose
 
 ### check to see if we want to use a different directory for macro files
@@ -187,4 +189,5 @@ features.process2moi_features(
     cs2c2_cofactor=args.cs2c2_cofactor,
     cs2c2_drop_ratio=args.cs2c2_drop_ratio,
     verbose=args.Verbose,
+    debug=args.debug,
 )

@@ -783,6 +783,7 @@ def process2moi_features(
         cs2c2_drop_ratio=DEFAULT_CS2C2_DROP_RATIO,
         cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
+        debug=False,
     ):
     """extract the branches for each EoS specified
     """
@@ -816,6 +817,11 @@ def process2moi_features(
         I = mac_data[:,mac_cols.index(macro_moi)]
         rhoc = mac_data[:,mac_cols.index(macro_rhoc)]
 
+        if debug:
+            debug_figname = eos_path[:-4] + '-moi_features.png'
+        else:
+            debug_figname = None
+
         params, names = data2moi_features(
             rhoc,
             M,
@@ -832,6 +838,7 @@ def process2moi_features(
             cs2c2_drop_ratio=cs2c2_drop_ratio,
             cs2c2_cofactor=cs2c2_cofactor,
             verbose=verbose,
+            debug_figname=debug_figname,
         )
 
         if verbose:
