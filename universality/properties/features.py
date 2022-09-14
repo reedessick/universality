@@ -100,7 +100,8 @@ MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
 DEFAULT_FLATTEN_THR = 0.0
-DEFAULT_SMOOTHING_WIDTH = None
+DEFAULT_SMOOTHING_WIDTH = 0.01 ### applied in log(rhoc). This seems to be small enough to not affect much
+                               ### but (anectodally) large enough to smooth out typical numeric variation
 DEFAULT_DIFF_THR = 0.0
 DEFAULT_CS2C2_COFACTOR = np.infty
 DEFAULT_CS2C2_DROP_RATIO = 0.0
@@ -197,6 +198,9 @@ def data2moi_features(
 
     ### find the possible end points as local minima of arctan_dlnI_dlnM
     ends = list(find_inclusive_minima(arctan_dlnI_dlnM)[::-1]) ### reverse so the ones with largest rhoc are first
+
+    if debug_figname:
+        points += [(rhoc[end], dict(color='k', marker='o')) for end in ends]
 
     # discard any local minima that are before the first stable branch
     while len(ends):
@@ -626,8 +630,9 @@ def data2moi_features_figure(
 
     xlim = axp.get_xlim()
     ylim = axp.get_ylim()
-#    xlim = -1.5, +2.5 ### FIXME: chosen by hand to zoom in on the "interesting" mass ranges...
-#    ylim = -2.0, +2.0
+
+    xlim = -0.5, +1.5
+    ylim = -1.0, +1.0
 
     axp.plot(xlim, [0]*2, color='k', alpha=0.1)
     axp.plot([0]*2, ylim, color='k', alpha=0.1)
@@ -726,11 +731,11 @@ def data2moi_features_figure(
     axM3.set_xlabel('$M$')
     axr3.set_xlabel(axc.get_xlabel())
 
-    axM3.set_xscale(axM1.get_xscale())
-    axM3.set_xlim(axM1.get_xlim())
+    axM3.set_xscale(axM2.get_xscale())
+    axM3.set_xlim(axM2.get_xlim())
 
-    axr3.set_xscale(axr1.get_xscale())
-    axr3.set_xlim(axr1.get_xlim())
+    axr3.set_xscale(axr2.get_xscale())
+    axr3.set_xlim(axr2.get_xlim())
 
     axM3.grid(True, which='both')
     axr3.grid(True, which='both')
