@@ -344,16 +344,15 @@ def data2moi_features(
 
             # does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
             if (dlnM_drhoc[end] > 0): # on a stable branch
-                if arctan_dlnI_dlnM[end] > 0.5: # dip is close enough to "steady state" that we may not care
-                    if (np.max(arctan_dlnI_dlnM[(rmax_r<=rhoc)*(rhoc<=r)]) - arctan_dlnI_dlnM[end] < diff_thr): ### decrement is too small
-                        if verbose:
-                            print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
+                if arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end] < diff_thr: ### decrement is too small
+                    if verbose:
+                        print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
 
-                        if debug_figname:
-#                            regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
-                            regions.append(((rmax_r, max_r, min_r, r), dict(marker='>')))
+                    if debug_figname:
+#                        regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
+                        regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='>')))
 
-                        continue
+                    continue
 
             # both rmax_cs2c2 and min_cs2c2 correspond to small arctan, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
             if max(rmax_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]:
@@ -362,7 +361,7 @@ def data2moi_features(
 
                 if debug_figname:
 #                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='<')))
-                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='<')))
+                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='<')))
 
                 continue
 
@@ -373,7 +372,7 @@ def data2moi_features(
 
                 if debug_figname:
 #                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='^')))
-                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='^')))
+                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='^')))
 
                 continue
 
@@ -384,7 +383,7 @@ def data2moi_features(
 
                 if debug_figname:
 #                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='v')))
-                    regions.append(((rmax_r, max_r, min_r, r), dict(marker='v')))
+                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='v')))
 
                 continue
 
@@ -414,7 +413,7 @@ def data2moi_features(
 
             if debug_figname: # plot surviving candidates
 #                regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='.', linewidth=2, alpha=0.25)))
-                regions.append((sorted([rmax_r, max_r, min_r, max_arctan_r, r]), dict(marker='.', linewidth=2)))
+                regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='.', linewidth=2)))
 
             #---
 
@@ -582,7 +581,8 @@ def data2moi_features_figure(
 
     # plot regions
 
-    for rhos, kwargs in regions: ### assumes rhos are sorted from smallest to largest
+    for rhos, kwargs in regions:
+        rhos = sorted(rhos)
         kwargs = dict(kwargs.items()) ### make a copy
         marker = kwargs.pop('marker', '.')
 
