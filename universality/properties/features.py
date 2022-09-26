@@ -179,6 +179,7 @@ def data2moi_features(
             MAX_ARCTAN_DLNI_DLNM_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
+        names.append(tmp % 'arctan_dlnI_dlnM')
         names += [tmp%col for col in macro_cols]
         names += [tmp%col for col in eos_cols]
     params = []
@@ -392,22 +393,27 @@ def data2moi_features(
             datum = []
 
             # add local min in cs2c2
+            datum.append(np.interp(min_r, rhoc, arctan_dlnI_dlnM))
             datum += [np.interp(min_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind_min_cs2c2])
 
             # add local max in cs2c2
+            datum.append(np.interp(max_r, rhoc, arctan_dlnI_dlnM))
             datum += [np.interp(max_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind_max_cs2c2])
 
             # add running max in cs2c2
+            datum.append(np.interp(rmax_r, rhoc, arctan_dlnI_dlnM))
             datum += [np.interp(rmax_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind_rmax_cs2c2])
 
             # add parameters at max arctan
+            datum.append(arctan_dlnI_dlnM[ind_max_arctan])
             datum += list(macro_data[ind_max_arctan])
             datum += [np.interp(max_arctan_r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
             # add parameters at "end" (min arctan)
+            datum.append(arctan_dlnI_dlnM[end])
             datum += list(macro_data[end])
             datum += [np.interp(r, baryon_density, eos_data[:,i]) for i in range(Neos)]
 
