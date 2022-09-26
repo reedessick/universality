@@ -141,7 +141,7 @@ def engine(
 #-------------------------------------------------
 
 ### the solver that yields all known macroscopic quantites
-MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'logLambda', 'I', 'Mb'] ### the column names for what we compute
 
 def dvecdr(vec, r, eos):
     pc2, m, eta, omega, mb = vec
@@ -212,7 +212,7 @@ def integrate(
     r *= 1e-5 ### convert from cm to km
     i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, l, i, mb
+    return m, r, np.log(l), i, mb
 
 #-------------------------------------------------
 
@@ -280,7 +280,7 @@ def integrate_MR(
 #-------------------------------------------------
 
 ### light-weight solver that only includes M, R, and Lambda 
-MACRO_COLS_MRLambda = ['M', 'R', 'Lambda']
+MACRO_COLS_MRLambda = ['M', 'R', 'logLambda']
 
 def dvecdr_MRLambda(vec, r, eos):
     '''returns d(p, m)/dr
@@ -345,4 +345,4 @@ def integrate_MRLambda(
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
 
-    return m, r, l
+    return m, r, np.log(l)

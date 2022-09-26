@@ -300,6 +300,14 @@ def stellar_sequence(
         central_pc2 += new_central_pc2[1:]
         macro += new_macro[1:]
 
+    macro = np.array(macro)
+
+    ### exponentiate logLambda -> Lambda
+    if 'logLambda' in macro_cols:
+        ind = macro_cols.index('logLambda')
+        macro[:,ind] = np.exp(macro[:,ind])
+        macro_cols[ind] = 'Lambda'
+
     ### return the results
     return central_pc2, macro, macro_cols
 
