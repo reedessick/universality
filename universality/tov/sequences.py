@@ -363,7 +363,7 @@ def bisection_stellar_sequence(
     # compute errors based on a linear interpolation
     errors = mid_pc2_macro - (min_pc2_macro + (max_pc2_macro - min_pc2_macro) * (mid_pc2 - min_pc2) / (max_pc2 - min_pc2))
 
-    if np.all(np.abs(errors) < interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
+    if np.all(np.abs(errors) <= interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
         return [min_pc2, mid_pc2, max_pc2], [min_pc2_macro, mid_pc2_macro, max_pc2_macro]
 
     else: # interpolation is not good enough, so we recurse to compute mid-points of sub-intervals

@@ -71,6 +71,14 @@ def eta2lambda(r, m, eta): ### dimensionless tidal deformability
     k2el = 0.5*(eta - 2. - 4.*C/fR) / (RdFdr -F*(eta + 3. - 4.*C/fR)) # gravitoelectric quadrupole Love number
     return (2./3.)*(k2el/C**5)
 
+def eta2loglambda(r, m, eta):
+    l = eta2lambda(r, m, eta)
+    if l > 0:
+        return np.log(l)
+    else:
+        return +np.infty ### when l < 0, this typically means the star
+                         ### is too puffy to be resolved -> set lambda to infty
+
 def omega2i(r, omega): ### moment of inertia
     return (omega/(3. + omega)) * r**3/(2.*Gc2)
 
@@ -201,7 +209,7 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # compute  moment of inertia
     i = omega2i(r, omega)
@@ -212,7 +220,7 @@ def integrate(
     r *= 1e-5 ### convert from cm to km
     i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, np.log(l), i, mb
+    return m, r, logl, i, mb
 
 #-------------------------------------------------
 
@@ -339,10 +347,10 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
 
-    return m, r, np.log(l)
+    return m, r, logl

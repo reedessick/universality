@@ -8,7 +8,7 @@ from scipy.integrate import odeint
 from universality.utils import utils
 from universality.utils.units import (G, c2, Msun)
 
-from .standard import (eta2lambda, omega2i)
+from .standard import (eta2loglambda, omega2i)
 from .standard import (initial_m, initial_mb, initial_eta, initial_omega)
 from .standard import (dmdr, dmbdr, detadr, domegadr)
 
@@ -148,7 +148,7 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # compute  moment of inertia
     i = omega2i(r, omega)
@@ -159,7 +159,7 @@ def integrate(
     r *= 1e-5 ### convert from cm to km
     i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, np.log(l), i, mb
+    return m, r, logl, i, mb
 
 #-------------------------------------------------
 
@@ -277,10 +277,10 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
 
-    return m, r, np.log(l)
+    return m, r, logl
