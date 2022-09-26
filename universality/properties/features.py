@@ -272,12 +272,6 @@ def data2moi_features(
         Neos = len(eos_cols)
         Nmac = len(macro_cols)
 
-        '''
-        ### FIXME: remove this group stuff?
-        last_r = +np.infty ### logic to avoid overlapping phase transitions
-        group = []
-        '''
-
         for end in ends:
             r = rhoc[end]
 
@@ -424,33 +418,6 @@ def data2moi_features(
             #---
 
             params.append(datum)
-
-            '''
-            ### figure out if there is any overlap, keep the one with the minimum dlnI_drhoc[end]
-
-            if len(group) and (r < last_r): ### we already have a group and this would *not* overlap with something we've already declared a phase transition, so figure out which is best and add it
-                group.sort(key=lambda x:x[0]) ### sort so the smallest dlnI_drhoc is first
-                params.append(group[0][1]) ### append the datum
-
-#                if debug_figname:
-#                    raise NotImplementedError('add the ends that are skipped from this group to debug plot')
-
-                group = [] ### start a new group
-
-            group.append((rhoc[end], datum)) ### FIXME: this whole "group" logic may be wasteful of memory if we know we're going to order by rhoc and we already iterate based on samples ordered by rhoc...
-
-            last_r = max_r ### update this so we remember the extent of the current phase transition (avoid overlaps with the next one)
-
-        #---
-
-        if group: ### add the last identified transition
-            group.sort(key=lambda x: -x[0]) ### bigger rhoc first
-            params.append(group[0][1])
-
-#            if debug_figname:
-#                raise NotImplementedError('add the ends that are skipped from this group to debug plot')
-
-        '''
 
     #---
 
