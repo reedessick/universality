@@ -641,14 +641,14 @@ def data2moi_features_figure(
     axc.yaxis.set_label_position('right')
 
     axc.set_xscale('log')
-    axc.set_yscale('log')
+    axc.set_yscale('linear')
 
-    axc.set_ylim(ymax=1.0)
+    axc.set_ylim(ymin=-0.05, ymax=1.05)
 
     xlim = axc.get_xlim()
     if xlim[0] < 9.0e13: ### 0.1*rho_nuc
         axc.set_xlim(xmin=9.0e13)
-        axc.set_ylim(ymin=np.min(cs2c2[baryon_density>=2.8e13]))
+#        axc.set_ylim(ymin=np.min(cs2c2[baryon_density>=2.8e13]))
 
     if xlim[1] > 1.1*rhoc[-1]:
         axc.set_xlim(xmax=1.1*rhoc[-1])
