@@ -125,7 +125,7 @@ def engine(
         r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr_func(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr, mxstep=mxstep)[-1,:] ### retain only the last point
+        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr, mxstep=mxstp)[-1,:] ### retain only the last point
 
     ### return to client, who will then interpolate to find the surface
     ### interpolate to find stellar surface
