@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import sys
+
 import numpy as np
 
 from .ode import (standard, logenthalpy)
@@ -277,7 +279,8 @@ def stellar_sequence(
     ### recursively call integrator until interpolation is accurate enough
     central_pc2 = [central_pressurec2[0]]
     if verbose:
-        print('computing stellar model with central pressure/c2 = %.6e'%central_pc2[-1])
+        sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%central_pc2[-1])
+        sys.stdout.flush()
 
     macro = [integrate(central_pc2[-1], eos, rtol=integration_rtol, **kwargs)]
 
@@ -299,6 +302,10 @@ def stellar_sequence(
         ### add the stellar models to the cumulative list
         central_pc2 += new_central_pc2[1:]
         macro += new_macro[1:]
+
+    if verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
     macro = np.array(macro)
 
@@ -329,13 +336,17 @@ def bisection_stellar_sequence(
     '''
     if min_pc2_macro is None:
         if verbose:
-            print('computing stellar model with central pressure/c2 = %.6e'%min_pc2)
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%min_pc2)
+            sys.stdout.flush()
+
         min_pc2_macro = foo(min_pc2, eos, rtol=integration_rtol, **kwargs)
     min_pc2_macro = np.array(min_pc2_macro)
 
     if max_pc2_macro is None:
         if verbose:
-            print('computing stellar model with central pressure/c2 = %.6e'%max_pc2)
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%max_pc2)
+            sys.stdout.flush()
+
         if R_ind is not None:
             ### scale max step size with what we expect for the radius
             ### we need this to be pretty conservative, as this loop is is primarily entered when
@@ -352,7 +363,9 @@ def bisection_stellar_sequence(
     ### integrate at the mid point
     mid_pc2 = (min_pc2*max_pc2)**0.5
     if verbose:
-        print('computing stellar model with central pressure/c2 = %.6e'%mid_pc2)
+        sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%mid_pc2)
+        sys.stdout.flush()
+
     if R_ind is not None:
         ### here we can be less stringent with max_dr since we're interpolating between models and have a better idea of the behavior
         kwargs['max_dr'] = 0.1*min(min_pc2_macro[R_ind], max_pc2_macro[R_ind]) * 1e5 ### convert from km -> cm
