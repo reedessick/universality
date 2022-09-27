@@ -21,6 +21,8 @@ parser = ArgumentParser(description=__doc__)
 parser.add_argument('inpath', type=str)
 parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
+parser.add_argument('--central-pressurec2', default=[], type=float, action='append')
+
 parser.add_argument('--pressurec2-column', default=sequences.DEFAULT_PRESSUREC2_COLUMN, type=str)
 parser.add_argument('--energy_densityc2-column', default=sequences.DEFAULT_ENERGY_DENSITYC2_COLUMN, type=str)
 parser.add_argument('--baryon_density-column', default=sequences.DEFAULT_BARYON_DENSITY_COLUMN, type=str)
@@ -80,6 +82,7 @@ sequences.process2sequences(
     mactmp,
     min_central_pressurec2,
     max_central_pressurec2,
+    central_pressurec2=args.central_pressurec2,
     central_baryon_density_range=args.central_baryon_density_range,
     central_energy_densityc2_range=args.central_energy_densityc2_range,
     mod=args.eos_num_per_dir,

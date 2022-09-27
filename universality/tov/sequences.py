@@ -44,6 +44,7 @@ def process2sequences(
         mactmp,
         min_central_pressurec2,
         max_central_pressurec2,
+        central_pressurec2=[],
         central_baryon_density_range=None,
         central_energy_densityc2_range=None,
         mod=1000,
@@ -155,6 +156,7 @@ def process2sequences(
             min_central_pc2,
             max_central_pc2,
             (pressurec2, energy_densityc2, baryon_density, cs2c2),
+            central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
             **kwargs
@@ -217,6 +219,7 @@ def stellar_sequence(
         min_central_pressurec2,
         max_central_pressurec2,
         eos,
+        central_pressurec2=[],
         min_num_models=DEFAULT_MIN_NUM_MODELS,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
@@ -273,8 +276,15 @@ def stellar_sequence(
         raise ValueError('formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
 
     ### determine the initial grid of central pressures
-    pressurec2 = eos[0]
-    central_pressurec2 = list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models))
+    # include any that were specifically requested through command-line argument
+    for pc2 in central_pressurec2:
+        assert (min_central_pressurec2 <= pc2), \
+            'requested central_pressurec2=%.6e < min central_pressurec2=%.6e'%(pc2, min_central_pressurec2)
+        assert (pc2 <= max_central_pressurec2), \
+            'requested central_pressurec2=%.6e > max central_pressurec2=%.6e'%(pc2, max_central_pressurec2)
+
+    central_pressurec2 = sorted(central_pressurec2 + \
+        list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models)))
 
     ### recursively call integrator until interpolation is accurate enough
     central_pc2 = [central_pressurec2[0]]
