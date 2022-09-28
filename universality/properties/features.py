@@ -285,7 +285,7 @@ def data2moi_features(
                 ind_min_cs2c2 = find_preceeding(r, min_cs2c2_baryon_density, min_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('            WARNING! coult not find local minimum in cs2c2 preceeding local minimum in arctan(dlogI/dlogM)')
+                    print('            WARNING! could not find local minimum in cs2c2 preceeding local minimum in arctan(dlogI/dlogM)')
 
                 if debug_figname:
                     points.append((r, dict(color='orange', marker='h')))
@@ -302,7 +302,7 @@ def data2moi_features(
                 ind_max_cs2c2 = find_preceeding(min_r, max_cs2c2_baryon_density, max_cs2c2)
             except RuntimeError:
                 if verbose:
-                    print('            WARNING! coult not find local maximum in cs2c2 preceeding local minimum in cs2c2')
+                    print('            WARNING! could not find local maximum in cs2c2 preceeding local minimum in cs2c2')
 
                 if debug_figname:
                     points.append((r, dict(color='orange', marker='h')))
@@ -344,7 +344,7 @@ def data2moi_features(
                     jnd_max_cs2c2 = find_preceeding(rmax_r, max_cs2c2_baryon_density[truth], max_cs2c2[truth])
                 except RuntimeError:
                     if verbose:
-                        print('            WARNING! coult not find local maximum in cs2c2 preceeding local minimum in cs2c2')
+                        print('            WARNING! could not find local maximum in cs2c2 preceeding local minimum in cs2c2')
                     if debug_figname:
                         points.append((r, dict(color='orange', marker='h')))
 
