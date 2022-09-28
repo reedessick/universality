@@ -380,19 +380,6 @@ def data2moi_features(
 
             ### now perform sanity checks to make sure this candidate passes
 
-            # NOTE: removing this sanity check because we do not have a threshold defined to turn it on/off
-
-            # both rmax_cs2c2 and min_cs2c2 correspond to small arctan, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
-#            if max(rmax_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]:
-#                if verbose:
-#                    print('            WARNING! arctan(dlnI/dlnM) at rmax_cs2c2 and min_cs2c2 are less than at the local minimum in arctan(dlnI/dlnM); skipping this possible transition')
-#
-#                if debug_figname:
-##                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='<')))
-#                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='<')))
-#
-#                continue
-
             # recovery occurs at a significantly larger sound speed than the onset...
             if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind_rmax_cs2c2]:
                 if verbose:
