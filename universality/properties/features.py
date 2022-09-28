@@ -314,6 +314,7 @@ def data2moi_features(
             #---
 
             ### running max sound speed preceeding maximum sound speed
+
             try:
                 ind_rmax_cs2c2 = find_preceeding(max_r, rmax_cs2c2_baryon_density, rmax_cs2c2) ### look for local max before the local min
             except RuntimeError:
@@ -330,24 +331,54 @@ def data2moi_features(
 
             ### now find the maximum arctan(...) between rmax_r and r
             selected = (rmax_r<=rhoc)*(rhoc<=r)
-            max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
+            max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])] ### NOTE: this will also shift our start point in the loop's next epoch
             ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
+
+            ### select an earlier rmax_cs2c2 if Delta(arctan) is too small
+            diff_arctan = arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end]
+            while diff_arctan < diff_thr:
+
+                # first, find preceeding local max_cs2c2
+                try:
+                    truth = max_cs2c2_baryon_density < rmax_r ### move to a local max that is before the current running max
+                    jnd_max_cs2c2 = find_preceeding(rmax_r, max_cs2c2_baryon_density[truth], max_cs2c2[truth])
+                except RuntimeError:
+                    if verbose:
+                        print('            WARNING! coult not find local maximum in cs2c2 preceeding local minimum in cs2c2')
+                    if debug_figname:
+                        points.append((r, dict(color='orange', marker='h')))
+
+                    break
+
+                # then update rmax_cs2c2 to be before that
+                try:
+                    ind_rmax_cs2c2 = find_preceeding(baryon_density[jnd_max_cs2c2], rmax_cs2c2_baryon_density, rmax_cs2c2) ### look for local max before the local min
+                except RuntimeError:
+                    if verbose:
+                        print('            WARNING! could not find running maximum in cs2c2 preceeding local minimum in cs2c2')
+
+                    if debug_figname:
+                        points.append((r, dict(color='c', marker='d')))
+
+                    break
+
+                rmax_r = baryon_density[ind_rmax_cs2c2] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+                rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
+
+                ### now find the maximum arctan(...) between rmax_r and r
+                selected = (rmax_r<=rhoc)*(rhoc<=r)
+                max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])] ### NOTE: this will also shift our start point in the loop's next epoch
+                ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
+
+                # update conditional
+                diff_arctan = arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end]
+
+            if diff_arctan < diff_thr: # we exited from the break statement
+                continue
 
             #---
 
             ### now perform sanity checks to make sure this candidate passes
-
-            # does not pass our basic selection cut for being "big enough". Note that we add an exception if we're on an unstable branch (that's gotta be a strong phase transition...)
-            if (dlnM_drhoc[end] > 0): # on a stable branch
-                if arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end] < diff_thr: ### decrement is too small
-                    if verbose:
-                        print('            WARNING! difference in arctan_dlnI_dlnM is smaller than diff_thr=%.3f; skipping this possible transition' % diff_thr)
-
-                    if debug_figname:
-#                        regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='>')))
-                        regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='>')))
-
-                    continue
 
             # both rmax_cs2c2 and min_cs2c2 correspond to small arctan, so we're kinda on an "upward sweep" that typically doesn't correspond to the behavior we want
             if max(rmax_cs2c2_arctan, min_cs2c2_arctan) < arctan_dlnI_dlnM[end]:
