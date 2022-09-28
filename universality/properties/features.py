@@ -326,12 +326,12 @@ def data2moi_features(
 
                 continue
 
-            rmax_r = baryon_density[ind_rmax_cs2c2] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+            rmax_r = baryon_density[ind_rmax_cs2c2]
             rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
 
             ### now find the maximum arctan(...) between rmax_r and r
             selected = (rmax_r<=rhoc)*(rhoc<=r)
-            max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])] ### NOTE: this will also shift our start point in the loop's next epoch
+            max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
             ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
 
             ### select an earlier rmax_cs2c2 if Delta(arctan) is too small
@@ -362,12 +362,12 @@ def data2moi_features(
 
                     break
 
-                rmax_r = baryon_density[ind_rmax_cs2c2] ### expect max(cs2c2) to be the smallest density (required if we're to keep this possible transition)
+                rmax_r = baryon_density[ind_rmax_cs2c2]
                 rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
 
                 ### now find the maximum arctan(...) between rmax_r and r
                 selected = (rmax_r<=rhoc)*(rhoc<=r)
-                max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])] ### NOTE: this will also shift our start point in the loop's next epoch
+                max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
                 ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
 
                 # update conditional
