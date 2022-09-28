@@ -45,14 +45,14 @@ parser.add_argument('--flatten-thr', default=features.DEFAULT_FLATTEN_THR, type=
 parser.add_argument('--smoothing-width', default=features.DEFAULT_SMOOTHING_WIDTH, type=float,
     help='the std of a Gaussian kernel used to smooth our estimate of the absolute curvature. \
 The kernel is defined over log(rhoc), and 0.02 seems to work well.')
+
 parser.add_argument('--diff-thr', type=float, default=features.DEFAULT_DIFF_THR,
-    help='a threshold on how big the "dip" in arctan(dlnI/dlnM) must be for us to record the possible phase transition. \
-This is useful for removing small numerical noise (likely from the somewhat "coarse grained" TOV solutions)')
+    help='a threshold on how big the "dip" in arctan(dlnI/dlnM) must be from max(arctan) to min(arctan). \
+We search for earlier and earlier running max(cs2) until this criteria is satisfied.')
 parser.add_argument('--cs2c2-drop-ratio', type=float, default=features.DEFAULT_CS2C2_DROP_RATIO,
-    help='the sound speed must drop by at least this factor from the running maximum to the local minimum')
-parser.add_argument('--cs2c2-cofactor', type=float, default=features.DEFAULT_CS2C2_COFACTOR,
-    help='a threshold on how big the ratio of sound speeds can be between the local minimum in arctan(dlnI/dlnM) and the preceeding running maximum in cs2c2. \
-There are cases in which this helps reject things that stall the final collapse to a BH but do not look like obvious "classic" phase transitions in the sound speed.')
+    help='the sound speed must drop by at least this factor from the running maximum to the local minimum. \
+Require running max(cs2) / local min(cs2) >= cs2c2_drop_ratio. \
+We search for earlier and earlier running max(cs2) until this criteria is satisfied.')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
@@ -128,7 +128,6 @@ params, names = features.data2moi_features(
     flatten_thr=args.flatten_thr,
     smoothing_width=args.smoothing_width,
     diff_thr=args.diff_thr,
-    cs2c2_cofactor=args.cs2c2_cofactor,
     cs2c2_drop_ratio=args.cs2c2_drop_ratio,
     verbose=args.Verbose,
     debug_figname=args.debug_figname,

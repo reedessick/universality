@@ -97,6 +97,10 @@ def find_inclusive_minima(x):
 MAX_CS2C2_TEMPLATE = 'max_cs2c2_%s'
 RMAX_CS2C2_TEMPLATE = 'running_max_cs2c2_%s'
 MIN_CS2C2_TEMPLATE = 'min_cs2c2_%s'
+
+LOW_CS2C2_TEMPLATE = 'smallest_cs2c2_%s'
+HGH_CS2C2_TEMPLATE = 'largest_cs2c2_%s'
+
 MAX_ARCTAN_DLNI_DLNM_TEMPLATE = 'max_arctan_dlnI_dlnM_%s'
 MIN_ARCTAN_DLNI_DLNM_TEMPLATE = 'min_arctan_dlnI_dlnM_%s'
 
@@ -104,7 +108,6 @@ DEFAULT_FLATTEN_THR = 0.0
 DEFAULT_SMOOTHING_WIDTH = 0.01 ### applied in log(rhoc). This seems to be small enough to not affect much
                                ### but (anectodally) large enough to smooth out typical numeric variation
 DEFAULT_DIFF_THR = 0.0
-DEFAULT_CS2C2_COFACTOR = np.infty
 DEFAULT_CS2C2_DROP_RATIO = 0.0
 
 #------------------------
@@ -163,7 +166,6 @@ def data2moi_features(
         smoothing_width=DEFAULT_SMOOTHING_WIDTH,
         diff_thr=DEFAULT_DIFF_THR,
         cs2c2_drop_ratio=DEFAULT_CS2C2_DROP_RATIO,
-        cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
         debug_figname=None, ### this is a path into which we write the debug figure
     ):
@@ -176,6 +178,8 @@ def data2moi_features(
             MIN_CS2C2_TEMPLATE,
             MAX_CS2C2_TEMPLATE,
             RMAX_CS2C2_TEMPLATE,
+            LOW_CS2C2_TEMPLATE,
+            HGH_CS2C2_TEMPLATE,
             MAX_ARCTAN_DLNI_DLNM_TEMPLATE,
             MIN_ARCTAN_DLNI_DLNM_TEMPLATE,
         ]:
@@ -316,7 +320,7 @@ def data2moi_features(
             ### running max sound speed preceeding maximum sound speed
 
             try:
-                ind_rmax_cs2c2 = find_preceeding(max_r, rmax_cs2c2_baryon_density, rmax_cs2c2) ### look for local max before the local min
+                ind_rmax_cs2c2 = find_preceeding(max_r, rmax_cs2c2_baryon_density, rmax_cs2c2)
             except RuntimeError:
                 if verbose:
                     print('            WARNING! could not find running maximum in cs2c2 preceeding local minimum in cs2c2')
@@ -334,9 +338,25 @@ def data2moi_features(
             max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
             ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
 
-            ### select an earlier rmax_cs2c2 if Delta(arctan) is too small
+            selected = (rmax_r<=baryon_density) * (baryon_density<=r)
+            low_cs2c2_r = baryon_density[selected][np.argmin(cs2c2[selected])]
+            ind_low_cs2c2 = np.arange(len(cs2c2))[low_cs2c2_r==baryon_density][0]
+
+            hgh_cs2c2_r = baryon_density[selected][np.argmax(cs2c2[selected])]
+            ind_hgh_cs2c2 = np.arange(len(cs2c2))[hgh_cs2c2_r==baryon_density][0]
+
+            #---
+
+            ### now perform sanity checks to make sure this candidate passes
+            ### iterate until we find an acceptable running max_cs2c2
+
+            # select an earlier rmax_cs2c2 if Delta(arctan) is too small
             diff_arctan = arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end]
-            while diff_arctan < diff_thr:
+
+            # sound speed must drop by a certain fraction
+            drop_ratio = cs2c2[ind_rmax_cs2c2] / cs2c2[ind_low_cs2c2]
+
+            while (diff_arctan < diff_thr) or (drop_ratio < cs2c2_drop_ratio):
 
                 # first, find preceeding local max_cs2c2
                 try:
@@ -352,7 +372,7 @@ def data2moi_features(
 
                 # then update rmax_cs2c2 to be before that
                 try:
-                    ind_rmax_cs2c2 = find_preceeding(baryon_density[jnd_max_cs2c2], rmax_cs2c2_baryon_density, rmax_cs2c2) ### look for local max before the local min
+                    ind_rmax_cs2c2 = find_preceeding(baryon_density[jnd_max_cs2c2], rmax_cs2c2_baryon_density, rmax_cs2c2)
                 except RuntimeError:
                     if verbose:
                         print('            WARNING! could not find running maximum in cs2c2 preceeding local minimum in cs2c2')
@@ -366,40 +386,22 @@ def data2moi_features(
                 rmax_cs2c2_arctan = np.interp(rmax_r, rhoc, arctan_dlnI_dlnM)
 
                 ### now find the maximum arctan(...) between rmax_r and r
-                selected = (rmax_r<=rhoc)*(rhoc<=r)
+                selected = (rmax_r<=rhoc) * (rhoc<=r)
                 max_arctan_r = rhoc[selected][np.argmax(arctan_dlnI_dlnM[selected])]
                 ind_max_arctan = np.arange(len(rhoc))[rhoc==max_arctan_r][0]
 
-                # update conditional
+                selected = (rmax_r<=baryon_density) * (baryon_density<=r)
+                low_cs2c2_r = baryon_density[selected][np.argmin(cs2c2[selected])]
+                ind_low_cs2c2 = np.arange(len(cs2c2))[low_cs2c2_r==baryon_density][0]
+
+                hgh_cs2c2_r = baryon_density[selected][np.argmin(cs2c2[selected])]
+                ind_hgh_cs2c2 = np.arange(len(cs2c2))[hgh_cs2c2_r==baryon_density][0]
+
+                # update conditionals
                 diff_arctan = arctan_dlnI_dlnM[ind_max_arctan] - arctan_dlnI_dlnM[end]
+                drop_ratio = cs2c2[ind_rmax_cs2c2] / cs2c2[ind_low_cs2c2]
 
-            if diff_arctan < diff_thr: # we exited from the break statement
-                continue
-
-            #---
-
-            ### now perform sanity checks to make sure this candidate passes
-
-            # recovery occurs at a significantly larger sound speed than the onset...
-            if np.interp(r, baryon_density, cs2c2) > cs2c2_cofactor*cs2c2[ind_rmax_cs2c2]:
-                if verbose:
-                    print('            WARNING! sound-speed at local minimum is larger than onset sound speed (ratio > %.3e); skipping this possible transition'%cs2c2_cofactor)
-
-                if debug_figname:
-#                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='^')))
-                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='^')))
-
-                continue
-
-            # sound speed must drop by a certain fraction
-            if cs2c2_drop_ratio * np.interp(min_r, baryon_density, cs2c2) > np.interp(rmax_r, baryon_density, cs2c2):
-                if verbose:
-                    print('            WARNING! sound-speed at running maximum is less than %.3f times sound speed at local minimum; skipping this possible transition'%cs2c2_drop_ratio)
-
-                if debug_figname:
-#                    regions.append(((rmax_r, max_r, min_r, r), dict(color='k', marker='v')))
-                    regions.append(((rmax_r, max_r, min_r, max_arctan_r, r), dict(marker='v')))
-
+            if (diff_arctan < diff_thr) or (drop_ratio < cs2c2_drop_ratio): # we exited from the break statement
                 continue
 
             #--- add parameters at identified points (same ordering as when we construct "names")
@@ -420,6 +422,16 @@ def data2moi_features(
             datum.append(np.interp(rmax_r, rhoc, arctan_dlnI_dlnM))
             datum += [np.interp(rmax_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
             datum += list(eos_data[ind_rmax_cs2c2])
+
+            # add lowest cs2c2 within feature
+            datum.append(np.interp(low_cs2c2_r, rhoc, arctan_dlnI_dlnM))
+            datum += [np.interp(low_cs2c2_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind_low_cs2c2])
+
+            # add highest cs2c2 within feature
+            datum.append(np.interp(hgh_cs2c2_r, rhoc, arctan_dlnI_dlnM))
+            datum += [np.interp(hgh_cs2c2_r, rhoc, macro_data[:,i]) for i in range(Nmac)]
+            datum += list(eos_data[ind_hgh_cs2c2])
 
             # add parameters at max arctan
             datum.append(arctan_dlnI_dlnM[ind_max_arctan])
@@ -774,7 +786,6 @@ def process2moi_features(
         smoothing_width=DEFAULT_SMOOTHING_WIDTH,
         diff_thr=DEFAULT_DIFF_THR,
         cs2c2_drop_ratio=DEFAULT_CS2C2_DROP_RATIO,
-        cs2c2_cofactor=DEFAULT_CS2C2_COFACTOR,
         verbose=False,
         debug=False,
     ):
@@ -829,7 +840,6 @@ def process2moi_features(
             smoothing_width=smoothing_width,
             diff_thr=diff_thr,
             cs2c2_drop_ratio=cs2c2_drop_ratio,
-            cs2c2_cofactor=cs2c2_cofactor,
             verbose=verbose,
             debug_figname=debug_figname,
         )
