@@ -73,16 +73,21 @@ def find_minima(x):
 #------------------------
 
 def find_inclusive_maxima(x):
-    """find indecies of local maxima, including cases when the value does not change from one sample to the next"""
+    """find indecies of local maxima, including cases when the value does not change from one sample to the next
+if the derivative vanishes (neighboring samples are identical), then only the entry in the sequence of identical entries is returned
+    """
     return find_inclusive_minima(-np.array(x))
 
 def find_inclusive_minima(x):
-    """find indecies of local minima, including cases when the value does not change from one sample to the next"""
+    """find indecies of local minima, including cases when the value does not change from one sample to the next
+if the derivative vanishes (neighboring samples are identical), then only the entry in the sequence of identical entries is returned
+    """
     mins = []
     old = +np.infty
     for i in range(len(x)-1):
         new = x[i]
-        if (old >= new) and (new <= x[i+1]):
+        ### this will keep ONLY the earliest occurance in a sequence where the derivative vanishes
+        if (old > new) and (new <= x[i+1]):
             mins.append(i)
         old = new
     if x[i+1] > x[i]:
