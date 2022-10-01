@@ -19,16 +19,21 @@ def required_columns(reference, greater_than=[], less_than=[], overlaps=[]):
 #------------------------
 
 def data2count(data, cols, reference, greater_than=[], less_than=[], overlaps=[]):
-    """so stupid it hardly merrits a delegation, but at least we have this defined in a single place
+    """counts the number of unique elements in a reference column subject to some selection criteria
+currently, all criteria are applied with AND logic. That is, all criteria must be passed in order for a row to count.
     """
     truth = np.ones(len(data), type=bool)
 
-    raise NotImplementedError('''\
-select which rows are valid based on greater_than, less_that, overlaps
-then count the number of unique values within cols.index(reference)
-''')
+    for col, thr in greater_than:
+        truth *= data[:,cols.index(col)] > thr
 
-    return len(np.unique(data[cols.index(reference)][truth]))
+    for col, thr in less_than:
+        truth *= data[:,cols.index(col)] < thr
+
+    for start, stop, low, high in overlaps:
+        truth *= (data[:,cols.index(start)] <= high) * (low <= data[:,cols.index(stop)])
+
+    return len(np.unique(data[:,cols.index(reference)][truth]))
 
 #------------------------
 
