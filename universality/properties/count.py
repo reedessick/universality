@@ -15,6 +15,7 @@ def required_columns(reference, greater_than=[], less_than=[], overlaps=[]):
     columns += [k for k, _ in greater_than + less_than]
     for k, K, _, _ in overlaps:
         columns += [k, K]
+    return columns
 
 #------------------------
 
@@ -22,7 +23,7 @@ def data2count(data, cols, reference, greater_than=[], less_than=[], overlaps=[]
     """counts the number of unique elements in a reference column subject to some selection criteria
 currently, all criteria are applied with AND logic. That is, all criteria must be passed in order for a row to count.
     """
-    truth = np.ones(len(data), type=bool)
+    truth = np.ones(len(data), dtype=bool)
 
     for col, thr in greater_than:
         truth *= data[:,cols.index(col)] > thr

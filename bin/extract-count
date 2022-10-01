@@ -44,7 +44,7 @@ args.overlaps = [(k, K, float(v), float(V)) for k, K, v, V in args.overlaps]
 
 #-------------------------------------------------
 
-columns = required_columns(
+columns = count.required_columns(
     args.reference,
     greater_than=args.greater_than,
     less_than=args.less_than,
@@ -55,7 +55,7 @@ if args.verbose:
     print('reading data from: '+args.inpath)
 data, cols = io.load(args.inpath, columns)
 
-c = count.count(
+c = count.data2count(
     data,
     cols,
     args.reference,
