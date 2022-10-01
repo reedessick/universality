@@ -66,9 +66,9 @@ if args.verbose:
 
 if args.verbose:
     print('loading eos data from: '+args.eospath)
-eos_data, eos_cols = io.load(args.eospath, [eos_baryon_density_column, args.eos_sound_speed_column]+args.eos_reference_column)
+eos_data, eos_cols = io.load(args.eospath, [eos_baryon_density_column]+args.eos_reference_column)
 baryon_density = eos_data[:,eos_cols.index(eos_baryon_density_column)]
-order = np.argsort(baryon_densit)
+order = np.argsort(baryon_density)
 
 eos_data = eos_data[order] ### sort so we increase in baryon density
 baryon_density = baryon_density[order]
@@ -77,17 +77,16 @@ baryon_density = baryon_density[order]
 
 if args.verbose:
     print('loading macro data from: '+args.macropath)
-macro_data, macro_cols = io.load(args.macropath, [args.macro_mass_column, args.macro_moi_column, macro_baryon_density_column]+args.macro_reference_column)
+macro_data, macro_cols = io.load(args.macropath, [args.macro_mass_column, macro_baryon_density_column]+args.macro_reference_column)
 
 ### make sure we order the result by increasing rhoc (which should be the default, but we need to check)
 rhoc = macro_data[:,macro_cols.index(macro_baryon_density_column)]
 order = np.argsort(rhoc)
 macro_data = macro_data[order]
-rhoc = macro_data[order]
+rhoc = rhoc[order]
 
 # separate things in a way that's convenient
 M = macro_data[:,macro_cols.index(args.macro_mass_column)]
-I = macro_data[:,marco_cols.index(args.macro_moi_column)]
 
 #------------------------
 
