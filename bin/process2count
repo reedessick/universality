@@ -28,6 +28,18 @@ rgroup.add_argument('outpath', type=str)
 rgroup.add_argument('reference', type=str,
     help='the reference column in the file for which we want to count the rows')
 
+parser.add_argument('--greater-than', nargs=2, type=str, action='append', default=[],
+    help='require the value in a column to be greater than a threshold. Can be repeated. \
+eg: --greater-than column_name threshold')
+
+parser.add_argument('--less-than', nargs=2, type=str, action='append', default=[],
+    help='required the value in a column to be less than a threshold. Can be repeated. \
+eg: --less-than column_name threshold')
+
+parser.add_argument('--overlaps', nargs=4, type=str, action='append', default=[],
+    help='require the span of a feature to overlap a particular range. Can be repeated. \
+eg: --overlaps start_column end_column low high')
+
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
 
@@ -52,6 +64,10 @@ lgroup.add_argument('--eos-basename', default='draw-foo-%d.csv', type=str,
 args = parser.parse_args()
 
 args.verbose |= args.Verbose
+
+args.greater_than = [(k, float(v)) for k, v in args.greater_than]
+args.less_than = [(k, float(v)) for k, v in args.less_than]
+args.overlaps = [(k, K, float(v), float(V)) for k, K, v, V in args.overlaps]
 
 #-------------------------------------------------
 
@@ -90,6 +106,9 @@ ans[:,-1], col = count.process2count(
     path_template,
     args.eos_num_per_dir,
     args.reference,
+    greater_than=args.greater_than,
+    less_than=args.less_than,
+    overlaps=args.overlaps,
     verbose=args.Verbose,
 )
 

@@ -73,6 +73,9 @@ def load(inpath, columns=[], logcolumns=[], max_num_samples=DEFAULT_MAX_NUM_SAMP
         else:
             cols.append(col)
 
+    if not len(data): ### make sure data has the correct shape
+        data = data.reshape((0, len(cols)))
+
     return data, cols #, dict((strind, col) for col, strind in strmap.items())
 
 def load_weights(*args, **kwargs):

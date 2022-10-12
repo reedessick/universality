@@ -21,6 +21,9 @@ parser = ArgumentParser(description=__doc__)
 parser.add_argument('eospath', type=str)
 parser.add_argument('central_pressurec2_range', nargs=2, type=float)
 
+parser.add_argument('--central-pressurec2', default=[], type=float, action='append',
+    help='specify specific central pressures for which we will solve the TOV equations')
+
 parser.add_argument('--pressurec2-column', default=sequences.DEFAULT_PRESSUREC2_COLUMN, type=str)
 parser.add_argument('--energy_densityc2-column', default=sequences.DEFAULT_ENERGY_DENSITYC2_COLUMN, type=str)
 parser.add_argument('--baryon_density-column', default=sequences.DEFAULT_BARYON_DENSITY_COLUMN, type=str)
@@ -145,7 +148,10 @@ if args.verbose:
     print('''proceeding with central pressure bounds:
     min_central_pressurec2 = %.6e
     max_central_pressurec2 = %.6e'''%(min_central_pc2, max_central_pc2))
-
+    if args.central_pressurec2:
+        print('and specific models :')
+        for pc2 in args.central_pressurec2:
+            print('    central_pressurec2 = %.6e'%pc2)
 
 ### now compute the stellar sequence
 if args.verbose:
@@ -154,6 +160,7 @@ central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
     (pressurec2, energy_densityc2, baryon_density, cs2c2),
+    central_pressurec2=args.central_pressurec2,
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,

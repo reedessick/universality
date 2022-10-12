@@ -110,10 +110,10 @@ for label, path in args.samples:
     d, cols = io.load(path, columns)
 
     truth = np.ones(len(d), dtype=bool)
-    if ranges.has_key(args.xcolumn):
+    if args.xcolumn in ranges:
         m, M = ranges[args.xcolumn]
         truth *= (m<=d[:,0])*(d[:,0]<=M)
-    if ranges.has_key(args.ycolumn):
+    if args.ycolumn in ranges:
         m, M = ranges[args.ycolumn]
         truth *= (m<=d[:,1])*(d[:,1]<=M)
 
@@ -136,12 +136,12 @@ fig = plot.overlay(
     grid=args.grid,
 )
 
-if ranges.has_key(args.xcolumn):
+if args.xcolumn in ranges:
     xlim = ranges[args.xcolumn]
     for ax in fig[1:]:
         ax.set_xlim(xlim)
 
-if ranges.has_key(args.ycolumn):
+if args.ycolumn in ranges:
     ylim = ranges[args.ycolumn]
     fig[1].set_ylim(ylim) ### only set the limits of the main axes
 

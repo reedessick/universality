@@ -4,6 +4,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import sys
+
 import numpy as np
 
 from .ode import (standard, logenthalpy)
@@ -42,6 +44,7 @@ def process2sequences(
         mactmp,
         min_central_pressurec2,
         max_central_pressurec2,
+        central_pressurec2=[],
         central_baryon_density_range=None,
         central_energy_densityc2_range=None,
         mod=1000,
@@ -153,6 +156,7 @@ def process2sequences(
             min_central_pc2,
             max_central_pc2,
             (pressurec2, energy_densityc2, baryon_density, cs2c2),
+            central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
             **kwargs
@@ -215,6 +219,7 @@ def stellar_sequence(
         min_central_pressurec2,
         max_central_pressurec2,
         eos,
+        central_pressurec2=[],
         min_num_models=DEFAULT_MIN_NUM_MODELS,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
@@ -271,13 +276,21 @@ def stellar_sequence(
         raise ValueError('formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
 
     ### determine the initial grid of central pressures
-    pressurec2 = eos[0]
-    central_pressurec2 = list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models))
+    # include any that were specifically requested through command-line argument
+    for pc2 in central_pressurec2:
+        assert (min_central_pressurec2 <= pc2), \
+            'requested central_pressurec2=%.6e < min central_pressurec2=%.6e'%(pc2, min_central_pressurec2)
+        assert (pc2 <= max_central_pressurec2), \
+            'requested central_pressurec2=%.6e > max central_pressurec2=%.6e'%(pc2, max_central_pressurec2)
+
+    central_pressurec2 = sorted(central_pressurec2 + \
+        list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models)))
 
     ### recursively call integrator until interpolation is accurate enough
     central_pc2 = [central_pressurec2[0]]
     if verbose:
-        print('computing stellar model with central pressure/c2 = %.6e'%central_pc2[-1])
+        sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%central_pc2[-1])
+        sys.stdout.flush()
 
     macro = [integrate(central_pc2[-1], eos, rtol=integration_rtol, **kwargs)]
 
@@ -300,6 +313,18 @@ def stellar_sequence(
         central_pc2 += new_central_pc2[1:]
         macro += new_macro[1:]
 
+    if verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    macro = np.array(macro)
+
+    ### exponentiate logLambda -> Lambda
+    if 'logLambda' in macro_cols:
+        ind = macro_cols.index('logLambda')
+        macro[:,ind] = np.exp(macro[:,ind])
+        macro_cols[ind] = 'Lambda'
+
     ### return the results
     return central_pc2, macro, macro_cols
 
@@ -321,13 +346,17 @@ def bisection_stellar_sequence(
     '''
     if min_pc2_macro is None:
         if verbose:
-            print('computing stellar model with central pressure/c2 = %.6e'%min_pc2)
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%min_pc2)
+            sys.stdout.flush()
+
         min_pc2_macro = foo(min_pc2, eos, rtol=integration_rtol, **kwargs)
     min_pc2_macro = np.array(min_pc2_macro)
 
     if max_pc2_macro is None:
         if verbose:
-            print('computing stellar model with central pressure/c2 = %.6e'%max_pc2)
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%max_pc2)
+            sys.stdout.flush()
+
         if R_ind is not None:
             ### scale max step size with what we expect for the radius
             ### we need this to be pretty conservative, as this loop is is primarily entered when
@@ -344,7 +373,9 @@ def bisection_stellar_sequence(
     ### integrate at the mid point
     mid_pc2 = (min_pc2*max_pc2)**0.5
     if verbose:
-        print('computing stellar model with central pressure/c2 = %.6e'%mid_pc2)
+        sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%mid_pc2)
+        sys.stdout.flush()
+
     if R_ind is not None:
         ### here we can be less stringent with max_dr since we're interpolating between models and have a better idea of the behavior
         kwargs['max_dr'] = 0.1*min(min_pc2_macro[R_ind], max_pc2_macro[R_ind]) * 1e5 ### convert from km -> cm
@@ -355,7 +386,7 @@ def bisection_stellar_sequence(
     # compute errors based on a linear interpolation
     errors = mid_pc2_macro - (min_pc2_macro + (max_pc2_macro - min_pc2_macro) * (mid_pc2 - min_pc2) / (max_pc2 - min_pc2))
 
-    if np.all(np.abs(errors) < interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
+    if np.all(np.abs(errors) <= interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
         return [min_pc2, mid_pc2, max_pc2], [min_pc2_macro, mid_pc2_macro, max_pc2_macro]
 
     else: # interpolation is not good enough, so we recurse to compute mid-points of sub-intervals

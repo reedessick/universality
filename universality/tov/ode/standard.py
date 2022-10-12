@@ -71,6 +71,14 @@ def eta2lambda(r, m, eta): ### dimensionless tidal deformability
     k2el = 0.5*(eta - 2. - 4.*C/fR) / (RdFdr -F*(eta + 3. - 4.*C/fR)) # gravitoelectric quadrupole Love number
     return (2./3.)*(k2el/C**5)
 
+def eta2loglambda(r, m, eta):
+    l = eta2lambda(r, m, eta)
+    if l > 0:
+        return np.log(l)
+    else:
+        return +np.infty ### when l < 0, this typically means the star
+                         ### is too puffy to be resolved -> set lambda to infty
+
 def omega2i(r, omega): ### moment of inertia
     return (omega/(3. + omega)) * r**3/(2.*Gc2)
 
@@ -125,7 +133,7 @@ def engine(
         r = r0 + max(min_dr, min(max_dr, guess_frac * abs(vec[0]/dvecdr_func(vec, r, eos)[0])))
 
         ### integrate out until we hit that estimate
-        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr, mxstep=mxstep)[-1,:] ### retain only the last point
+        vec[:] = odeint(dvecdr_func, vec0, (r0, r), args=(eos,), rtol=rtol, hmax=max_dr, mxstep=mxstp)[-1,:] ### retain only the last point
 
     ### return to client, who will then interpolate to find the surface
     ### interpolate to find stellar surface
@@ -141,7 +149,7 @@ def engine(
 #-------------------------------------------------
 
 ### the solver that yields all known macroscopic quantites
-MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'logLambda', 'I', 'Mb'] ### the column names for what we compute
 
 def dvecdr(vec, r, eos):
     pc2, m, eta, omega, mb = vec
@@ -201,7 +209,7 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # compute  moment of inertia
     i = omega2i(r, omega)
@@ -212,7 +220,7 @@ def integrate(
     r *= 1e-5 ### convert from cm to km
     i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, l, i, mb
+    return m, r, logl, i, mb
 
 #-------------------------------------------------
 
@@ -280,7 +288,7 @@ def integrate_MR(
 #-------------------------------------------------
 
 ### light-weight solver that only includes M, R, and Lambda 
-MACRO_COLS_MRLambda = ['M', 'R', 'Lambda']
+MACRO_COLS_MRLambda = ['M', 'R', 'logLambda']
 
 def dvecdr_MRLambda(vec, r, eos):
     '''returns d(p, m)/dr
@@ -339,10 +347,10 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
 
-    return m, r, l
+    return m, r, logl

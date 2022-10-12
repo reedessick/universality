@@ -8,7 +8,7 @@ from scipy.integrate import odeint
 from universality.utils import utils
 from universality.utils.units import (G, c2, Msun)
 
-from .standard import (eta2lambda, omega2i)
+from .standard import (eta2loglambda, omega2i)
 from .standard import (initial_m, initial_mb, initial_eta, initial_omega)
 from .standard import (dmdr, dmbdr, detadr, domegadr)
 
@@ -89,7 +89,7 @@ def engine(
 #-------------------------------------------------
 
 ### solver that yields all known macroscopic quantities
-MACRO_COLS = ['M', 'R', 'Lambda', 'I', 'Mb'] ### the column names for what we compute
+MACRO_COLS = ['M', 'R', 'logLambda', 'I', 'Mb'] ### the column names for what we compute
 
 def dvecdlogh(vec, logh, eos):
     eos0 = eos[0]
@@ -148,7 +148,7 @@ def integrate(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # compute  moment of inertia
     i = omega2i(r, omega)
@@ -159,7 +159,7 @@ def integrate(
     r *= 1e-5 ### convert from cm to km
     i /= 1e45 ### normalize this to a common value but still in CGS
 
-    return m, r, l, i, mb
+    return m, r, logl, i, mb
 
 #-------------------------------------------------
 
@@ -222,7 +222,7 @@ def integrate_MR(
 
 ### lightweight solver that yields M, R, Lambda
 ### solver that yields all known macroscopic quantities
-MACRO_COLS_MRLambda = ['M', 'R', 'Lambda'] ### the column names for what we compute
+MACRO_COLS_MRLambda = ['M', 'R', 'logLambda'] ### the column names for what we compute
 
 def dvecdlogh_MRLambda(vec, logh, eos):
     eos0 = eos[0]
@@ -277,10 +277,10 @@ def integrate_MRLambda(
     )
 
     # compute tidal deformability
-    l = eta2lambda(r, m, eta)
+    logl = eta2loglambda(r, m, eta)
 
     # convert to "standard" units
     m /= Msun ### reported in units of solar masses, not grams
     r *= 1e-5 ### convert from cm to km
 
-    return m, r, l
+    return m, r, logl
