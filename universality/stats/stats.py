@@ -23,7 +23,11 @@ def entropy(weights, base=2.):
     """compute the entropy of the distribution"""
     weights = np.array(weights)
     truth = weights > 0
-    weights /= np.sum(weights)
+    if not np.any(truth):
+        # Sum of weights is zero
+        return 0.0
+    else:
+        weights /= np.sum(weights)
     return -np.sum(weights[truth]*np.log(weights[truth])) / np.log(base)
 
 def information(weights, base=2.):
