@@ -70,6 +70,17 @@ AXES_POSITION = [
 
 #-------------------------------------------------
 
+TICK_PARAMS = dict(
+    left=True,
+    right=True,
+    top=True,
+    bottom=True,
+    which='both',
+    direction='in',
+)
+
+#-------------------------------------------------
+
 def setp(*args, **kwargs):
     return plt.setp(*args, **kwargs)
 

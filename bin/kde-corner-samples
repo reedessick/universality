@@ -331,7 +331,7 @@ for ind, (label, path) in enumerate(args.samples):
 
     ranges = []
     for i, col in enumerate(args.columns):
-        if rangesdict.has_key(col):
+        if col in rangesdict:
             ranges.append(rangesdict[col])
         else:
             ranges.append((np.min(data[:,i]), np.max(data[:,i])))
@@ -431,7 +431,7 @@ for ind, (label, path) in enumerate(args.samples):
         band_color=args.band_color,
         band_alpha=args.band_alpha,
         labels=labels,
-        range=these_ranges,
+        ranges=these_ranges,
         alternate_units=alternate_units,
         weights=weights,
         num_points=args.num_points,
@@ -478,7 +478,7 @@ for i, (label, path) in enumerate(args.reference):
     plot.curve_corner(
         data,
         labels=labels,
-        range=global_ranges,
+        ranges=global_ranges,
         color=reference_colors[label],
         verbose=args.Verbose,
         figwidth=args.figwidth,

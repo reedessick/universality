@@ -202,8 +202,8 @@ def logkde(samples, data, variances, weights=None, num_proc=DEFAULT_NUM_PROC):
     return logkdes
 
 def _define_sets(Nsamp, num_proc):
-    sets = [np.zeros(Nsamp, dtype=bool) for i in xrange(num_proc)]
-    for i in xrange(Nsamp):
+    sets = [np.zeros(Nsamp, dtype=bool) for i in range(num_proc)]
+    for i in range(Nsamp):
         sets[i%num_proc][i] = True
     return [_ for _ in sets if np.any(_)]
 
@@ -215,7 +215,7 @@ def _logkde_worker(samples, data, variances, weights, conn=None):
     twov = -0.5/variances
 
     z = np.empty(Ndata, dtype=float)
-    for i in xrange(Nsamp):
+    for i in range(Nsamp):
         sample = samples[i]
         z[:] = np.sum((data-sample)**2 * twov, axis=1)       ### shape: (Ndata, Ndim) -> (Ndata)
 
@@ -288,7 +288,7 @@ def _grad_logkde_worker(samples, data, variances, weights, conn=None):
     twov = -0.5/v
 
     z = np.empty(Ndata, dtype=float)
-    for i in xrange(Nsamp):
+    for i in range(Nsamp):
         sample = samples[i]
         z[:] = np.sum((data-sample)**2 * twov, axis=1)  ### shape: (Ndata, Ndim) -> (Ndata)
 
@@ -381,7 +381,7 @@ def _logsecond_worker(samples1, samples2, data, variances, weights, logfirst, co
 
     z = np.empty(Ndata, dtype=float)
     w2 = weights**2
-    for i in xrange(Nsamp):
+    for i in range(Nsamp):
         sample1 = samples1[i]
         sample2 = samples2[i]
 
@@ -429,7 +429,7 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
 
     sets = [[] for _ in range(max(int(np.ceil(Nsamples/k)),2))]
     Nsets = len(sets)
-    for i in xrange(Nsamples):
+    for i in range(Nsamples):
         sets[i%Nsets].append(i)
 
     logL = np.empty(Nsets, dtype='float')
@@ -438,7 +438,7 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
     twov = -0.5/variances
     truth = np.ones(Nsamples, dtype=bool)
 
-    for i in xrange(Nsets):
+    for i in range(Nsets):
         sample = data[sets[i]]
 
         truth[:] = True
@@ -452,7 +452,7 @@ def logleavekoutLikelihood(data, variances, k=1, weights=None, num_proc=DEFAULT_
         grad_logL[i] = np.sum(grad_logkde(sample, data[truth], variances, weights=weights[truth], num_proc=num_proc))
 
     ### compute statistics
-    set_weights = np.array([np.sum(np.log(weights[sets[i]])) for i in xrange(Nsets)], dtype=float) ### compute the cumulative weights for each set
+    set_weights = np.array([np.sum(np.log(weights[sets[i]])) for i in range(Nsets)], dtype=float) ### compute the cumulative weights for each set
     set_weights = np.exp(set_weights-np.max(set_weights))
     set_weights /= np.sum(set_weights)
 
