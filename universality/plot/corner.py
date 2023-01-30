@@ -30,7 +30,8 @@ def kde_corner(
         data,
         bandwidths=None,
         labels=None,
-        range=None,
+        ranges=None,
+        alternate_units=None, # provide a shift, scale, and label such that y = scale*(x-shift)
         truths=None,
         bands=None,
         weights=None,
@@ -77,7 +78,7 @@ def kde_corner(
     weights = np.array(weights)
 
     if labels is None:
-        labels = [str(i) for i in xrange(Ncol)]
+        labels = [str(i) for i in range(Ncol)]
     else:
         assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
     labels = np.array(labels)
@@ -94,11 +95,14 @@ def kde_corner(
                 print('automatically selected bandwidth=%.3e for col=%s'%(b, labels[i]))
         variances[i] = b**2
 
-    if range is None:
-        range = [stats.samples2range(data[:,i]) for i in xrange(Ncol)]
+    if ranges is None:
+        ranges = [stats.samples2range(data[:,i]) for i in range(Ncol)]
     else:
-        assert len(range)==Ncol, 'must have the same number of columns in data and range'
-    range = np.array(range)
+        assert len(ranges)==Ncol, 'must have the same number of columns in data and range'
+    ranges = np.array(ranges)
+
+    if alternate_units is None:
+        alternate_units = [None]*Ncol
 
     if truths is None:
         truths = [None]*Ncol
@@ -116,21 +120,32 @@ def kde_corner(
     ### construct figure and axes objects
     if fig is None:
         fig = plt.figure(figsize=(figwidth, figheight)) ### FIXME: set figsize based on Ncol?
-        plt.subplots_adjust(
-            hspace=plt.HSPACE,
-            wspace=plt.WSPACE,
-            left=plt.CORNER_LEFT/figwidth,
-            right=(figwidth-plt.CORNER_RIGHT)/figwidth,
-            bottom=plt.CORNER_BOTTOM/figheight,
-            top=(figheight-plt.CORNER_TOP)/figheight,
-        )
+
+        if any([_ is not None for _ in alternate_units]): ### we will plot alternate units
+            plt.subplots_adjust(
+                hspace=plt.HSPACE,
+                wspace=plt.WSPACE,
+                left=plt.CORNER_LEFT/figwidth,
+                right=(figwidth-plt.CORNER_LEFT)/figwidth,
+                bottom=plt.CORNER_BOTTOM/figheight,
+                top=(figheight-plt.CORNER_BOTTOM)/figheight, # make room for labels
+            )
+        else:
+            plt.subplots_adjust(
+                hspace=plt.HSPACE,
+                wspace=plt.WSPACE,
+                left=plt.CORNER_LEFT/figwidth,
+                right=(figwidth-plt.CORNER_RIGHT)/figwidth,
+                bottom=plt.CORNER_BOTTOM/figheight,
+                top=(figheight-plt.CORNER_TOP)/figheight,
+            )
 
     shape = (num_points, num_points) # used to reshape 2D sampling kdes
 
     truth =  np.empty(Ncol, dtype=bool) # used to index data within loop
-    include = [np.all(data[:,i]==data[:,i]) for i in xrange(Ncol)] # used to determine which data we should skip
+    include = [np.all(data[:,i]==data[:,i]) for i in range(Ncol)] # used to determine which data we should skip
 
-    vects = [np.linspace(m, M, num_points) for m, M in range] ### grid placement
+    vects = [np.linspace(m, M, num_points) for m, M in ranges] ### grid placement
     dvects = [v[1]-v[0] for v in vects]
 
     ### set colors for scatter points
@@ -139,11 +154,11 @@ def kde_corner(
     ### set up bins for 1D marginal histograms, if requested
     if hist1D:
         Nbins = max(10, int(Nsamp**0.5)/5)
-        bins = [np.linspace(m, M, Nbins+1) for m, M in range]
+        bins = [np.linspace(m, M, Nbins+1) for m, M in ranges]
 
     ### iterate over columns, building 2D KDEs as needed
-    for row in xrange(Ncol):
-        for col in xrange(row+1):
+    for row in range(Ncol):
+        for col in range(row+1):
             ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
 
             truth[:] = False
@@ -156,7 +171,7 @@ def kde_corner(
 
                     truth[col] = True
 
-                    d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
                         vects[col],
@@ -223,7 +238,7 @@ def kde_corner(
                             color=scatter_color,
                         )
 
-                    d, w = reflect_samples(data[:,truth], range[truth], weights=weights) if reflect else (data[:,truth], weights)
+                    d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect else (data[:,truth], weights)
 
                     kde = logkde(
                         vects2flatgrid(vects[col], vects[row]),
@@ -235,27 +250,59 @@ def kde_corner(
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
+#                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
+                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels))) # smallest to largest
                     if filled:
                         ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
                     ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate
             ax.grid(grid, which='both')
+            ax.tick_params(**plt.TICK_PARAMS)
 
             if row!=col:
-                ax.set_ylim(range[row])
-                ax.set_xlim(range[col])
+                ax.set_ylim(ranges[row])
+                ax.set_xlim(ranges[col])
                 plt.setp(ax.get_yticklabels(), rotation=rotate_yticklabels)
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             elif rotate and row==(Ncol-1):
-                ax.set_ylim(range[row])            
+                ax.set_ylim(ranges[row])            
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
                 ax.set_xticks([])
             else:
-                ax.set_xlim(range[col])
+                ax.set_xlim(ranges[col])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
                 ax.set_yticks([])
+
+            # add alternate units
+            if (row == col) and (alternate_units[col] is not None):
+                label, scale, shift = alternate_units[col]
+
+                # add another set of axes that line up with the default one
+                if rotate and (row == (Ncol-1)):
+                    twinx = ax.twinx()
+                    twinx.tick_params(**plt.TICK_PARAMS)
+
+                    ticks = ax.get_yticks()
+                    ticklabels = ['$%.1f$'%(scale*(tick-shift)) for tick in ticks]
+
+                    twinx.set_yticks(ticks)
+                    twinx.set_yticklabels(ticklabels)
+                    twinx.set_ylim(ranges[col])
+                    twinx.set_ylabel(label)
+ 
+                else:
+                    twiny = ax.twiny()
+                    twiny.tick_params(**plt.TICK_PARAMS)
+
+                    # compute ticklabels based on y = scale*(x-shift)
+                    ticks = ax.get_xticks()
+                    ticklabels = ['$%.1f$'%(scale*(tick-shift)) for tick in ticks]
+
+                    twiny.set_xticks(ticks)
+                    twiny.set_xticklabels(ticklabels)
+                    twiny.set_xlim(ranges[col])
+                    twiny.set_xlabel(label)
 
             # add Truth annotations
             if truths[col] is not None:
@@ -311,7 +358,7 @@ def kde_corner(
 def curve_corner(
         data,
         labels=None,
-        range=None,
+        ranges=None,
         truths=None,
         bands=None,
         color=None, ### let matplotlib pick this for you automatically
@@ -339,16 +386,16 @@ def curve_corner(
     Nsamp, Ncol = data.shape
 
     if labels is None:
-        labels = [str(i) for i in xrange(Ncol)]
+        labels = [str(i) for i in range(Ncol)]
     else:
         assert len(labels)==Ncol, 'must have the same number of columns in data and labels'
     labels = np.array(labels)
 
-    if range is None:
-        range = [stats.stamples2range(data[:,i]) for i in xrange(Ncol)]
+    if ranges is None:
+        ranges = [stats.stamples2range(data[:,i]) for i in range(Ncol)]
     else:
-        assert len(range)==Ncol, 'must have the same number of columns in data and range'
-    range = np.array(range)
+        assert len(ranges)==Ncol, 'must have the same number of columns in data and range'
+    ranges = np.array(ranges)
 
     if truths is None:
         truths = [None]*Ncol
@@ -377,8 +424,8 @@ def curve_corner(
 
     ### iterate over columns, building 2D KDEs as needed
     ### NOTE: we do not plot in the 1D axes, so we don't have to worry about rotate, etc
-    for row in xrange(Ncol):
-        for col in xrange(row):
+    for row in range(Ncol):
+        for col in range(row):
             ax = plt.subplot(Ncol, Ncol, row*Ncol+col+1)
 
             if verbose:
@@ -392,11 +439,12 @@ def curve_corner(
 
             # decorate
             ax.grid(grid, which='both')
+            ax.tick_params(**plt.TICK_PARAMS)
 
-            ax.set_xlim(range[col])
+            ax.set_xlim(ranges[col])
             plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             if row!=col:
-                ax.set_ylim(range[row])
+                ax.set_ylim(ranges[row])
                 plt.setp(ax.get_yticklabels(), rotation=rotate_yticklabels)
 
             # add Truth annotations
