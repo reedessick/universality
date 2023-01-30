@@ -31,6 +31,7 @@ def kde_corner(
         bandwidths=None,
         labels=None,
         range=None,
+        alternate_units=None, # provide a shift, scale, and label such that y = scale*(x-shift)
         truths=None,
         bands=None,
         weights=None,
@@ -99,6 +100,9 @@ def kde_corner(
     else:
         assert len(range)==Ncol, 'must have the same number of columns in data and range'
     range = np.array(range)
+
+    if alternate_units is None:
+        alternate_units = [None]*Ncol
 
     if truths is None:
         truths = [None]*Ncol
@@ -256,6 +260,34 @@ def kde_corner(
                 ax.set_xlim(range[col])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
                 ax.set_yticks([])
+
+            # add alternate units
+            if (row == col) and (alternate_units[col] is not None):
+                label, scale, shift = alternate_units[col]
+
+                # add another set of axes that line up with the default one
+                if rotate and (row == (Ncol-1)):
+                    twinx = ax.twiny()
+                    twinx.set_ylim(range[col])
+                    twinx.set_ylabel(label)
+
+                    ticks = ax.get_yticks()
+                    set_ticks = twinx.set_yticks
+                    set_ticklabels = twinx.set_yticklabels()
+
+                else:
+                    twiny = ax.twiny()
+                    twiny.set_xlim(range[col])
+                    twiny.set_xlabel(label)
+
+                    ticks = twiny.get_xticks()
+                    set_ticks = twiny.set_xticks
+                    set_ticklabels = ax.set_xticklabels()
+
+                # compute ticklabels based on y = scale*(x-shift)
+                ticklabels = ['$%.1f$'%(scale*(tick-shift)) for tick in ticks]
+                set_ticks(ticks)
+                set_ticklabels(ticklabels)
 
             # add Truth annotations
             if truths[col] is not None:

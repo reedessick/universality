@@ -65,6 +65,11 @@ DEFAULT=[]')
 cgroup.add_argument('-L', '--column-label', nargs=2, default=[], type=str, action='append',
     help='replace the column name with this label in the corner plot. e.g.: \'xcol $x$\'. \
 DEFAULT=[]')
+cgroup.add_argument('--column-alternate-units', nargs=4, default=[], type=str, action='append',
+    help='plot alternate units in addition to --column-label for this column. Converts units based on \
+y = scale*(x-shift). These transformations are applied after plotting (i.e., after column has been logged, etc). \
+e.g. (convert Fahrenheit to Celsius) "--column-alternate-units Fahrenheit Celsius 0.55 -32.0" \
+DEFAULT=[]')
 cgroup.add_argument('-T', '--column-truth', nargs=2, default=[], type=str, action='append',
     help='include this as an injected value for this column. e.g: \'--column-truth xcol 5\'. \
 DEFAULT=[]')
@@ -252,6 +257,12 @@ for column, label in args.column_label:
     labeldict[column] = label
 labels = [labeldict.get(col, '$'+col+'$') for col in args.columns]
 
+alternate_unitsdict = dict()
+for column, label, scale, shift in args.column_alternate_units:
+    assert column in args.columns, 'specifying --column-alternate-units for unknown column: '+column
+    alternate_unitsdict[column] = (label, float(scale), float(shift))
+alternate_units = [alternate_unitsdict.get(col, None) for col in args.columns]
+
 truthdict = defaultdict(list)
 for column, value in args.column_truth:
     assert column in args.columns, 'specifying --column-truth for unknown column: '+column
@@ -421,6 +432,7 @@ for ind, (label, path) in enumerate(args.samples):
         band_alpha=args.band_alpha,
         labels=labels,
         range=these_ranges,
+        alternate_units=alternate_units,
         weights=weights,
         num_points=args.num_points,
         color=colors[label],
