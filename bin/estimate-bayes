@@ -81,7 +81,7 @@ for label, col in args.prior_column:
 
 logprior1_columns = []
 logprior2_columns = []
-for label, col in args.weight_column_is_log:
+for label, col in args.prior_column_is_log:
     if label == label1:
         logprior1_columns.append(col)
     elif label == label2:
