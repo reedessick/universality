@@ -27,6 +27,10 @@ rgroup.add_argument('outpath', type=str)
 rgroup.add_argument('columns', nargs='+', type=str,
     help='columns to extract')
 
+rgroup.add_argument('--default-values', nargs=3, type=str, action='append', default=[],
+    help='set a default value if no extrema are found within the specified ranges. \
+eg, "--default-value column default_max_val default_min_val"')
+
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
 
@@ -69,6 +73,15 @@ Ncol = len(args.columns)
 Nkeep = len(args.copy_column)
 
 new_columns = dict((a, [b, c]) for a, b, c in args.new_column)
+
+if args.default_values:
+    default_values = default_values = dict((a, (float(b), float(c))) for a, b, c in args.default_values)
+    for col in args.columns:
+        if col not in default_values.keys():
+            raise ValueError('must specify --default-values for either all columns or no columns! missing %s'%col)
+    default_values = [default_values[col] for col in args.columns]
+else:
+    default_values = None
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
@@ -120,6 +133,7 @@ ans[:,Nkeep+1:] = extrema.process2extrema(
     path_template,
     args.eos_num_per_dir,
     args.columns,
+    default_values=default_values,
     static_ranges=ranges,
     dynamic_minima=dynamic_minima,
     dynamic_maxima=dynamic_maxima,

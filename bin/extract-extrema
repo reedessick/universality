@@ -40,6 +40,10 @@ rgroup.add_argument('outpath', type=str)
 rgroup.add_argument('columns', nargs='+', type=str,
     help='columns to extract')
 
+rgroup.add_argument('--default-values', nargs=3, type=str, action='append', default=[],
+    help='set a default value if no extrema are found within the specified ranges. \
+eg, "--default-value column default_max_val default_min_val"')
+
 rgroup.add_argument('--new-column', type=str, default=[], action='append', nargs=3,
     help='the name of the new column that will be added to each file. \
 Supply the name of the column original and then the names of the new columns for max and min. \
@@ -60,6 +64,15 @@ args = parser.parse_args()
 Ncol = len(args.columns)
 
 new_columns = dict((a, [b, c]) for a, b, c in args.new_column)
+
+if args.default_values:
+    default_values = default_values = dict((a, (float(b), float(c))) for a, b, c in args.default_values)
+    for col in args.columns:
+        if col not in default_values.keys():
+            raise ValueError('must specify --default-values for either all columns or no columns! missing %s'%col)
+    default_values = [default_values[col] for col in args.columns]
+else:
+    default_values = None
 
 if os.path.dirname(args.outpath) and (not os.path.exists(os.path.dirname(args.outpath))):
     os.makedirs(os.path.dirname(args.outpath))
@@ -90,6 +103,7 @@ if args.verbose:
 ans = extrema.data2extrema(
     data,
     Ncol,
+    default_values=default_values,
     static_ranges=ranges,
 )
 

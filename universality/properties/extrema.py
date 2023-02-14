@@ -12,7 +12,7 @@ from universality.utils import io
 
 #-------------------------------------------------
 
-def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxima=None):
+def data2extrema(d, Ncol, default_values=None, static_ranges=None, dynamic_minima=None, dynamic_maxima=None):
     truth = np.ones(len(d), dtype=bool)
 
     if static_ranges is not None:
@@ -28,13 +28,18 @@ def data2extrema(d, Ncol, static_ranges=None, dynamic_minima=None, dynamic_maxim
             truth *= d[:,j] <= maxima
 
     if not np.any(truth):
-        raise RuntimeError('could not find any samples within all specified ranges!')
-    d = d[truth]
+        if default_values is None:
+            raise RuntimeError('no default_values and could not find any samples within all specified ranges!')
+        else:
+            ans = np.array(default_values).flatten()
 
-    ans = np.empty(2*Ncol, dtype=float)
-    for j in range(Ncol):
-        ans[2*j] = np.max(d[:,j])
-        ans[2*j+1] = np.min(d[:,j])
+    else:
+        d = d[truth]
+
+        ans = np.empty(2*Ncol, dtype=float)
+        for j in range(Ncol):
+            ans[2*j] = np.max(d[:,j])
+            ans[2*j+1] = np.min(d[:,j])
 
     return ans
 
@@ -55,6 +60,7 @@ def process2extrema(
         tmp,
         mod,
         columns,
+        default_values=None,
         static_ranges=None,
         dynamic_minima=None,
         dynamic_maxima=None,
@@ -100,7 +106,14 @@ def process2extrema(
         minima = [(j, val[i]) for j, val in dynamic_minima]
         maxima = [(j, val[i]) for j, val in dynamic_maxima]
 
-        ans[i] = data2extrema(d, Ncol, static_ranges=static_ranges, dynamic_minima=minima, dynamic_maxima=maxima)
+        ans[i] = data2extrema(
+            d,
+            Ncol,
+            static_ranges=static_ranges,
+            default_values=default_values,
+            dynamic_minima=minima,
+            dynamic_maxima=maxima,
+        )
 
     if verbose:
         sys.stdout.write('\n')
