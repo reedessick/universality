@@ -184,7 +184,13 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
     else:
 
         for branch in branches:
-            assert np.all(np.diff(x[branch]) >= 0), 'reference value must not decrease at any point on each branch when interpolating!'
+            if np.all(np.diff(x[branch]) < 0): # reverse order because we monotonically decrease
+                x[branch] = x[branch][::-1]
+                for j in range(Ncols):
+                    data[branch] = data[branch][::-1]
+
+            # now check whether we can interpolate
+            can_interpolate = np.all(np.diff(x[branch]) >= 0)
 
         # extract values from each branch where there is coverage
         vals = [[] for _ in range(Nref)] ### holder for values from each branch
@@ -193,9 +199,17 @@ def data2samples(x, data, x_test, selection_rule=DEFAULT_SELECTION_RULE, branche
             maxX = np.max(x[branch])
             for i, X in enumerate(x_test):
                 if (minX <= X) and (X <= maxX): ### we have coverage on this branch
-                    datum = []
-                    for j in range(Ncols):
-                        datum.append(np.interp(X, x[branch], data[branch,j]))
+                    exact_match = X == x[branch]
+                    if np.any(exact_match): # an exact match
+                        assert np.sum(exact_match) == 1, 'more than one exact match at %.6e' % X
+                        datum = [data[branch][exact_match][0,j] for j in range(Ncols)]
+
+                    else: # we need to interpolate
+                        if not can_interpolate:
+                            raise RuntimeError('reference value must montonically increase or decrease \
+along each branch when interpolating!')
+                        datum = [np.interp(X, x[branch], data[branch,j]) for j in range(Ncols)]
+
                     vals[i].append(datum)
 
         ### iterate through vals and pick based on selection rule
