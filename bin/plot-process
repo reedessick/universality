@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """generate plots of processes from CSV files which refer to EOS tables (other csv files)
 """

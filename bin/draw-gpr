@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """draw realizations of the process stored in process.pkl and write them into separate CSV files.
 If requested, can also integrate these processes to get "final EoS CSVs" by numerically integrating phi=log(de/dp - 1) to obtain e(p). This is done in a profoundly naive way via a simple trapazoidal approximation. Increased acccuracy can be gained by increasing the number of sample points in phi.csv. 

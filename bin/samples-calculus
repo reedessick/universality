@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to add columns to a single CSV based on simple operations of existing columns
 """

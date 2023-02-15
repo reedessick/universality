@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """read in a target process from disk and compute the associated 'quantile' according to another process read from disk
 """

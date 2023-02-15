@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that estimates the bayes factor by comparing evidences based on the samples within inpath.csv. Assumes the same likelihood was used to weigh both sets of samples
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """determine the locations at which a value is first reached in each direction from some set of bound within a set of EOS (a process)
 """

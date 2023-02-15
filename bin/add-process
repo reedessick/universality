@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to add together priors with appropriate weights. This is done by copying datasets from the summands into a new file and updating their weights.
 """

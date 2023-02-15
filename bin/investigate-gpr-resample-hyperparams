@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that lets users investigate hyperparameters and different optimization/marginalization techniques
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """integrate all EoS listed in a process. This is essentially a "batch" version of integrate-tov
 """

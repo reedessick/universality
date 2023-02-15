@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """generate quantiles from a set of EOS (a process)
 """

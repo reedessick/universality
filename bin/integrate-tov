@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to integrate the TOV equations given an EoS to compute a sequence of macroscopic parameters
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a simple script to sample the rate parameters given a set of observations and exposure
 """

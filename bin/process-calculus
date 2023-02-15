@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """perform numeric calculus on every file in a process, adding the result as a new column in each file
 """

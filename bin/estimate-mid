@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """compute the mutual information distance between all pairs of sampled variables and rank them in terms of independence
 """

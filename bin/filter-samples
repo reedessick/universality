@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to select a subset of samples based on a conditional.
 We load in the whole source file and store the array as "data" and the columns as "cols". Conditionals should be specified in terms of that.

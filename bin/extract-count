@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that manages I/O and other lookup to count the number of stable branches and/or features associated with EoS.
 Counts the number of unique values within the reference column subject to selections on other columns.

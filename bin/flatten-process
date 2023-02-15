@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to flattens the distribution of weights within a mixture-model process. This is done by re-assigning weights after they've been flattend by raising them by an inverse temperature.
 """

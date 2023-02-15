@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a one-stop shop for the full GPR regression for phi = log(denergy_density/dpressure -1) as a function of pressurec2.
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that prints the cross-validation likelihood associated with each of a sequence of bandwidths over whitened data. This is similar in spirit to investigate-bandwidth, but reports the output in a format more convenient for marginalization at a later time
 """

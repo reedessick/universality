@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that estimates the evidence based on the samples within inpath.csv
 """

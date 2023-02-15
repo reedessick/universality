@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that computes the prior weight based on a set of samples (and a few known priors), adding them to a CSV file so they can be properly accounted for within KDEs developed within, e.g., weigh-samples
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script to make a heatmap of a process by summing the cumulative amount of weight assigned to each pixel within a pre-computed raster
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a script that simulates LALInference samples for GW170817 using the product of marginal distributions, each modeled as a (truncated) Gaussian distribution; all parameters are required to be non-negative. NOTE: this means all parameters are assumed to be independent, which is not strictly correct.
 """

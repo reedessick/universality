@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """a plotting script that makes a sequence of KDEs to show how constraints change for a 1D distribution with more events or different weights
 """

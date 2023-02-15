@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """generate some simple plots of the EOS to make sure they're reasonable. Assumes all columns are in g/cm^3, and converts to more standard units as appropriate
 """

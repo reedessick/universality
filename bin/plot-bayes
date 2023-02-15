@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """make plots of the bayes factors for different numbers of stable branches"""
 __author__ = "Reed Essick (reed.essick@gmail.com)"
