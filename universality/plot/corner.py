@@ -43,6 +43,7 @@ def kde_corner(
         verbose=False,
         grid=True,
         color=plt.DEFAULT_COLOR1,
+        contour_colors=None,
         truth_color=plt.DEFAULT_TRUTH_COLOR,
         truth_alpha=plt.DEFAULT_ALPHA,
         truth_linestyle=plt.DEFAULT_LINESTYLE,
@@ -148,6 +149,8 @@ def kde_corner(
     vects = [np.linspace(m, M, num_points) for m, M in ranges] ### grid placement
     dvects = [v[1]-v[0] for v in vects]
 
+    if contour_colors is None:
+        contour_colors = [color]
     ### set colors for scatter points
     scatter_color = plt.weights2color(weights, color)
 
@@ -239,7 +242,6 @@ def kde_corner(
                         )
 
                     d, w = reflect_samples(data[:,truth], ranges[truth], weights=weights) if reflect else (data[:,truth], weights)
-
                     kde = logkde(
                         vects2flatgrid(vects[col], vects[row]),
                         d,
@@ -250,11 +252,11 @@ def kde_corner(
                     kde = np.exp(kde-np.max(kde)).reshape(shape)
                     kde /= np.sum(kde)*dvects[col]*dvects[row] # normalize kde
 
-#                    thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels)), reverse=True)
                     thrs = sorted(np.exp(stats.logkde2levels(np.log(kde), levels))) # smallest to largest
+
                     if filled:
-                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=color, alpha=filled_alpha, levels=thrs)
-                    ax.contour(vects[col], vects[row], kde.transpose(), colors=color, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
+                        ax.contourf(vects[col], vects[row], kde.transpose(), colors=contour_colors, alpha=filled_alpha, levels=thrs)
+                    ax.contour(vects[col], vects[row], kde.transpose(), colors=contour_colors, alpha=alpha, levels=thrs, linewidths=linewidth, linestyles=linestyle)
 
             # decorate
             ax.grid(grid, which='both')
@@ -281,7 +283,7 @@ def kde_corner(
                 # add another set of axes that line up with the default one
                 if rotate and (row == (Ncol-1)):
                     twinx = ax.twinx()
-                    twinx.tick_params(**plt.TICK_PARAMS)
+                    twinx.tick_params(labelrotation=rotate_yticklabels,**plt.TICK_PARAMS)
 
                     ticks = ax.get_yticks()
                     ticklabels = ['$%.1f$'%(scale*(tick-shift)) for tick in ticks]
@@ -293,7 +295,7 @@ def kde_corner(
  
                 else:
                     twiny = ax.twiny()
-                    twiny.tick_params(**plt.TICK_PARAMS)
+                    twiny.tick_params(labelrotation=rotate_xticklabels, **plt.TICK_PARAMS)
 
                     # compute ticklabels based on y = scale*(x-shift)
                     ticks = ax.get_xticks()
