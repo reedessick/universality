@@ -5,7 +5,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import numpy as np
-
+from scipy.special import xlogy
 #-------------------------------------------------
 # basic statistical quantities about convergence of monte-carlo integrals
 #-------------------------------------------------
@@ -23,8 +23,13 @@ def entropy(weights, base=2.):
     """compute the entropy of the distribution"""
     weights = np.array(weights)
     truth = weights > 0
-    weights /= np.sum(weights)
-    return -np.sum(weights[truth]*np.log(weights[truth])) / np.log(base)
+
+    if not np.any(truth):
+        raise ValueError("None of the weights were nonzero in entropy calculation")
+    else:
+        weights /= np.sum(weights)
+    # There still can be zero weights after normalizing, e.g. 1.0e-200 / 1.0e200 = 0.0
+    return -np.sum(xlogy(weights[truth], weights[truth])) / np.log(base)
 
 def information(weights, base=2.):
     """compute the information in the distribution"""
