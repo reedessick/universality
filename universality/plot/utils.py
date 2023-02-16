@@ -12,8 +12,10 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import cm
 from matplotlib import pyplot as plt
+plt.style.use('classic')
 plt.rcParams['font.family'] = 'serif'
-if matplotlib.__version__ < '1.3.0':
+plt.rcParams['font.serif'] = 'Times New Roman'
+if matplotlib.__version__ < '2.3.0':
     plt.rcParams['text.usetex'] = True
 
 ### non-standard libraries
