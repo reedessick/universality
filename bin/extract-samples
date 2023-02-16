@@ -77,8 +77,6 @@ N = len(data)
 if args.verbose:
     print('extacting data at reference values')
 
-ans = np.empty((N, Nref*Ncol), dtype=float)
-
 ans = samples.data2samples(
     x,
     data,
@@ -93,4 +91,4 @@ outcols = samples.outputcolumns(args.columns, args.reference, reference_values=a
 
 if args.verbose:
     print('writing samples to: '+args.outpath)
-io.write(args.outpath, ans, outcols)
+io.write(args.outpath, [ans], outcols)
