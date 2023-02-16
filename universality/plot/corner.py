@@ -43,6 +43,7 @@ def kde_corner(
         verbose=False,
         grid=True,
         color=plt.DEFAULT_COLOR1,
+        color1D=None,
         truth_color=plt.DEFAULT_TRUTH_COLOR,
         truth_alpha=plt.DEFAULT_ALPHA,
         truth_linestyle=plt.DEFAULT_LINESTYLE,
@@ -116,6 +117,13 @@ def kde_corner(
 
     if band_color is None:
         band_color = truth_color
+
+    if not isinstance(color, str):
+        assert len(color) == len(levels), 'must specify one color for each level if color is not a string'
+
+    if color1D is None:
+        assert isinstance(color, str), 'if color is not a string, must specify color1D separately'
+        color1D = color
 
     ### construct figure and axes objects
     if fig is None:
@@ -193,31 +201,31 @@ def kde_corner(
                     kde /= np.sum(kde)*dvects[col]
                     if rotate and row==(Ncol-1): ### rotate the last histogram
                         if filled1D:
-                            ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
-                        ax.plot(kde, vects[col], color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
+                            ax.fill_betweenx(vects[col], kde, np.zeros_like(kde), color=color1D, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                        ax.plot(kde, vects[col], color=color1D, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         xmax = max(ax.get_xlim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights, orientation='horizontal')
+                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color1D, normed=True, weights=weights, orientation='horizontal')
                             xmax = max(xmax, np.max(n)*1.05)
 
                         for m, M in lines:
-                            ax.plot([0, 10*xmax], [m]*2, color=color, alpha=alpha, linestyle='dashed') ### plot for a bigger range incase axes change later
-                            ax.plot([0, 10*xmax], [M]*2, color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([0, 10*xmax], [m]*2, color=color1D, alpha=alpha, linestyle='dashed') ### plot for a bigger range incase axes change later
+                            ax.plot([0, 10*xmax], [M]*2, color=color1D, alpha=alpha, linestyle='dashed')
 
                         ax.set_xlim(xmin=0, xmax=xmax)
 
                     else:
                         if filled1D:
-                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
-                        ax.plot(vects[col], kde, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
+                            ax.fill_between(vects[col], kde, np.zeros_like(kde), color=color1D, linewidth=linewidth, linestyle=linestyle, alpha=filled_alpha)
+                        ax.plot(vects[col], kde, color=color1D, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                         ymax = max(ax.get_ylim()[1], np.max(kde)*1.05)
                         if hist1D:
-                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color, normed=True, weights=weights)
+                            n, _, _ = ax.hist(data[:,col], bins=bins[col], histtype='step', color=color1D, normed=True, weights=weights)
                             ymax = max(ymax, np.max(n)*1.05)
 
                         for m, M in lines:
-                            ax.plot([m]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed') ### plot for bigger range in case axes change later
-                            ax.plot([M]*2, [0, 10*ymax], color=color, alpha=alpha, linestyle='dashed')
+                            ax.plot([m]*2, [0, 10*ymax], color=color1D, alpha=alpha, linestyle='dashed') ### plot for bigger range in case axes change later
+                            ax.plot([M]*2, [0, 10*ymax], color=color1D, alpha=alpha, linestyle='dashed')
 
                         ax.set_ylim(ymin=0, ymax=ymax)
 
@@ -267,8 +275,7 @@ def kde_corner(
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
             elif rotate and row==(Ncol-1):
                 ax.set_ylim(ranges[row])            
-                plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
-                ax.set_xticks([])
+                ax.set_xticks([]) # no ticks shown
             else:
                 ax.set_xlim(ranges[col])
                 plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
@@ -290,7 +297,9 @@ def kde_corner(
                     twinx.set_yticklabels(ticklabels)
                     twinx.set_ylim(ranges[col])
                     twinx.set_ylabel(label)
- 
+
+                    plt.setp(twinx.get_yticklabels(), rotation=rotate_xticklabels)
+
                 else:
                     twiny = ax.twiny()
                     twiny.tick_params(**plt.TICK_PARAMS)
@@ -303,6 +312,8 @@ def kde_corner(
                     twiny.set_xticklabels(ticklabels)
                     twiny.set_xlim(ranges[col])
                     twiny.set_xlabel(label)
+
+                    plt.setp(ax.get_xticklabels(), rotation=rotate_xticklabels)
 
             # add Truth annotations
             if truths[col] is not None:

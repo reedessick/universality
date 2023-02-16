@@ -217,7 +217,10 @@ along each branch when interpolating!')
         # fill in default values as needed
         for i, val in enumerate(vals): ### one for each x_test
             if len(val) == 0: ### x_test not found on any branch!
-                assert (default_values is not None) and (len(default_values) == Ncols), 'default_values must be specified if x_test is not on any branch!'
+                assert (default_values is not None), 'must specify default_values if x_test is not on any branch!'
+                assert (len(default_values) == Ncols) and (not any([val==None for val in default_values])), \
+                    'must specify a default value for each requested column if x_test is not on any branch!'
+
                 vals[i] = [default_values]
 
         # pick from the branches at random (independently for each x_test)
