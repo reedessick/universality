@@ -12,7 +12,7 @@ from universality.utils import io
 
 def required_columns(
         reference,
-        equals=[]
+        equals=[],
         greater_than=[],
         less_than=[],
         overlaps=[],
