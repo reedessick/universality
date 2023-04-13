@@ -28,17 +28,33 @@ rgroup.add_argument('outpath', type=str)
 rgroup.add_argument('reference', type=str,
     help='the reference column in the file for which we want to count the rows')
 
+parser.add_argument('--equals', nargs=2, type=str, action='append', default=[],
+    help='require the the value in a column to be equal to something. Can be repeated. \
+eg: --equals column_name value')
+parser.add_argument('--equals-column', nargs=2, default=[], type=str, action='append',
+    help='look up the value from this column in the input data and required the associated \
+column in each EoS file to equal it. Can be repeated. eg --reference-equals-column inpath_column reference_column')
+
 parser.add_argument('--greater-than', nargs=2, type=str, action='append', default=[],
     help='require the value in a column to be greater than a threshold. Can be repeated. \
 eg: --greater-than column_name threshold')
+parser.add_argument('--greater-than-column', nargs=2, type=str, action='append', default=[],
+    help='read the threshold from a separate column in the input data. Can be repeated. \
+eg: --greater-than-column input_column reference_column')
 
 parser.add_argument('--less-than', nargs=2, type=str, action='append', default=[],
     help='required the value in a column to be less than a threshold. Can be repeated. \
 eg: --less-than column_name threshold')
+parser.add_argument('--less-than-column', nargs=2, type=str, action='append', default=[],
+    help='required the value in a column to be less than a threshold. Can be repeated. \
+eg: --less-than-column input_column reference_column')
 
 parser.add_argument('--overlaps', nargs=4, type=str, action='append', default=[],
     help='require the span of a feature to overlap a particular range. Can be repeated. \
 eg: --overlaps start_column end_column low high')
+parser.add_argument('--overlaps-columns', nargs=4, type=str, action='append', default=[],
+    help='read the boundaries for overlaps from input data. Can be repeated. \
+eg: --overlaps-columns input_start_column input_end_column reference_start_column reference_end_column')
 
 rgroup.add_argument('-c', '--copy-column', default=[], type=str, action='append',
     help='copy over the values from this column')
@@ -65,9 +81,15 @@ args = parser.parse_args()
 
 args.verbose |= args.Verbose
 
-args.greater_than = [(k, float(v)) for k, v in args.greater_than]
-args.less_than = [(k, float(v)) for k, v in args.less_than]
-args.overlaps = [(k, K, float(v), float(V)) for k, K, v, V in args.overlaps]
+equals = [(k, float(v)) for k, v in args.equals]
+greater_than = [(k, float(v)) for k, v in args.greater_than]
+less_than = [(k, float(v)) for k, v in args.less_than]
+overlaps = [(k, K, float(v), float(V)) for k, K, v, V in args.overlaps]
+
+# figure out which columns are required by dynamic logic
+reference_columns = [col for col, _ in args.dynamic_equals + args.dynamic_less_than + args.dynamic_greater_than]
+for overlap in args.dynamic_overlaps:
+    reference_columns += list(overlap[:2])
 
 #-------------------------------------------------
 
@@ -78,6 +100,10 @@ if not args.copy_column: ### copy everything
     data, cols = io.load(args.inpath, max_num_samples=args.max_num_samples)
     args.copy_column = [col for col in cols if (col != args.eos_column)]
 
+    # make sure we have the columns we need
+    io.check_columns(cols, reference_columns)
+
+    # now format output
     ind = cols.index(args.eos_column)
     atad = np.empty_like(data, dtype=float)
     atad[:,0] = data[:,ind]
@@ -86,10 +112,40 @@ if not args.copy_column: ### copy everything
     data = atad
 
 else:
-    data, _ = io.load(args.inpath, [args.eos_column]+args.copy_column, max_num_samples=args.max_num_samples)
+
+    data, cols = io.load(
+        args.inpath,
+        [args.eos_column]+args.copy_column+reference_columns,
+        max_num_samples=args.max_num_samples,
+    )
 
 Nkeep = len(args.copy_column)
 N = len(data)
+
+#------------------------
+
+# read in values for dynamic thresholds
+
+if args.dynamic_equals:
+    dynamic_equals = [(new, data[:,cols.index(ref)]) for ref, new in args.dynamic_equals]
+else:
+    dynamic_equals = []
+
+if args.dynamic_less_than:
+    dynamic_less_than = [(new, data[:,cols.index(ref)]) for ref, new in args.dynamic_less_than]
+else:
+    dynamic_less_than = []
+
+if args.dynamic_greater_than:
+    dynamic_greater_than = [(new, data[:,cols.index(ref)]) for ref, new in args.dynamic_greater_than]
+else:
+    dynamic_greater_than = []
+
+if args.dynamic_overlaps:
+    dynamic_overlaps = [(new1, new2, data[:,cols.index(ref1)], data[:,cols.index(ref2)]) \
+        for ref1, ref2, new1, new2 in dynamic_cols]
+else:
+    dynamic_overlaps = []
 
 #------------------------
 
@@ -97,7 +153,7 @@ if args.verbose:
     print('extacting counts')
 
 ans = np.empty((N, Nkeep+2), dtype=float)
-ans[:,:-1] = data ### fill in existing data
+ans[:,:-1] = data[:,:Nkeep+1] ### fill in existing data
 
 path_template = os.path.join(args.eos_dir, 'DRAWmod%d'%args.eos_num_per_dir+'-%(moddraw)06d', args.eos_basename)
 
@@ -106,9 +162,14 @@ ans[:,-1], col = count.process2count(
     path_template,
     args.eos_num_per_dir,
     args.reference,
-    greater_than=args.greater_than,
-    less_than=args.less_than,
-    overlaps=args.overlaps,
+    static_greater_than=greater_than,
+    dynamic_greater_than=dynamic_greater_than,
+    static_less_than=less_than,
+    dynamic_less_than=less_than,
+    static_overlaps=overlaps,
+    dynamic_overlaps=overlaps,
+    static_equals=equals,
+    dynamic_equals=dynamic_equals,
     verbose=args.Verbose,
 )
 
