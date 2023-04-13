@@ -13,8 +13,9 @@ matplotlib.use("Agg")
 from matplotlib import cm
 from matplotlib import pyplot as plt
 plt.rcParams['font.family'] = 'serif'
-if matplotlib.__version__ < '1.3.0':
-    plt.rcParams['text.usetex'] = True
+#if matplotlib.__version__ < '1.3.0':
+#    plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = True
 
 ### non-standard libraries
 from universality.kde import DEFAULT_BANDWIDTH
