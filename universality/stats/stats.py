@@ -294,7 +294,7 @@ def _interpn(point, vects, logkde):
     # compute all look-up list from the identified indecies
     lookups = [()]
     for inds in indecies:
-        for i in xrange(len(lookups)):
+        for i in range(len(lookups)):
             lookup = lookups[i]
             for ind in inds:
                 lookups.append(lookup+(ind,))

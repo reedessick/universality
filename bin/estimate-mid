@@ -124,7 +124,7 @@ if args.verbose:
 
 ### whiten and define ranges
 data, means, std = utils.whiten(data, verbose=args.Verbose)
-vect = [np.linspace(*stats.samples2range(data[:,i]), num=args.num_points) for i in xrange(len(columns))]
+vect = [np.linspace(*stats.samples2range(data[:,i]), num=args.num_points) for i in range(len(columns))]
 variance = args.bandwidth**2
 variances = np.array([variance, variance], dtype=float)
 
@@ -150,9 +150,9 @@ if args.plot_distribs:
 
 tmp = '    %6d /'+'%d'%(N*(N-1)/2)+': %s + %s'
 i = 1
-for ind in xrange(1, N):
+for ind in range(1, N):
     key1 = columns[ind]
-    for jnd in xrange(ind):
+    for jnd in range(ind):
         key2 = columns[jnd]
 
         if args.verbose:

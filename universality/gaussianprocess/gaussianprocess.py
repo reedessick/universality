@@ -558,7 +558,7 @@ def poly_model(x_tst, f_obs, x_obs, degree=1):
     f_fit = np.zeros_like(x_obs, dtype='float')
     f_tst = np.zeros_like(x_tst, dtype='float')
     poly = np.polyfit(x_obs, f_obs, degree)
-    for i in xrange(degree+1):
+    for i in range(degree+1):
         f_fit += poly[-1-i]*x_obs**i
         f_tst += poly[-1-i]*x_tst**i
     return f_fit, f_tst
@@ -572,7 +572,7 @@ def poly_model_f_dfdx(x_tst, f_obs, x_obs, degree=1):
     f_tst = np.zeros_like(x_tst, dtype='float')
     dfdx_tst = np.zeros_like(x_tst, dtype='float')
     poly = np.polyfit(x_obs, f_obs, degree)
-    for i in xrange(degree+1):
+    for i in range(degree+1):
         f_fit += poly[-1-i]*x_obs**i
         f_tst += poly[-1-i]*x_tst**i
         dfdx_tst += i*poly[-1-i]*x_tst**(i-1)

@@ -212,7 +212,7 @@ truths = None
 
 if args.grid:
     if args.verbose:
-        print('evaluating on a %s grid'%("x".join('%d'%args.num_grid for _ in xrange(np.sum(include)-args.include_logL))))
+        print('evaluating on a %s grid'%("x".join('%d'%args.num_grid for _ in range(np.sum(include)-args.include_logL))))
 
     grid = hp.logLike_grid(
         f_obs,

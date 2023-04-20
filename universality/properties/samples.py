@@ -408,7 +408,7 @@ def process2quantiles(
     )
 
     ### iterate over the corresponding samps, computing quantile for each x_test
-    for i in xrange(num_points):
+    for i in range(num_points):
 
         _y = samps[:,i] ### extract the values from this particular x_test
         truth = _y==_y

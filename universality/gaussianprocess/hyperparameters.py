@@ -374,7 +374,7 @@ def logLike_mcmc(
     lnprob = sampler.lnprobability
 
     return np.array(
-        [(sigma[i,j], l[i,j], sigma_obs[i,j], lnprob[i,j]) for j in xrange(num_samples) for i in xrange(num_walkers)],
+        [(sigma[i,j], l[i,j], sigma_obs[i,j], lnprob[i,j]) for j in range(num_samples) for i in range(num_walkers)],
         dtype=SAMPLES_DTYPE,
     )
 
@@ -786,6 +786,6 @@ def cvlogLike_mcmc(
     lnprob = sampler.lnprobability
 
     return np.array(
-        [(sigma[i,j], l[i,j], sigma_obs[i,j], model_multiplier[i,j], lnprob[i,j]) for j in xrange(num_samples) for i in xrange(num_walkers)],
+        [(sigma[i,j], l[i,j], sigma_obs[i,j], model_multiplier[i,j], lnprob[i,j]) for j in range(num_samples) for i in range(num_walkers)],
         dtype=CVSAMPLES_DTYPE,
     )

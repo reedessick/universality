@@ -152,7 +152,7 @@ if args.plot:
     if args.verbose:
         print('plotting visualization of KDE')
 
-    vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in xrange(Ncol)])
+    vects = np.array([np.linspace(np.min(data[:,i]), np.max(data[:,i]), args.num_points) for i in range(Ncol)])
     bounds = np.array([np.array([np.min(vect), np.max(vect)]) for vect in vects])
 
     N = len(data)
