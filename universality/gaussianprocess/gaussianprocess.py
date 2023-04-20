@@ -97,7 +97,12 @@ def parse_process_group(group):
     weight = attrs['weight']
 
     xlabel = attrs['xlabel']
+    if not isinstance(xlabel, str): ### check for compatibility issues between Python 2 and 3...
+        xlabel = xlabel.astype(str)
+
     flabel = attrs['flabel']
+    if not isinstance(flabel, str):
+        flabel = flabel.astype(str)
 
     poly_degree = attrs['poly_degree']
     sigma = attrs['sigma']
