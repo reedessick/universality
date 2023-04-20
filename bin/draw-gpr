@@ -170,7 +170,7 @@ for i, (ind, color) in enumerate(zip(\
     y_tst = np.random.multivariate_normal(m['f'], m['cov'])
 
     # write the realization to disk
-    io.write(csvpath, zip(x_tst, y_tst), header, footer=footer(m['hyperparams']))
+    io.write(csvpath, np.transpose([x_tst, y_tst]), header, footer=footer(m['hyperparams']))
 
     # add to plot
     if args.plot:
