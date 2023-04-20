@@ -311,9 +311,9 @@ with h5py.File(hdf5path, 'w') as obj:
 
         ### normalize the weights for each component of mixture model at this set of hyperparams
         if len(logLikes)==1:
-            logLikes = np.array([1]) ### handle things like infty/infty gracefully here
+            logLikes = np.array([1.0]) ### handle things like infty/infty gracefully here
         else:
-            logLikes = np.array(logLikes) / args.temperature
+            logLikes = np.array(logLikes, dtype=float) / args.temperature
             maximum = np.max(logLikes)
             logLikes = np.exp(logLikes-np.max(logLikes))
             logLikes /= np.sum(logLikes) ### normalize this

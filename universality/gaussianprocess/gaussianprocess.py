@@ -62,10 +62,13 @@ def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_t
     if model_multiplier is not None:
         group.attrs.create('model_multiplier', model_multiplier)
 
-    group.attrs.create('xlabel', xlabel)
-    group.attrs.create('flabel', flabel)
+    group.attrs.create('xlabel', str(xlabel))
+    group.attrs.create('flabel', str(flabel))
 
-    means = group.create_dataset('mean', data=np.array(zip(x_tst, f_tst), dtype=[(xlabel, 'float'), (flabel, 'float')]))
+    data = np.empty(len(x_tst), dtype=[(xlabel, 'float'), (flabel, 'float')])
+    data[xlabel][:] = x_tst
+    data[flabel][:] = f_tst
+    means = group.create_dataset('mean', data=data)
     cov = group.create_dataset('cov', data=cov_f_f)
 
 def hdf5load(path):
