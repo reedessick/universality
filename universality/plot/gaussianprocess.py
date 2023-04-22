@@ -211,6 +211,7 @@ def overlay_model(
         model,
         color=plt.DEFAULT_COLOR1,
         alpha=plt.DEFAULT_ALPHA,
+        color_minimum=0.01,
         linestyle=plt.DEFAULT_LINESTYLE,
         marker=plt.DEFAULT_MARKER,
         levels=plt.DEFAULT_LEVELS, ### the confidence levels to include in shading
@@ -248,7 +249,7 @@ def overlay_model(
     sigmas = [2**0.5*erfinv(level) for level in levels] ### base sigmas on Guassian cumulative distribution and the desired confidence levels
 
     weights = [m['weight'] for m in model]
-    colors = plt.weights2color(weights, color, prefact=alpha/max(2., len(sigmas)*2.), minimum=0.002)
+    colors = plt.weights2color(weights, color, prefact=alpha/max(2., len(sigmas)*2.), minimum=color_minimum)
 
     xmin = +np.infty
     xmax = -np.infty

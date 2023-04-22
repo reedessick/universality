@@ -27,6 +27,7 @@ DEFAULT_MAX = 1e38
 DEFAULT_STITCH_MEAN = 6.0 ### chosen by eye...
 DEFAULT_STITCH_PRESSURE = 1e10*utils.c2 ### dyn/cm^2
 DEFAULT_STITCH_INDEX = 5
+DEFAULT_STITCH_SIGMA = 1.0
 
 #-------------------------------------------------
 
@@ -53,6 +54,10 @@ DEFAULT=%d'%gp.DEFAULT_NUM)
 ggroup.add_argument('--external-process', default=[], type=str, action='append',
     help='if supplied, add this process as a white-noise term before conditioning. \
 We should be able to make it such that the final process has this mean and covariance within the pressures of interest while still smoothly stitching on to the stuff that is conditioned on the other models. Can be repeated to specify mulitple external processes')
+ggroup.add_argument('--diagonal-external-process', default=False, action='store_true',
+    help='only keep the diagonal components of external processes')
+ggroup.add_argument('--truncate-models', default=False, action='store_true',
+    help='if specified, only include the rest of the models at higher pressures than are found in --external-process')
 
 ggroup.add_argument('--hyperparampath', default=None, type=str,
     help='a path to a csv with the following columns: "polydeg", "sigma", "l", "sigma_obs", "loglike" such as is produced by investigate-hyperparams. \
@@ -96,12 +101,16 @@ sgroup.add_argument('--stitch-mean', default=DEFAULT_STITCH_MEAN, type=float,
 DEFAULT=%.3f'%DEFAULT_STITCH_MEAN)
 sgroup.add_argument('--stitch-pressure', default=DEFAULT_STITCH_PRESSURE, type=float,
     help='the abscissa at which we place a roll-off to enforce stitching. \
-We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
+We construct a white-noise kernel ~ stitch_sigma**2 * (p/stitch_pressure)**stitch_index. \
 DEFAULT=%.3f'%DEFAULT_STITCH_PRESSURE)
 sgroup.add_argument('--stitch-index', default=DEFAULT_STITCH_INDEX, type=float,
     help='the power used to roll-off the white-noise kernel and enforce stitching. \
-We construct a white-noise kernel ~ (p/stitch_pressure)**stitch_index. \
+We construct a white-noise kernel ~ sitch_sigma**2 * (p/stitch_pressure)**stitch_index. \
 DEFAULT=%.3f'%DEFAULT_STITCH_INDEX)
+sgroup.add_argument('--stitch-sigma', default=DEFAULT_STITCH_SIGMA, type=float,
+    help='the power used to roll-off the white-noise kernel and enforce stitching. \
+We construct a white-noise kernel ~ stitch_sigma**2 * (p/stitch_pressure)**stitch_index. \
+DEFAULT=%.3f'%DEFAULT_STITCH_SIGMA)
 
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
@@ -198,11 +207,18 @@ x_evaluate -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent un
 
 ### add stitching stuff
 stitch = []
+
+max_x = -np.infty
+
 if args.external_process: ### use externally supplied GP as stitching condition
     for path in args.external_process:
         if args.verbose:
             print('loading in external process for stitching from: '+path)
         stitch += gp.hdf5load(path)
+        max_x = max(max_x, np.max(stitch[-1]['x']))
+
+        if args.diagonal_external_process:
+            stitch[-1]['cov'] = np.diag(np.diag(stitch[-1]['cov']))
 
 if args.stitch: ### set up stitching conditions to a fixed value
     if args.verbose:
@@ -214,7 +230,7 @@ if args.stitch: ### set up stitching conditions to a fixed value
         args.stitch_num_points,
     )
     x_stitch -= 2*np.log(utils.c) ### divide by c^2 to get this into consistent units with gpr-resample, etc
-    f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index)
+    f_stitch, cov_stitch = gp.cov_phi_phi_stitch(x_stitch, args.stitch_mean, args.stitch_pressure, args.stitch_index, args.stitch_sigma)
     stitch += [{'x':x_stitch, 'f':f_stitch, 'cov':cov_stitch}]
 
 #------------------------
@@ -227,6 +243,14 @@ for hdf5path in args.hdf5paths:
 
 xlabel=models[0][0]['labels']['xlabel'] ### assume these are the same for all models...
 flabel=models[0][0]['labels']['flabel']
+
+if args.truncate_models:
+    for model in models:
+        for m in model:
+            truth = m['x'] >= max_x
+            m['x'] = m['x'][truth]
+            m['f'] = m['f'][truth]
+            m['cov'] = m['cov'][np.outer(truth, truth)].reshape((np.sum(truth), np.sum(truth)))
 
 ### create combinatorically many possible matchings between all models
 inds = utils.models2combinations(models)
@@ -340,8 +364,13 @@ if args.verbose:
 ### plot the result
 if args.plot:
 
-    ### plot the underlying GPs
+    if args.verbose:
+        print('plotting 1D marginals of conditioned process')
+
     figtup = None
+
+    ### plot the underlying GPs
+
     for model in models:
         for m in model:
             m['x'] = np.exp(m['x']) ### exponentiate the x-variable for plotting purposes
@@ -361,10 +390,31 @@ if args.plot:
             figtup=figtup,
         )
 
+    for m in stitch:
+        m['x'] = np.exp(m['x'])
+        m['weight'] = 1.0
+        figtup = plot.overlay_model(
+            [m],
+            color=plot.DEFAULT_COLOR3,
+            logx=True,
+            logy=False,
+            xlabel='$p/c^2$',
+            ylabel=args.ylabel,
+            fractions=args.fractions,
+            residuals=args.residuals,
+            ratios=args.ratios,
+            grid=args.grid,
+            levels=args.level,
+            alpha=0.25,
+            figtup=figtup,
+        )
+
     ### plot the over-arching GP on top of everything else
+
     model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
     for m in model: ### exponentiate the x-variable for plotting purposes
         m['x'] = np.exp(m['x'])
+
     figtup = plot.overlay_model(
         model,
         color=plot.DEFAULT_COLOR1,
@@ -380,6 +430,7 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         figtup=figtup,
+        alpha=0.25,
     )
 
     ### save
