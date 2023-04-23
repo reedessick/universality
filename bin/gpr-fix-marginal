@@ -176,22 +176,39 @@ with h5py.File(hdf5path, 'w') as obj:
 
             ### mean vector
             nf = np.empty_like(of, dtype=float)
-            nf[org] = of[org] - ocov_oe @ inv_ocov_ee @ ef
             nf[ext] = ef
+
+            ######################################### FIXME the following block is not correct!
+
+#            nf[org] = of[org] - ocov_oe @ inv_ocov_ee @ (ef - of[ext]) ### FIXME!
+            nf[org] = of[org]
+
+            #########################################
 
             ### covariance
 
-            # FIXME may be able to avoid some repeated work here...
             ncov = np.empty_like(ocov, dtype=float)
-            ncov[np.outer(org, org)] = np.ravel(
-                ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo \
-                + ocov_oe @ inv_ocov_ee @ ecov @ inv_ocov_ee @ ocov_eo
-            )
-
-            ncov[np.outer(org, ext)] = np.ravel(- ocov_oe @ inv_ocov_ee @ ecov)
-            ncov[np.outer(ext, org)] = np.ravel(- ecov @ inv_ocov_ee @ ocov_eo)
 
             ncov[np.outer(ext, ext)] = np.ravel(ecov)
+
+
+            ######################################## FIXME the following block is not correct
+
+            # FIXME may be able to avoid some repeated work here...
+#            ncov[np.outer(org, org)] = np.ravel(
+#                ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo \
+#                + ocov_oe @ inv_ocov_ee @ ecov @ inv_ocov_ee @ ocov_eo
+#            )
+
+#            ncov[np.outer(org, ext)] = np.ravel(- ocov_oe @ inv_ocov_ee @ ecov)
+#            ncov[np.outer(ext, org)] = np.ravel(- ecov @ inv_ocov_ee @ ocov_eo)
+
+            # FIXME! these are not right...
+            ncov[np.outer(org, org)] = ocov[np.outer(org, org)]
+            ncov[np.outer(org, ext)] = 0.0
+            ncov[np.outer(ext, org)] = 0.0
+
+            #########################################
 
             ### write process into a new group
             if args.Verbose:
@@ -236,6 +253,8 @@ if args.plot:
     figtup = None
 
     # plot the external process
+    if args.Verbose:
+        print('    plotting external process')
     for m in external_model:
         m['x'] = np.exp(m['x'])
 
@@ -258,6 +277,8 @@ if args.plot:
     )
 
     # plot the original processes
+    if args.Verbose:
+        print('    plotting original process')
     for m in original_model: ### exponentiate the x-variable for plotting purposes
         m['x'] = np.exp(m['x'])
 
@@ -280,7 +301,12 @@ if args.plot:
     )
 
     # plot the new process
+    if args.Verbose:
+        print('    loading updated process from: '+hdf5path)
     updated_model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+
+    if args.Verbose:
+        print('    plotting process with fixed marginals')
     for m in updated_model:
         m['x'] = np.exp(m['x'])
 

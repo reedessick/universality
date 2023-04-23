@@ -69,6 +69,7 @@ def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_t
     data[xlabel][:] = x_tst
     data[flabel][:] = f_tst
     means = group.create_dataset('mean', data=data)
+
     cov = group.create_dataset('cov', data=cov_f_f)
 
 def hdf5load(path):
@@ -80,7 +81,7 @@ def hdf5load(path):
                 'weight':weight,
                 'x':x,
                 'f':f,
-                'cov':posdef(cov),
+                'cov':cov,
                 'labels':{'xlabel':xlabel, 'flabel':flabel},
                 'hyperparams':{
                     'poly_degree':p,
@@ -90,6 +91,7 @@ def hdf5load(path):
                     'model_multiplier':m,
                 },
             })
+
     return model
 
 def parse_process_group(group):
@@ -116,7 +118,8 @@ def parse_process_group(group):
     x_tst = group['mean'][xlabel]
     f_tst = group['mean'][flabel]
 
-    cov_f_f = posdef(group['cov'][...]) ### run this through our algorithm to guarantee it is postive definite
+#    cov_f_f = posdef(group['cov'][...]) ### run this through our algorithm to guarantee it is postive definite
+    cov_f_f = group['cov'][...]
 
     return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs, m)
 
