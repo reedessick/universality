@@ -29,6 +29,16 @@ rgroup.add_argument('original_process', type=str,
 rgroup.add_argument('external_process', type=str,
     help='path to the process we wish to use as the fixed marginal distribution')
 
+### connection options
+cgroup = parser.add_argument_group('options to control connection between original and external process')
+
+cgroup.add_argument('--smoothing-length-scale', default=np.infty, type=float,
+    help='modify the original process\'s covariance between points that correspond to the external process \
+to reduce the correlations. That is, multiply the existing covariance by \
+exp(-(xi - xj)**2/dampling_length_scale**2). This is primarily for numerical stability, as the mean of the \
+updated process can do bad things if the correlation length is too long (many off-diagonal matrix elements). \
+DEFAULT=infty (no smoothing)')
+
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
 pgroup.add_argument('-p', '--plot', default=False, action='store_true')
@@ -111,6 +121,7 @@ with h5py.File(hdf5path, 'w') as obj:
 
     # iterate over components of the original model
     for ond, omodel in enumerate(original_model):
+
         # grab hyperparameters for original model, will be recorded later
         polydeg = omodel['hyperparams']['poly_degree']
         sigma = omodel['hyperparams']['sigma']
@@ -168,7 +179,12 @@ with h5py.File(hdf5path, 'w') as obj:
             ocov_eo = ocov[np.outer(ext, org)].reshape((Ne, No))
             ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne))
 
-            inv_ocov_ee = np.linalg.pinv(ocov_ee)
+            # construct a "smoothed" covariance kernel to quell long-wavelength correlations that make numerical
+            # inversion unstable
+            sx = np.outer(ex, np.ones_like(ex))
+            scov_ee = ocov_ee * np.exp(- (sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
+
+            inv_ocov_ee = np.linalg.pinv(scov_ee)
 
             # now fill in the updated values with simple linear algebra
             ef = emodel['f']
@@ -178,37 +194,24 @@ with h5py.File(hdf5path, 'w') as obj:
             nf = np.empty_like(of, dtype=float)
             nf[ext] = ef
 
-            ######################################### FIXME the following block is not correct!
-
-#            nf[org] = of[org] - ocov_oe @ inv_ocov_ee @ (ef - of[ext]) ### FIXME!
-            nf[org] = of[org]
-
-            #########################################
+            nf[org] = of[org] + ocov_oe @ inv_ocov_ee @ (ef - of[ext])
 
             ### covariance
 
             ncov = np.empty_like(ocov, dtype=float)
 
+            # invert by-hand what can be easily inverted by hand
+            # ncov_oo is still an ugly expression, though
+
+            A = np.linalg.pinv(ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo)
+            B = np.linalg.pinv(inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee + np.linalg.pinv(ecov))
+
+            ncov[np.outer(org, org)] = np.ravel(np.linalg.pinv(A - ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A))
+
+            ncov[np.outer(org, ext)] = np.ravel( ocov_oe @ inv_ocov_ee @ ecov)
+            ncov[np.outer(ext, org)] = np.ravel( ecov @ inv_ocov_ee @ ocov_eo)
+
             ncov[np.outer(ext, ext)] = np.ravel(ecov)
-
-
-            ######################################## FIXME the following block is not correct
-
-            # FIXME may be able to avoid some repeated work here...
-#            ncov[np.outer(org, org)] = np.ravel(
-#                ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo \
-#                + ocov_oe @ inv_ocov_ee @ ecov @ inv_ocov_ee @ ocov_eo
-#            )
-
-#            ncov[np.outer(org, ext)] = np.ravel(- ocov_oe @ inv_ocov_ee @ ecov)
-#            ncov[np.outer(ext, org)] = np.ravel(- ecov @ inv_ocov_ee @ ocov_eo)
-
-            # FIXME! these are not right...
-            ncov[np.outer(org, org)] = ocov[np.outer(org, org)]
-            ncov[np.outer(org, ext)] = 0.0
-            ncov[np.outer(ext, org)] = 0.0
-
-            #########################################
 
             ### write process into a new group
             if args.Verbose:
@@ -296,7 +299,7 @@ if args.plot:
         figheight=args.figheight,
         grid=args.grid,
         levels=args.level,
-        alpha=0.05,
+        alpha=0.25,
         figtup=figtup,
     )
 
@@ -324,7 +327,7 @@ if args.plot:
         figheight=args.figheight,
         grid=args.grid,
         levels=args.level,
-        alpha=0.05,
+        alpha=0.25,
         figtup=figtup,
     )
 
