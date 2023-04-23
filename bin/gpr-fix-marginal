@@ -168,7 +168,7 @@ with h5py.File(hdf5path, 'w') as obj:
             ocov_eo = ocov[np.outer(ext, org)].reshape((Ne, No))
             ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne))
 
-            inv_ocov_ee = np.linalg.inv(ocov_ee)
+            inv_ocov_ee = np.linalg.pinv(ocov_ee)
 
             # now fill in the updated values with simple linear algebra
             ef = emodel['f']
