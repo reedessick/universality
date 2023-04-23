@@ -180,6 +180,7 @@ with h5py.File(hdf5path, 'w') as obj:
             nf[ext] = ef
 
             ### covariance
+
             # FIXME may be able to avoid some repeated work here...
             ncov = np.empty_like(ocov, dtype=float)
             ncov[np.outer(org, org)] = np.ravel(
@@ -234,28 +235,6 @@ if args.plot:
 
     figtup = None
 
-    # plot the original processes
-    for m in original_model: ### exponentiate the x-variable for plotting purposes
-        m['x'] = np.exp(m['x'])
-
-    figtup = plot.overlay_model(
-        original_model,
-        color=plot.DEFAULT_COLOR2,
-        logx=True,
-        logy=False,
-        xlabel='$p/c^2$',
-        ylabel=args.ylabel,
-        fractions=args.fractions,
-        residuals=args.residuals,
-        ratios=args.ratios,
-        figwidth=args.figwidth,
-        figheight=args.figheight,
-        grid=args.grid,
-        levels=args.level,
-        alpha=0.25,
-        figtup=figtup,
-    )
-
     # plot the external process
     for m in external_model:
         m['x'] = np.exp(m['x'])
@@ -274,7 +253,29 @@ if args.plot:
         figheight=args.figheight,
         grid=args.grid,
         levels=args.level,
-        alpha=0.25,
+        alpha=0.75,
+        figtup=figtup,
+    )
+
+    # plot the original processes
+    for m in original_model: ### exponentiate the x-variable for plotting purposes
+        m['x'] = np.exp(m['x'])
+
+    figtup = plot.overlay_model(
+        original_model,
+        color=plot.DEFAULT_COLOR2,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.05,
         figtup=figtup,
     )
 
@@ -297,7 +298,7 @@ if args.plot:
         figheight=args.figheight,
         grid=args.grid,
         levels=args.level,
-        alpha=0.25,
+        alpha=0.05,
         figtup=figtup,
     )
 
