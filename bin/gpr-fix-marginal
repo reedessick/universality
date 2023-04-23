@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+
+"""a toolkit to take an existing process and fix the marginal distribution for some points. This is useful if we with to replicate the full (off-diagonal) covariance structure of an external calculation while incorporating it within a larger process.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality.gaussianprocess import gaussianprocess as gp
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser()
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('original_process', type=str,
+    help='path to the process which which to modify to have a fixed marginal distribution')
+rgroup.add_argument('external_process', type=str,
+    help='path to the process we wish to use as the fixed marginal distribution')
+
+### plotting options
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('-p', '--plot', default=False, action='store_true')
+pgroup.add_argument('--level', default=[], type=float, action='append',
+    help='the confidence levels used within plot. Can be repeated to specify multiple levels')
+pgroup.add_argument('--fractions', default=False, action='store_true')
+pgroup.add_argument('--residuals', default=False, action='store_true')
+pgroup.add_argument('--ratios', default=False, action='store_true')
+
+pgroup.add_argument('--ylabel', default='$\phi$', type=str)
+
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+
+pgroup.add_argument('--grid', default=False, action='store_true')
+
+### output options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+
+if args.output_dir and (not os.path.exists(args.output_dir)):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+# load original process
+if args.verbose:
+    print('loading original process from: '+args.original_process)
+original_model = gp.hdf5load(args.original_process)
+Norg = len(original_model)
+
+#------------------------
+
+# load external process
+if args.verbose:
+    print('loading external process from: '+args.external_process)
+external_model = gp.hdf5load(args.external_process)
+Next = len(external_model)
+
+#------------------------
+
+# iterate through each component of the original process, updating the marginal
+hdf5path = os.path.join(args.output_dir, 'gpr_fix_marginal%s.hdf5'%args.tag)
+if args.verbose:
+    print('iterating over %d(=%dx%d) combinations of models'%(Norg*Next, Norg, Next))
+
+TMP = '''\
+original model componet %d
+    poly_deg=%d
+    sigma=%.3e
+    length_scale=%.3f
+    sigma_obs=%.3e
+    model_multiplier=%.3e'''
+
+with h5py.File(hdf5path, 'w') as obj:
+
+    logweights = []
+    counter = 0
+
+    # iterate over components of the original model
+    for ond, omodel in enumerate(original_model):
+        # grab hyperparameters for original model, will be recorded later
+        polydeg = omodel['hyperparams']['poly_degree']
+        sigma = omodel['hyperparams']['sigma']
+        length_scale = omodel['hyperparams']['length_scale']
+        sigma_obs = omodel['hyperparams']['sigma_obs']
+        model_multiplier = omodel['hyperparams']['model_multiplier']
+
+        if args.Verbose:
+            print(TMP%(ond, polydeg, sigma, length_scale, sigma_obs, model_multiplier))
+
+        # grab the rest of the params
+        xlabel = omodel['labels']['xlabel']
+        flabel = omodel['labels']['flabel']
+
+        log_oweight = np.log(omodel['weight'])
+
+        ox = omodel['x']
+        len_ox = len(ox)
+        of = omodel['f']
+        ocov = omodel['cov']
+
+
+        # iterate over models upon which we wish to condition
+        for end, emodel in enumerate(external_model):
+
+            if args.Verbose:
+                print('    fixing marginal to match on external_model componet %d'%end)
+
+            # basic sanity checks
+            assert xlabel == emodel['labels']['xlabel']
+            assert flabel == emodel['labels']['flabel']
+
+            # check match for x values
+            ex = emodel['x']
+            Ne = len(ex)
+            No = len_ox-Ne
+
+            minex = np.min(ex)
+            maxex = np.max(ex)
+
+            ext = (minex <= ox) * (ox <= maxex)
+            assert np.sum(ext) == Ne, 'bad match for lengths of x values between original and external processes'
+            assert np.all(np.isclose(ox[ext], ex)), 'bad match for x values between original and extenral processes'
+
+            org = np.logical_not(ext)
+
+            # now, compute updated mean vectors, covariances
+
+            # first, split up of and ocov into those bits that overlap with external process and those that do not
+            ocov_oo = ocov[np.outer(org, org)].reshape((No, No))
+            ocov_oe = ocov[np.outer(org, ext)].reshape((No, Ne))
+            ocov_eo = ocov[np.outer(ext, org)].reshape((Ne, No))
+            ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne))
+
+            inv_ocov_ee = np.linalg.inv(ocov_ee)
+
+            # now fill in the updated values with simple linear algebra
+            ef = emodel['f']
+            ecov = emodel['cov']
+
+            ### mean vector
+            nf = np.empty_like(of, dtype=float)
+            nf[org] = of[org] - ocov_oe @ inv_ocov_ee @ ef
+            nf[ext] = ef
+
+            ### covariance
+            # FIXME may be able to avoid some repeated work here...
+            ncov = np.empty_like(ocov, dtype=float)
+            ncov[np.outer(org, org)] = np.ravel(
+                ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo \
+                + ocov_oe @ inv_ocov_ee @ ecov @ inv_ocov_ee @ ocov_eo
+            )
+
+            ncov[np.outer(org, ext)] = np.ravel(- ocov_oe @ inv_ocov_ee @ ecov)
+            ncov[np.outer(ext, org)] = np.ravel(- ecov @ inv_ocov_ee @ ocov_eo)
+
+            ncov[np.outer(ext, ext)] = np.ravel(ecov)
+
+            ### write process into a new group
+            if args.Verbose:
+                print('    creating hdf5 group : %s'%counter)
+
+            gp.create_process_group(
+                obj.create_group(str(counter)),
+                polydeg,
+                sigma,
+                length_scale,
+                sigma_obs,
+                ox,
+                nf,
+                ncov,
+                xlabel=xlabel,
+                flabel=flabel,
+                weight=1., ### will be over-written in short order
+                model_multiplier=model_multiplier,
+            )
+
+            # combine their weights
+            logweights.append(log_oweight + np.log(emodel['weight']))
+
+            # update index for group
+            counter += 1
+
+    # normalize logweights and update
+    logweights = np.array(logweights)
+    weights = np.exp(logweights-np.max(logweights))
+    weights /= np.sum(weights)
+
+    for counter, w in enumerate(weights): ### update attributes in hdf5 groups
+        obj[str(counter)].attrs['weight'] = w
+
+#_-----------------------
+
+if args.plot:
+
+    if args.verbose:
+        print('plotting processes')
+
+
+    # plot the original processes
+    for m in original_model: ### exponentiate the x-variable for plotting purposes
+        m['x'] = np.exp(m['x'])
+
+    fig, ax = plot.overlay_model(
+        original_model,
+        color=plot.DEFAULT_COLOR2,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+    )
+
+    # plot the external process
+    for m in external_model:
+        m['x'] = np.exp(m['x'])
+
+    fig, ax = plot.overlay_model(
+        external_model,
+        color=plot.DEFAULT_COLOR3,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+        figtup=(fix, ax)
+    )
+
+    # plot the new process
+    updated_model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+    for m in updated_model:
+        m['x'] = np.exp(m['x'])
+
+    fig, ax = plot.overlay_model(
+        updated_model,
+        color=plot.DEFAULT_COLOR1,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+        figtup=(fix, ax)
+    )
+
+    # save
+    plot.save(
+        'gpr-fix-marginal%s'%args.tag,
+        figt,
+        figtypes=args.figtype,
+        directory=args.output_dir,
+        verbose=args.verbose,
+        dpi=args.dpi,
+    )
+    plot.close(fig)

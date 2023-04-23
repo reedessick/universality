@@ -34,8 +34,8 @@ DEFAULT_STITCH_SIGMA = 1.0
 parser = ArgumentParser(description=__doc__)
 
 ### required arguments
-parser.add_argument_group('required arguments')
-parser.add_argument('hdf5paths', nargs='+', type=str)
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('hdf5paths', nargs='+', type=str)
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity arguments')
