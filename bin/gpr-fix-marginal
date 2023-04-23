@@ -45,6 +45,11 @@ pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
 
 pgroup.add_argument('--grid', default=False, action='store_true')
 
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
 ### output options
 ogroup = parser.add_argument_group('output options')
 ogroup.add_argument('-o', '--output-dir', default='.', type=str)
@@ -146,9 +151,12 @@ with h5py.File(hdf5path, 'w') as obj:
             minex = np.min(ex)
             maxex = np.max(ex)
 
-            ext = (minex <= ox) * (ox <= maxex)
-            assert np.sum(ext) == Ne, 'bad match for lengths of x values between original and external processes'
-            assert np.all(np.isclose(ox[ext], ex)), 'bad match for x values between original and extenral processes'
+            ext = ((minex <= ox) | np.isclose(minex, ox)) & ((ox <= maxex) | np.isclose(maxex, ox))
+            assert np.sum(ext) == Ne, \
+                'bad match for lengths of x values between original and external processes (%d vs %d)\n%s\n%s' % \
+                (np.sum(ext), Ne, ox[ext], ex)
+            assert np.all(np.isclose(ox[ext], ex)), \
+                'bad match for x values between original and extenral processes\n%s\n%s' % (ox[ext], ex)
 
             org = np.logical_not(ext)
 
@@ -265,7 +273,7 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         alpha=0.25,
-        figtup=(fix, ax)
+        figtup=(fig, ax)
     )
 
     # plot the new process
@@ -288,13 +296,13 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         alpha=0.25,
-        figtup=(fix, ax)
+        figtup=(fig, ax)
     )
 
     # save
     plot.save(
         'gpr-fix-marginal%s'%args.tag,
-        figt,
+        fig,
         figtypes=args.figtype,
         directory=args.output_dir,
         verbose=args.verbose,
