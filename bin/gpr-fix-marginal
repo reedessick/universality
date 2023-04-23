@@ -232,12 +232,13 @@ if args.plot:
     if args.verbose:
         print('plotting processes')
 
+    figtup = None
 
     # plot the original processes
     for m in original_model: ### exponentiate the x-variable for plotting purposes
         m['x'] = np.exp(m['x'])
 
-    fig, ax = plot.overlay_model(
+    figtup = plot.overlay_model(
         original_model,
         color=plot.DEFAULT_COLOR2,
         logx=True,
@@ -252,13 +253,14 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         alpha=0.25,
+        figtup=figtup,
     )
 
     # plot the external process
     for m in external_model:
         m['x'] = np.exp(m['x'])
 
-    fig, ax = plot.overlay_model(
+    figtup = plot.overlay_model(
         external_model,
         color=plot.DEFAULT_COLOR3,
         logx=True,
@@ -273,7 +275,7 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         alpha=0.25,
-        figtup=(fig, ax)
+        figtup=figtup,
     )
 
     # plot the new process
@@ -281,7 +283,7 @@ if args.plot:
     for m in updated_model:
         m['x'] = np.exp(m['x'])
 
-    fig, ax = plot.overlay_model(
+    figtup = plot.overlay_model(
         updated_model,
         color=plot.DEFAULT_COLOR1,
         logx=True,
@@ -296,10 +298,13 @@ if args.plot:
         grid=args.grid,
         levels=args.level,
         alpha=0.25,
-        figtup=(fig, ax)
+        figtup=figtup,
     )
 
     # save
+
+    fig = figtup[0]
+
     plot.save(
         'gpr-fix-marginal%s'%args.tag,
         fig,
