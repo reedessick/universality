@@ -144,7 +144,36 @@ work well when updating our our model-agnostic priors.
 
 \subsection*{Approximation for $\gamma_{aa}$ when $\Sigma_{bb}$ is small}
 
-\textbf{WRITE ME}
+Finally, we note that it will often be the case that $\Sigma_{bb}$ will be much smaller than $C_{bb}$ with respect to an appropriate matrix norm.
+That is, we wish to update a process to restrict the marginals of certain covariates to be more tightly constrained than they otherwise would be.
+
+By repeated use of the approximation
+\begin{equation}
+    (A + X)^{-1} \approx A^{-1} - A^{-1} X A^{-1}
+\end{equation}
+we can see that this limit corresponds to
+\begin{equation}
+    \Gamma_{bb}^{-1} \approx \Sigma_{bb} - \Sigma_{bb} C_{bb}^{-1} C_{ba} \left( C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} \right)^{-1} C_{ba} C_{bb}^{-1} \Sigma_{bb}
+\end{equation}
+and (retaining terms linear in $\Sigma_{bb}$)
+\begin{align}
+    \gamma_{aa}
+        & \approx C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} + C_{ab} C_{bb}^{-1} \Gamma_{bb}^{-1} C_{bb}^{-1} C_{ba} \nonumber \\
+        & \approx C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} + C_{ab} C_{bb}^{-1} \Sigma_{bb} C_{bb}^{-1} C_{ba}
+\end{align}
+If we examine only terms up to linear order in $\Sigma_{bb}$, we obtain the relatively intuitive expression
+\begin{equation}
+    \gamma_{aa} \approx C_{aa} - C_{ab} C_{bb}^{-1} (C_{bb} - \Sigma_{bb}) C_{bb}^{-1} C_{ba}
+\end{equation}
+This makes sense in two limiting cases
+\begin{itemize}
+    \item $\Sigma_{bb}=0$ : we know $f_b$ exactly and obtain the standard expression for the covariance for $f_a|f_b$
+    \item $\Sigma_{bb}=C_{bb}$ : we do not update the original process, and as such we obtian $\gamma_{aa} = C_{aa}$.
+\end{itemize}
+
+\noindent
+\textbf{To Do: Interpret this final expression in terms of the measurement uncertainty we would need to use if we were to condition on the external process as if it was just a noisy observation.
+}
 
 %-------------------------------------------------
 \end{document}
