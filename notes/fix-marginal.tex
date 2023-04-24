@@ -103,7 +103,7 @@ Further simplification yields
     \gamma_{bb} & = \Sigma_{bb}
 \end{align}
 where we've left $\gamma_{aa}$ in terms of $\Gamma$ because of the length of the expression but have subsituted and simplified the rest of the terms.
-Note that the marginal distribution $p_\mathrm{N}(f_b) = p_\mathrm{E}(f_b) = \mathcal{N}(y_b,\Sigma_{bb})$, as desired.
+Note that the marginal distribution $p_\mathrm{N}(f_b) = \mathcal{N}(y_b,\Sigma_{bb}) = p_\mathrm{E}(f_b)$, as desired.
 
 %-------------------------------------------------
 
@@ -116,13 +116,33 @@ While the preceding is exact, we therefore implement two additional approximatio
 
 %------------------------
 
-\subsection*{Approximation for $\gamma_{aa}$ when $\Sigma_{bb}$ is small}
+\subsection*{Damping $C_{ab}$, $C_{ba}$, and $C_{bb}$ to make them easier to invert}
 
-\textbf{WRITE ME}
+One issue we have found is that strong correlations in $C_{bb}$ can make numerical inversion difficult.
+Given that we wish to replace $C_{bb}$ with $\Sigma_{bb}$ anyway, and really only wish there to be a relatively smooth transition between $f_b$ and $f_a$, we modify $C_{ab}$, $C_{ba}$, and $C_{bb}$ in order to damp the off-diagonal elements (and therefore make them easier to invert).
+
+Specifically, we define a squared-exponential damping term
+\begin{equation}
+    D(x_i, x_j) = \exp\left(-\frac{(x_i - x_j)^2}{l^2}\right)
+\end{equation}
+and a white noise contribution that modify $C$ so that
+\begin{gather}
+    (C_{ab})_{ij} \rightarrow (C_{ab})_{ij} D(x_i, x_j) \\
+    (C_{bb})_{ij} \rightarrow (C_{bb})_{ij} D(x_i, x_j) + \sigma_\mathrm{W}^2 \delta_{ij} \\
+\end{gather}
+We then use these modified $C_{ab}$ and $C_{bb}$ within the expressions in the previous section.
+
+This modifies the original process, but as long as $l$ is relatively large and $\sigma_\mathrm{W}$ is relatively small, the modifications will be minor over the transition between $f_b$ and $f_a$.
+Empirically, we find that
+\begin{align}
+    l & = 5.0 \\
+    \sigma_\mathrm{W} & = 0.01
+\end{align}
+work well when updating our our model-agnostic priors.
 
 %------------------------
 
-\subsection*{Damping $C_{ab}$, $C_{ba}$, and $C_{bb}$ to make them easier to invert}
+\subsection*{Approximation for $\gamma_{aa}$ when $\Sigma_{bb}$ is small}
 
 \textbf{WRITE ME}
 
