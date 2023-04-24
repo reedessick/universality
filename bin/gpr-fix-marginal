@@ -228,7 +228,7 @@ with h5py.File(hdf5path, 'w') as obj:
 
             ncov[np.outer(ext, ext)] = np.ravel(ecov)
 
-            assert np.all(np.diag(ncov) > 0), "Bad updated covariance matrix! : diag(D) : %s"%np.diag(D)
+            assert np.all(np.diag(ncov) > 0), "Bad updated covariance matrix! : diag(ncov) : %s"%np.diag(ncov)
 
             ### write process into a new group
             if args.Verbose:
