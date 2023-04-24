@@ -215,10 +215,62 @@ with h5py.File(hdf5path, 'w') as obj:
             # invert by-hand what can be easily inverted by hand
             # ncov_oo is still an ugly expression, though
 
-            A = np.linalg.pinv(ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo)
-            B = np.linalg.pinv(inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee + np.linalg.pinv(ecov))
+#            A = np.linalg.pinv(ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo)
+#            B = np.linalg.pinv(inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee + np.linalg.pinv(ecov))
+#            ncov[np.outer(org, org)] = np.ravel(np.linalg.pinv(A - A @ ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A))
 
-            ncov[np.outer(org, org)] = np.ravel(np.linalg.pinv(A - ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A))
+            ######################################
+            ### NOTE the following is rather unstable numerically, so we break it down to help with debugging
+
+            '''
+            A = ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo
+            scales = np.diag(A)
+            scales = np.outer(scales, scales)
+            A = np.linalg.pinv(A/scales)/scales
+
+            B1 = inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee
+
+            scales = np.diag(ecov)**0.5
+            scales = np.outer(scales, scales)
+            B2 = np.linalg.pinv(ecov/scales)/scales
+
+            B = np.linalg.pinv(B1 + B2)
+
+            C1 = A
+            C2 = A @ ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A
+
+            C = C1 - C2
+
+            D = np.linalg.pinv(C)
+
+            assert np.all(np.diag(D) > 0), """Bad updated covariance matrix!
+diag(A)        : %s
+diag(B1)       : %s
+diag(B2)       : %s
+min(|B2|-|B1|) : %s
+diag(B)        : %s
+diag(ecov)     : %s
+diag(C1)       : %s
+diag(C2)       : %s
+min(|C1|-|C2|) : %s
+diag(C)        : %s
+diag(D)        : %s"""%(np.diag(A), np.diag(B1), np.diag(B2), np.min(np.abs(B2) - np.abs(B1)), np.diag(B), np.diag(ecov), np.diag(C1), np.diag(C2), np.min(np.abs(C1)-np.abs(C2)), np.diag(C), np.diag(D))
+
+            '''
+
+            ######################################
+
+            # this approximation is only valid when ecov is very small (compared to what...)
+            D = ocov_oo - ocov_oe @ inv_ocov_ee @ (ocov_ee - ecov) @ inv_ocov_ee @ ocov_eo
+
+            assert np.all(np.diag(D) > 0), """Bad updated covariance matrix!
+diag(A) : %s
+diag(B) : %s
+diag(D) : %s"""%(np.diag(A), np.diag(B), np.diag(D))
+
+            ######################################
+
+            ncov[np.outer(org, org)] = np.ravel(D)
 
             ncov[np.outer(org, ext)] = np.ravel( ocov_oe @ inv_ocov_ee @ ecov)
             ncov[np.outer(ext, org)] = np.ravel( ecov @ inv_ocov_ee @ ocov_eo)
