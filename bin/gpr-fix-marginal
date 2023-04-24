@@ -185,13 +185,13 @@ with h5py.File(hdf5path, 'w') as obj:
             sxe = np.outer(np.ones(No), ex)
 
             ocov_oe = ocov[np.outer(org, ext)].reshape((No, Ne)) \
-                * np.exp( - (sxo - sxe)**2 / args.smoothing_length_scale**2)
+                * np.exp(-(sxo - sxe)**2 / args.smoothing_length_scale**2)
 
             ocov_eo = np.transpose(ocov_oe)
 
             sx = np.outer(ex, np.ones_like(ex))
             ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne)) \
-                * np.exp(- (sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
+                * np.exp(-(sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
 
             ### white noise component to make this more numerically stable?
             ocov_ee += np.diag(np.ones(Ne)*args.smoothing_sigma_noise**2)
