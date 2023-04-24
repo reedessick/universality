@@ -171,9 +171,20 @@ This makes sense in two limiting cases
     \item $\Sigma_{bb}=C_{bb}$ : we do not update the original process, and as such we obtian $\gamma_{aa} = C_{aa}$.
 \end{itemize}
 
-\noindent
-\textbf{To Do: Interpret this final expression in terms of the measurement uncertainty we would need to use if we were to condition on the external process as if it was just a noisy observation.
-}
+Finally, if we offer one more interpretation of this expression.
+If we considered the standard expression for $f_a|f_b$ with some covariance for $f_b$, say $\mathcal{C}_{bb}$, we would obtain
+\begin{equation}
+    \gamma_{aa} = C_{aa} - C_{ab} \mathcal{C}_{bb}^{-1} C_{ba}
+\end{equation}
+and therefore, by matching this to our approximation, we see that
+\begin{align}
+    \mathcal{C}_{bb}
+        & = C_{bb} \left( C_{bb} - \Sigma_{bb} \right)^{-1} C_{bb} \nonumber \\
+        & \approx C_{bb} \left( C_{bb}^{-1} + C_{bb}^{-1} \Sigma_{bb} C_{bb}^{-1} \right) C_{bb} = C_{bb} + \Sigma_{bb}
+\end{align}
+In this limit, then, we can interpret updating the marignal distribution as equivalent to the standard procedure of conditioning the process on a noisey observation of $f_a$ with mean $y_b$ and covariance $\Sigma_{bb}$.
+Historically, this is what was actually done, and we now see why it provided a decent approximation.
+However, it also caused issues with numerical stability that sometimes (often?) resulted in different marginal distributions for $f_b$ than we desired (i.e., $\gamma_{bb} \neq \Sigma_{bb}$).
 
 %-------------------------------------------------
 \end{document}
