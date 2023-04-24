@@ -38,6 +38,9 @@ to reduce the correlations. That is, multiply the existing covariance by \
 exp(-(xi - xj)**2/dampling_length_scale**2). This is primarily for numerical stability, as the mean of the \
 updated process can do bad things if the correlation length is too long (many off-diagonal matrix elements). \
 DEFAULT=infty (no smoothing)')
+cgroup.add_argument('--smoothing-sigma-noise', default=0.0, type=float,
+    help='modify the original process\'s covariance at points that correspond to the external process \
+to help with numerical stability. Add a white-noise kernel with this variance. DEFAULT=0.0')
 
 ### plotting options
 pgroup = parser.add_argument_group('plotting options')
@@ -175,16 +178,25 @@ with h5py.File(hdf5path, 'w') as obj:
 
             # first, split up of and ocov into those bits that overlap with external process and those that do not
             ocov_oo = ocov[np.outer(org, org)].reshape((No, No))
-            ocov_oe = ocov[np.outer(org, ext)].reshape((No, Ne))
-            ocov_eo = ocov[np.outer(ext, org)].reshape((Ne, No))
-            ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne))
 
             # construct a "smoothed" covariance kernel to quell long-wavelength correlations that make numerical
             # inversion unstable
-            sx = np.outer(ex, np.ones_like(ex))
-            scov_ee = ocov_ee * np.exp(- (sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
+            sxo = np.outer(ox[org], np.ones(Ne))
+            sxe = np.outer(np.ones(No), ex)
 
-            inv_ocov_ee = np.linalg.pinv(scov_ee)
+            ocov_oe = ocov[np.outer(org, ext)].reshape((No, Ne)) \
+                * np.exp( - (sxo - sxe)**2 / args.smoothing_length_scale**2)
+
+            ocov_eo = np.transpose(ocov_oe)
+
+            sx = np.outer(ex, np.ones_like(ex))
+            ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne)) \
+                * np.exp(- (sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
+
+            ### white noise component to make this more numerically stable?
+            ocov_ee += np.diag(np.ones(Ne)*args.smoothing_sigma_noise**2)
+
+            inv_ocov_ee = np.linalg.pinv(ocov_ee)
 
             # now fill in the updated values with simple linear algebra
             ef = emodel['f']
