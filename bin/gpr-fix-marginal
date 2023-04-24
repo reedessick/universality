@@ -218,24 +218,17 @@ with h5py.File(hdf5path, 'w') as obj:
 #            B = np.linalg.pinv(inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee + np.linalg.pinv(ecov))
 #            ncov[np.outer(org, org)] = np.ravel(np.linalg.pinv(A - A @ ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A))
 
-            ### NOTE
+            ### NOTE: the following approximation is only valid when ecov is very small (compared to what...)
+            ncov[np.outer(org, org)] = np.ravel(ocov_oo \
+                - ocov_oe @ inv_ocov_ee @ (ocov_ee - ecov) @ inv_ocov_ee @ ocov_eo)
 
-            # this approximation is only valid when ecov is very small (compared to what...)
-            D = ocov_oo - ocov_oe @ inv_ocov_ee @ (ocov_ee - ecov) @ inv_ocov_ee @ ocov_eo
-
-            assert np.all(np.diag(D) > 0), """Bad updated covariance matrix!
-diag(A) : %s
-diag(B) : %s
-diag(D) : %s"""%(np.diag(A), np.diag(B), np.diag(D))
-
-            ###
-
-            ncov[np.outer(org, org)] = np.ravel(D)
-
+            ### these expressions should be exact
             ncov[np.outer(org, ext)] = np.ravel( ocov_oe @ inv_ocov_ee @ ecov)
             ncov[np.outer(ext, org)] = np.ravel( ecov @ inv_ocov_ee @ ocov_eo)
 
             ncov[np.outer(ext, ext)] = np.ravel(ecov)
+
+            assert np.all(np.diag(ncov) > 0), "Bad updated covariance matrix! : diag(D) : %s"%np.diag(D)
 
             ### write process into a new group
             if args.Verbose:
