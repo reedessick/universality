@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+
+"""a toolkit to take an existing process and fix the marginal distribution for some points. This is useful if we with to replicate the full (off-diagonal) covariance structure of an external calculation while incorporating it within a larger process.
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+from universality import utils
+from universality.gaussianprocess import gaussianprocess as gp
+from universality import plot
+
+#-------------------------------------------------
+
+parser = ArgumentParser()
+
+# required arguments
+rgroup = parser.add_argument_group('required arguments')
+rgroup.add_argument('original_process', type=str,
+    help='path to the process which which to modify to have a fixed marginal distribution')
+rgroup.add_argument('external_process', type=str,
+    help='path to the process we wish to use as the fixed marginal distribution')
+
+### connection options
+cgroup = parser.add_argument_group('options to control connection between original and external process')
+
+cgroup.add_argument('--smoothing-length-scale', default=np.infty, type=float,
+    help='modify the original process\'s covariance between points that correspond to the external process \
+to reduce the correlations. That is, multiply the existing covariance by \
+exp(-(xi - xj)**2/dampling_length_scale**2). This is primarily for numerical stability, as the mean of the \
+updated process can do bad things if the correlation length is too long (many off-diagonal matrix elements). \
+DEFAULT=infty (no smoothing)')
+cgroup.add_argument('--smoothing-sigma-noise', default=0.0, type=float,
+    help='modify the original process\'s covariance at points that correspond to the external process \
+to help with numerical stability. Add a white-noise kernel with this variance. DEFAULT=0.0')
+
+### plotting options
+pgroup = parser.add_argument_group('plotting options')
+pgroup.add_argument('-p', '--plot', default=False, action='store_true')
+pgroup.add_argument('--level', default=[], type=float, action='append',
+    help='the confidence levels used within plot. Can be repeated to specify multiple levels')
+pgroup.add_argument('--fractions', default=False, action='store_true')
+pgroup.add_argument('--residuals', default=False, action='store_true')
+pgroup.add_argument('--ratios', default=False, action='store_true')
+
+pgroup.add_argument('--ylabel', default='$\phi$', type=str)
+
+pgroup.add_argument('--figwidth', default=plot.DEFAULT_FIGWIDTH, type=float)
+pgroup.add_argument('--figheight', default=plot.DEFAULT_FIGHEIGHT, type=float)
+
+pgroup.add_argument('--grid', default=False, action='store_true')
+
+### verbosity options
+vgroup = parser.add_argument_group('verbosity options')
+vgroup.add_argument('-v', '--verbose', default=False, action='store_true')
+vgroup.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+### output options
+ogroup = parser.add_argument_group('output options')
+ogroup.add_argument('-o', '--output-dir', default='.', type=str)
+ogroup.add_argument('-t', '--tag', default='', type=str)
+ogroup.add_argument('--figtype', default=[], type=str, action='append')
+ogroup.add_argument('--dpi', default=plot.DEFAULT_DPI, type=float)
+
+args = parser.parse_args()
+
+if args.output_dir and (not os.path.exists(args.output_dir)):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+if not args.figtype:
+    args.figtype = plot.DEFAULT_FIGTYPES
+
+if not args.level:
+    args.level = plot.DEFAULT_LEVELS
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+# load original process
+if args.verbose:
+    print('loading original process from: '+args.original_process)
+original_model = gp.hdf5load(args.original_process)
+Norg = len(original_model)
+
+#------------------------
+
+# load external process
+if args.verbose:
+    print('loading external process from: '+args.external_process)
+external_model = gp.hdf5load(args.external_process)
+Next = len(external_model)
+
+#------------------------
+
+# iterate through each component of the original process, updating the marginal
+hdf5path = os.path.join(args.output_dir, 'gpr_fix_marginal%s.hdf5'%args.tag)
+if args.verbose:
+    print('iterating over %d(=%dx%d) combinations of models'%(Norg*Next, Norg, Next))
+
+TMP = '''\
+original model componet %d
+    poly_deg=%d
+    sigma=%.3e
+    length_scale=%.3f
+    sigma_obs=%.3e
+    model_multiplier=%.3e'''
+
+with h5py.File(hdf5path, 'w') as obj:
+
+    logweights = []
+    counter = 0
+
+    # iterate over components of the original model
+    for ond, omodel in enumerate(original_model):
+
+        # grab hyperparameters for original model, will be recorded later
+        polydeg = omodel['hyperparams']['poly_degree']
+        sigma = omodel['hyperparams']['sigma']
+        length_scale = omodel['hyperparams']['length_scale']
+        sigma_obs = omodel['hyperparams']['sigma_obs']
+        model_multiplier = omodel['hyperparams']['model_multiplier']
+
+        if args.Verbose:
+            print(TMP%(ond, polydeg, sigma, length_scale, sigma_obs, model_multiplier))
+
+        # grab the rest of the params
+        xlabel = omodel['labels']['xlabel']
+        flabel = omodel['labels']['flabel']
+
+        log_oweight = np.log(omodel['weight'])
+
+        ox = omodel['x']
+        len_ox = len(ox)
+        of = omodel['f']
+        ocov = omodel['cov']
+
+
+        # iterate over models upon which we wish to condition
+        for end, emodel in enumerate(external_model):
+
+            if args.Verbose:
+                print('    fixing marginal to match on external_model componet %d'%end)
+
+            # basic sanity checks
+            assert xlabel == emodel['labels']['xlabel']
+            assert flabel == emodel['labels']['flabel']
+
+            # check match for x values
+            ex = emodel['x']
+            Ne = len(ex)
+            No = len_ox-Ne
+
+            minex = np.min(ex)
+            maxex = np.max(ex)
+
+            ext = ((minex <= ox) | np.isclose(minex, ox)) & ((ox <= maxex) | np.isclose(maxex, ox))
+            assert np.sum(ext) == Ne, \
+                'bad match for lengths of x values between original and external processes (%d vs %d)\n%s\n%s' % \
+                (np.sum(ext), Ne, ox[ext], ex)
+            assert np.all(np.isclose(ox[ext], ex)), \
+                'bad match for x values between original and extenral processes\n%s\n%s' % (ox[ext], ex)
+
+            org = np.logical_not(ext)
+
+            # now, compute updated mean vectors, covariances
+
+            # first, split up of and ocov into those bits that overlap with external process and those that do not
+            ocov_oo = ocov[np.outer(org, org)].reshape((No, No))
+
+            # construct a "smoothed" covariance kernel to quell long-wavelength correlations that make numerical
+            # inversion unstable
+            sxo = np.outer(ox[org], np.ones(Ne))
+            sxe = np.outer(np.ones(No), ex)
+
+            ocov_oe = ocov[np.outer(org, ext)].reshape((No, Ne)) \
+                * np.exp(-(sxo - sxe)**2 / args.smoothing_length_scale**2)
+
+            ocov_eo = np.transpose(ocov_oe)
+
+            sx = np.outer(ex, np.ones_like(ex))
+            ocov_ee = ocov[np.outer(ext, ext)].reshape((Ne, Ne)) \
+                * np.exp(-(sx - np.transpose(sx))**2 / args.smoothing_length_scale**2)
+
+            ### white noise component to make this more numerically stable?
+            ocov_ee += np.diag(np.ones(Ne)*args.smoothing_sigma_noise**2)
+
+            inv_ocov_ee = np.linalg.pinv(ocov_ee)
+
+            # now fill in the updated values with simple linear algebra
+            ef = emodel['f']
+            ecov = emodel['cov']
+
+            ### mean vector
+            nf = np.empty_like(of, dtype=float)
+            nf[ext] = ef
+
+            nf[org] = of[org] + ocov_oe @ inv_ocov_ee @ (ef - of[ext])
+
+            ### covariance
+
+            ncov = np.empty_like(ocov, dtype=float)
+
+            # invert by-hand what can be easily inverted by hand
+
+#            A = np.linalg.pinv(ocov_oo - ocov_oe @ inv_ocov_ee @ ocov_eo)
+#            B = np.linalg.pinv(inv_ocov_ee @ ocov_eo @ A @ ocov_oe @ inv_ocov_ee + np.linalg.pinv(ecov))
+#            ncov[np.outer(org, org)] = np.ravel(np.linalg.pinv(A - A @ ocov_oe @ inv_ocov_ee @ B @ inv_ocov_ee @ ocov_eo @ A))
+
+            ### NOTE: the following approximation is only valid when ecov is very small (compared to what...)
+            ncov[np.outer(org, org)] = np.ravel(ocov_oo \
+                - ocov_oe @ inv_ocov_ee @ (ocov_ee - ecov) @ inv_ocov_ee @ ocov_eo)
+
+            ### these expressions should be exact
+            ncov[np.outer(org, ext)] = np.ravel( ocov_oe @ inv_ocov_ee @ ecov)
+            ncov[np.outer(ext, org)] = np.ravel( ecov @ inv_ocov_ee @ ocov_eo)
+
+            ncov[np.outer(ext, ext)] = np.ravel(ecov)
+
+            assert np.all(np.diag(ncov) > 0), "Bad updated covariance matrix! : diag(ncov) : %s"%np.diag(ncov)
+
+            ### write process into a new group
+            if args.Verbose:
+                print('    creating hdf5 group : %s'%counter)
+
+            gp.create_process_group(
+                obj.create_group(str(counter)),
+                polydeg,
+                sigma,
+                length_scale,
+                sigma_obs,
+                ox,
+                nf,
+                ncov,
+                xlabel=xlabel,
+                flabel=flabel,
+                weight=1., ### will be over-written in short order
+                model_multiplier=model_multiplier,
+            )
+
+            # combine their weights
+            logweights.append(log_oweight + np.log(emodel['weight']))
+
+            # update index for group
+            counter += 1
+
+    # normalize logweights and update
+    logweights = np.array(logweights)
+    weights = np.exp(logweights-np.max(logweights))
+    weights /= np.sum(weights)
+
+    for counter, w in enumerate(weights): ### update attributes in hdf5 groups
+        obj[str(counter)].attrs['weight'] = w
+
+#_-----------------------
+
+if args.plot:
+
+    if args.verbose:
+        print('plotting processes')
+
+    figtup = None
+
+    # plot the external process
+    if args.Verbose:
+        print('    plotting external process')
+    for m in external_model:
+        m['x'] = np.exp(m['x'])
+
+    figtup = plot.overlay_model(
+        external_model,
+        color=plot.DEFAULT_COLOR3,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.75,
+        figtup=figtup,
+    )
+
+    # plot the original processes
+    if args.Verbose:
+        print('    plotting original process')
+    for m in original_model: ### exponentiate the x-variable for plotting purposes
+        m['x'] = np.exp(m['x'])
+
+    figtup = plot.overlay_model(
+        original_model,
+        color=plot.DEFAULT_COLOR2,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+        figtup=figtup,
+    )
+
+    # plot the new process
+    if args.Verbose:
+        print('    loading updated process from: '+hdf5path)
+    updated_model = gp.hdf5load(hdf5path) ### load in the model we just wrote to disk. Wasteful of I/O, but whatever
+
+    if args.Verbose:
+        print('    plotting process with fixed marginals')
+    for m in updated_model:
+        m['x'] = np.exp(m['x'])
+
+    figtup = plot.overlay_model(
+        updated_model,
+        color=plot.DEFAULT_COLOR1,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+        figtup=figtup,
+    )
+
+    # save
+
+    fig = figtup[0]
+
+    plot.save(
+        'gpr-fix-marginal%s'%args.tag,
+        fig,
+        figtypes=args.figtype,
+        directory=args.output_dir,
+        verbose=args.verbose,
+        dpi=args.dpi,
+    )
+    plot.close(fig)

@@ -1,0 +1,191 @@
+\documentclass[onecolumn]{article}
+
+%-------------------------------------------------
+
+\usepackage{fullpage}
+
+\usepackage{bbold}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+
+%-------------------------------------------------
+\begin{document}
+%-------------------------------------------------
+
+\title{
+How to update a process so that it obeys the marginal defined by another external processes
+}
+
+\author{Reed Essick \\ essick@cita.utoronto.ca}
+
+\maketitle
+
+%-------------------------------------------------
+
+\section*{Derivation}
+\label{sec:derivation}
+
+Assume we have an existing Gaussian process that defines a measure for two vectors ($f_a$ and $f_b$ with $N_a$ and $N_b$ elements, repectively) and can be written as
+\begin{equation}
+    p_\mathrm{O}(f_a, f_b) \sim \mathcal{N}\left( [\mu_a, \mu_b], \begin{bmatrix} C_{aa} & C_{ab} \\ C_{ba} & C_{bb} \end{bmatrix}\right)
+\end{equation}
+with mean vectors $\mu_a$, $\mu_b$ and covariance matrix $C$ decomposed into $C_{aa}$ ($N_a \times N_a$ elements), $C_{ab}$ ($N_a \times N_b$), $C_{ba}$ ($N_b \times N_a$), and $C_{bb}$ ($N_b \times N_b$).
+We note that
+\begin{gather}
+    C_{aa} = C_{aa}^\mathrm{T} \\
+    C_{ab} = C_{ba}^\mathrm{T} \\
+    C_{bb} = C_{bb}^\mathrm{T}
+\end{gather}
+We wish to update this process so that the marginal distribution for $f_b$ follows another process, namely
+\begin{equation}
+    p_\mathrm{E}(f_b) = \mathcal{N}\left( y_b, \Sigma_{bb} \right)
+\end{equation}
+while maintaining the rest of the covariance structure encoded in $C$.
+We do this by constructing a new process
+\begin{equation}
+    p_\mathrm{N}(f_a, f_b) = p_\mathrm{O}(f_a|f_b) p_\mathrm{E}(f_b)
+\end{equation}
+where $p_\mathrm{O}(f_a|f_b)$ can be derived from $p_\mathrm{O}(f_a, f_b)$ as
+\begin{equation}
+    p_\mathrm{O}(f_a|f_b) = \mathcal{N}\left( \mu_a + C_{ab} C_{bb}^{-1} (f_b - \mu_b),\ C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} \right)
+\end{equation}
+Expanding the contractions, grouping like terms, and dropping those that do not depend on either $f_a$ or $f_b$, we obtain
+\begin{align}
+    -2\ln p_\mathrm{N}(f_a, f_b) 
+        & = f_a^\mathrm{T} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} f_a \nonumber \\
+        & \quad - 2 f_a^\mathrm{T} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} \left(\mu_a - C_{ab} C_{bb}^{-1} \mu_b \right) \nonumber \\
+        & \quad - 2 f_a^\mathrm{T} \left[ \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} C_{ab} C_{bb}^{-1} \right] f_b \nonumber \\
+        & \quad + 2 f_b^\mathrm{T} \left[ C_{bb}^{-1} C_{ba}^\mathrm{T} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} \left(\mu_a - C_{ab} C_{bb}^{-1} \mu_b\right) - \Sigma_{bb}^{-1} y_b \right] \nonumber \\
+        & \quad + f_b^\mathrm{T} \left[ C_{bb}^{-1} C_{ba} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} C_{ab} C_{bb}^{-1} + \Sigma_{bb}^{-1} \right] f_b
+\end{align}
+This is still Gaussian in both $f_a$ and $f_b$, and we obtain direct relations for the new mean vectors and (inverse) covariance defined by
+\begin{equation}
+    p_\mathrm{N}(f_a, f_b) = \mathcal{N}\left([m_a, m_b], \begin{bmatrix} \Gamma_{aa} & \Gamma_{ab} \\ \Gamma_{ba} & \Gamma_{bb} \end{bmatrix}^{-1} \right)
+\end{equation}
+as follows:
+\begin{align}
+    \Gamma_{aa} & = \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} \\
+    \Gamma_{ab} & = - \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} C_{ab} C_{bb}^{-1} \\
+    \Gamma_{bb} & = C_{bb}^{-1} C_{ba} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} C_{ab} C_{bb}^{-1} + \Sigma_{bb}^{-1}
+\end{align}
+and
+\begin{align}
+    \Gamma_{aa} m_a + \Gamma_{ab} m_b & = \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} \left(\mu_a C_{ab} C_{bb}^{-1} \mu_b \right) \\
+    \Gamma_{ba} m_a + \Gamma_{bb} m_b & = \Sigma_{bb}^{-1} y_b - C_{bb}^{-1} C_{ba} \left(C_{aa} - C_{ab} C_{bb}^{-1} C_{ba}\right)^{-1} \left(\mu_a - C_{ab} C_{bb}^{-1} \mu_b \right)
+\end{align}
+which simply to
+\begin{align}
+    m_a & = \mu_a + C_{ab} C_{bb}^{-1} \left( y_b - \mu_b \right) \\
+    m_b & = y_b
+\end{align}
+Finally, we can solve for
+\begin{equation}
+    \gamma = \Gamma^{-1} = \begin{bmatrix} \gamma_{aa} & \gamma_{ab} \\ \gamma_{ba} & \gamma_{bb} \end{bmatrix}
+\end{equation}
+by recognizing that
+\begin{equation}
+    \begin{bmatrix} \gamma_{aa} & \gamma_{ab} \\ \gamma_{ba} & \gamma_{bb} \end{bmatrix} \begin{bmatrix} \Gamma_{aa} & \Gamma_{ab} \\ \Gamma_{ba} & \Gamma_{bb} \end{bmatrix} = \mathbb{1}
+\end{equation}
+and therefore
+\begin{align}
+    \gamma_{aa} \Gamma_{aa} + \gamma_{ab} \Gamma_{ba} & = \mathbb{1} \\
+    \gamma_{aa} \Gamma_{ab} + \gamma_{ab} \Gamma_{bb} & = \mathbb{0} \\
+    \gamma_{ba} \Gamma_{aa} + \gamma_{bb} \Gamma_{ba} & = \mathbb{0} \\
+    \gamma_{ba} \Gamma_{ab} + \gamma_{bb} \Gamma_{bb} & = \mathbb{1}
+\end{align}
+Further simplification yields
+\begin{align}
+    \gamma_{aa} & = \left[\Gamma_{aa} - \Gamma_{ab} \Gamma_{bb}^{-1} \Gamma_{ba} \right]^{-1} \\
+    \gamma_{ab} & = C_{ab} C_{bb}^{-1} \Sigma_{bb} \\
+    \gamma_{ba} & = \Sigma_{bb} C_{bb}^{-1} C_{ba} \\
+    \gamma_{bb} & = \Sigma_{bb}
+\end{align}
+where we've left $\gamma_{aa}$ in terms of $\Gamma$ because of the length of the expression but have subsituted and simplified the rest of the terms.
+Note that the marginal distribution $p_\mathrm{N}(f_b) = \mathcal{N}(y_b,\Sigma_{bb}) = p_\mathrm{E}(f_b)$, as desired.
+
+%-------------------------------------------------
+
+\section*{Modifications for numerical stability}
+\label{sec:numerical stability}
+
+In general, we find that $m_a$ and $\gamma_{aa}$ can suffer from issues associated with numerical stability.
+This is because they involve the inversion of (possibly) high-dimensional matrices that may be ill-conditioned.
+While the preceding is exact, we therefore implement two additional approximations to help better control the calculations.
+
+%------------------------
+
+\subsection*{Damping $C_{ab}$, $C_{ba}$, and $C_{bb}$ to make them easier to invert}
+
+One issue we have found is that strong correlations in $C_{bb}$ can make numerical inversion difficult.
+Given that we wish to replace $C_{bb}$ with $\Sigma_{bb}$ anyway, and really only wish there to be a relatively smooth transition between $f_b$ and $f_a$, we modify $C_{ab}$, $C_{ba}$, and $C_{bb}$ in order to damp the off-diagonal elements (and therefore make them easier to invert).
+
+Specifically, we define a squared-exponential damping term
+\begin{equation}
+    D(x_i, x_j) = \exp\left(-\frac{(x_i - x_j)^2}{l^2}\right)
+\end{equation}
+and a white noise contribution that modify $C$ so that
+\begin{gather}
+    (C_{ab})_{ij} \rightarrow (C_{ab})_{ij} D(x_i, x_j) \\
+    (C_{bb})_{ij} \rightarrow (C_{bb})_{ij} D(x_i, x_j) + \sigma_\mathrm{W}^2 \delta_{ij} \\
+\end{gather}
+We then use these modified $C_{ab}$ and $C_{bb}$ within the expressions in the previous section.
+
+This modifies the original process, but as long as $l$ is relatively large and $\sigma_\mathrm{W}$ is relatively small, the modifications will be minor over the transition between $f_b$ and $f_a$.
+Empirically, we find that
+\begin{align}
+    l & = 5.0 \\
+    \sigma_\mathrm{W} & = 0.01
+\end{align}
+work well when updating our our model-agnostic priors.
+
+%------------------------
+
+\subsection*{Approximation for $\gamma_{aa}$ when $\Sigma_{bb}$ is small}
+
+Finally, we note that it will often be the case that $\Sigma_{bb}$ will be much smaller than $C_{bb}$ with respect to an appropriate matrix norm.
+That is, we wish to update a process to restrict the marginals of certain covariates to be more tightly constrained than they otherwise would be.
+
+By repeated use of the approximation
+\begin{equation}
+    (A + X)^{-1} \approx A^{-1} - A^{-1} X A^{-1}
+\end{equation}
+we can see that this limit corresponds to
+\begin{equation}
+    \Gamma_{bb}^{-1} \approx \Sigma_{bb} - \Sigma_{bb} C_{bb}^{-1} C_{ba} \left( C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} \right)^{-1} C_{ba} C_{bb}^{-1} \Sigma_{bb}
+\end{equation}
+and (retaining terms linear in $\Sigma_{bb}$)
+\begin{align}
+    \gamma_{aa}
+        & \approx C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} + C_{ab} C_{bb}^{-1} \Gamma_{bb}^{-1} C_{bb}^{-1} C_{ba} \nonumber \\
+        & \approx C_{aa} - C_{ab} C_{bb}^{-1} C_{ba} + C_{ab} C_{bb}^{-1} \Sigma_{bb} C_{bb}^{-1} C_{ba}
+\end{align}
+If we examine only terms up to linear order in $\Sigma_{bb}$, we obtain the relatively intuitive expression
+\begin{equation}
+    \gamma_{aa} \approx C_{aa} - C_{ab} C_{bb}^{-1} (C_{bb} - \Sigma_{bb}) C_{bb}^{-1} C_{ba}
+\end{equation}
+This makes sense in two limiting cases
+\begin{itemize}
+    \item $\Sigma_{bb}=0$ : we know $f_b$ exactly and obtain the standard expression for the covariance for $f_a|f_b$
+    \item $\Sigma_{bb}=C_{bb}$ : we do not update the original process, and as such we obtian $\gamma_{aa} = C_{aa}$.
+\end{itemize}
+
+Finally, if we offer one more interpretation of this expression.
+If we considered the standard expression for $f_a|f_b$ with some covariance for $f_b$, say $\mathcal{C}_{bb}$, we would obtain
+\begin{equation}
+    \gamma_{aa} = C_{aa} - C_{ab} \mathcal{C}_{bb}^{-1} C_{ba}
+\end{equation}
+and therefore, by matching this to our approximation, we see that
+\begin{align}
+    \mathcal{C}_{bb}
+        & = C_{bb} \left( C_{bb} - \Sigma_{bb} \right)^{-1} C_{bb} \nonumber \\
+        & \approx C_{bb} \left( C_{bb}^{-1} + C_{bb}^{-1} \Sigma_{bb} C_{bb}^{-1} \right) C_{bb} = C_{bb} + \Sigma_{bb}
+\end{align}
+In this limit, then, we can interpret updating the marignal distribution as equivalent to the standard procedure of conditioning the process on a noisey observation of $f_a$ with mean $y_b$ and covariance $\Sigma_{bb}$.
+Historically, this is what was actually done, and we now see why it provided a decent approximation.
+However, it also caused issues with numerical stability that sometimes (often?) resulted in different marginal distributions for $f_b$ than we desired (i.e., $\gamma_{bb} \neq \Sigma_{bb}$).
+
+%-------------------------------------------------
+\end{document}
+%-------------------------------------------------

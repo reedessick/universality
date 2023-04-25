@@ -69,6 +69,7 @@ def create_process_group(group, poly_degree, sigma, length_scale, sigma_obs, x_t
     data[xlabel][:] = x_tst
     data[flabel][:] = f_tst
     means = group.create_dataset('mean', data=data)
+
     cov = group.create_dataset('cov', data=cov_f_f)
 
 def hdf5load(path):
@@ -80,7 +81,7 @@ def hdf5load(path):
                 'weight':weight,
                 'x':x,
                 'f':f,
-                'cov':posdef(cov),
+                'cov':cov,
                 'labels':{'xlabel':xlabel, 'flabel':flabel},
                 'hyperparams':{
                     'poly_degree':p,
@@ -90,6 +91,7 @@ def hdf5load(path):
                     'model_multiplier':m,
                 },
             })
+
     return model
 
 def parse_process_group(group):
@@ -116,7 +118,8 @@ def parse_process_group(group):
     x_tst = group['mean'][xlabel]
     f_tst = group['mean'][flabel]
 
-    cov_f_f = posdef(group['cov'][...]) ### run this through our algorithm to guarantee it is postive definite
+#    cov_f_f = posdef(group['cov'][...]) ### run this through our algorithm to guarantee it is postive definite
+    cov_f_f = group['cov'][...]
 
     return weight, x_tst, f_tst, cov_f_f, (xlabel, flabel), (poly_degree, sigma, length_scale, sigma_obs, m)
 
@@ -391,6 +394,8 @@ def posdef(cov, epsilon=1e-6):
     '''
     identifies the nearest positive semi-definite symmetric matrix and returns it
     '''
+#    return cov ### FIXME the following logic gives bad behavior (small wavelength oscillations)
+
     ### NOTE: the following is based on Hingham (1988)
     cov[:] = 0.5*(cov+cov.T) # make sure this is symmetric
 
@@ -690,8 +695,10 @@ def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, Nstitch, degree=1
     ### perform GPR with best hyperparameters to infer function at x_tst
     ### note, we don't delegate to gpr_f here because we want to build the covariance functions ourself
     cov_tst_tst = cov_f1_f2(x_tst, x_tst, sigma2=sigma2, l2=l2)
+
     cov_tst_obs = cov_f1_f2(x_tst, x_obs, sigma2=sigma2, l2=l2)
     cov_obs_tst = cov_f1_f2(x_obs, x_tst, sigma2=sigma2, l2=l2)
+
     ### NOTE, we just add the known "noise" along with the GPR kernel
     cov_obs_obs = cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=sigma2, l2=l2, sigma2_obs=sigma2_obs, model_multiplier2=model_multiplier2)
 
@@ -701,17 +708,23 @@ def gpr_altogether(x_tst, f_obs, x_obs, cov_noise, cov_models, Nstitch, degree=1
 
     return mean, cov, logweight
 
-def cov_phi_phi_stitch(x_stitch, stitch_mean, stitch_pressure, stitch_index):
+def cov_phi_phi_stitch(x_stitch, stitch_mean, stitch_pressure, stitch_index, stitch_sigma):
     n = len(x_stitch)
     f_stitch = np.ones(n, dtype=float)*stitch_mean
-    cov_stitch = np.diag(np.exp(x_stitch - np.log(stitch_pressure/utils.c2))**stitch_index) ### the stitching white-noise kernel
+    ### the stitching white-noise kernel
+    cov_stitch = np.diag(stitch_sigma**2 * np.exp(x_stitch - np.log(stitch_pressure/utils.c2))**stitch_index)
     return f_stitch, cov_stitch
 
 def cov_altogether_obs_obs(x_obs, cov_noise, cov_models, Nstitch, sigma2=DEFAULT_SIGMA2, l2=DEFAULT_L2, sigma2_obs=DEFAULT_SIGMA2, model_multiplier2=1):
 
-    ### we add the diagonal component for the models in separate from the stitch
-    ans = cov_noise + model_multiplier2*cov_models + cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
     N = len(x_obs)-Nstitch
+    ### we add the diagonal component for the models in separate from the stitch
+#    ans = cov_noise + model_multiplier2*cov_models + cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
+    ans = cov_noise
+
+    ans += cov_f1_f2(x_obs, x_obs, sigma2=sigma2, l2=l2)
+
+    ans += model_multiplier2*cov_models
     ans[:N,:N] += np.diag(np.ones(N, dtype=float)*sigma2_obs)
 
     ##############################################################################################

@@ -167,7 +167,12 @@ for i, (ind, color) in enumerate(zip(\
     # draw the realization
     m = model[ind]
     x_tst = m['x']
-    y_tst = np.random.multivariate_normal(m['f'], m['cov'])
+
+#    y_tst = np.random.multivariate_normal(m['f'], m['cov'])
+
+    ### re-scale covariance to help with numerical stability
+    scales = np.diag(m['cov'])**0.5
+    y_tst = m['f'] + np.random.multivariate_normal(np.zeros_like(m['f']), m['cov']/np.outer(scales, scales)) * scales
 
     # write the realization to disk
     io.write(csvpath, np.transpose([x_tst, y_tst]), header, footer=footer(m['hyperparams']))
