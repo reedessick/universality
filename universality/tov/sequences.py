@@ -152,7 +152,7 @@ def process2sequences(
         ### now compute the stellar sequence
         if verbose:
             print('solving for sequence of stellar models with formalism=%s'%formalism)
-        central_pressurec2, macro, macro_cols = stellar_sequence(
+        central_pc2, macro, macro_cols = stellar_sequence(
             min_central_pc2,
             max_central_pc2,
             (pressurec2, energy_densityc2, baryon_density, cs2c2),
@@ -163,10 +163,10 @@ def process2sequences(
         )
 
         if verbose:
-            print('    evaluated %d stellar models'%len(central_pressurec2))
+            print('    evaluated %d stellar models'%len(central_pc2))
 
         sequence, columns = append_central_values(
-            central_pressurec2,
+            central_pc2,
             pressurec2,
             data,
             cols,
