@@ -323,6 +323,7 @@ def stellar_sequence(
     if 'logLambda' in macro_cols:
         ind = macro_cols.index('logLambda')
         macro[:,ind] = np.exp(macro[:,ind])
+        macro_cols = [col for col in macro_cols] # make a copy so we don't overwrite the default list
         macro_cols[ind] = 'Lambda'
 
     ### return the results
