@@ -76,7 +76,7 @@ def envelope(
         color = colors[label]
         alpha = alphas[label]
         # add quantiles
-        for i in range(Nq/2): ### fill between pairs of quantiles
+        for i in range(Nq//2): ### fill between pairs of quantiles
             if (label in filled) or (hatch[label] is not None): ### fill in inter-quantile regions
                 facecolor = color if (label in filled) else "none"
                 ax.fill_between(
