@@ -31,6 +31,7 @@ sgroup = parser.add_argument_group('sgroup')
 sgroup.add_argument('--samples-color', nargs=2, default=[], action='append', type=str)
 sgroup.add_argument('--samples-alpha', nargs=2, default=[], action='append', type=str)
 sgroup.add_argument('--samples-linestyle', nargs=2, default=[], action='append', type=str)
+sgroup.add_argument('--samples-marker', nargs=2, default=[], action='append', type=str)
 
 ### verbosity options
 vgroup = parser.add_argument_group('verbosity options')
@@ -91,6 +92,11 @@ for label, _ in args.samples_linestyle:
 linestyles = dict(args.samples_linestyle)
 linestyles = [linestyles.get(label, plot.DEFAULT_LINESTYLE) for label, _ in args.samples]
 
+for label, _ in args.samples_marker:
+    assert label in names, 'specifying --samples-marker for unknown sample set: '+label
+markers = dict(args.samples_marker)
+markers = [markers.get(label, plot.DEFAULT_MARKER) for label, _ in args.samples]
+
 if args.output_dir and (not os.path.exists(args.output_dir)):
     os.makedirs(args.output_dir)
 
@@ -124,6 +130,7 @@ fig = plot.overlay(
     colors=colors,
     alphas=alphas,
     linestyles=linestyles,
+    markers=markers,
     xlabel=labels[args.xcolumn],
     ylabel=labels[args.ycolumn],
     figwidth=args.figwidth,
