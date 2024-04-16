@@ -100,6 +100,7 @@ def overlay(
         alphas=None,
         linestyles=None,
         markers=None,
+        markersizes=None,
         xlabel=None,
         ylabel=None,
         figwidth=plt.DEFAULT_FIGWIDTH,
@@ -142,14 +143,17 @@ def overlay(
     if markers is None:
         markers = [plt.DEFAULT_MARKER for _ in range(N)]
 
+    if markersizes is None:
+        markersizes = [plt.DEFAULT_MARKERSIZE for _ in range(N)]
+
     xmin = np.min([np.min(x) for x, _, _ in curves if len(x)])
     xmax = np.max([np.max(x) for x, _, _ in curves if len(x)])
     ymin = np.min([np.min(f) for _, f, _ in curves if len(f)])
     ymax = np.max([np.max(f) for _, f, _ in curves if len(f)])
 
     # plot the observed data
-    for (x, f, label), c, l, a, m in zip(curves, colors, linestyles, alphas, markers):
-        ax.plot(x, f, linestyle=l, color=c, marker=m, label=label, alpha=a)
+    for (x, f, label), c, l, a, m, s in zip(curves, colors, linestyles, alphas, markers, markersizes):
+        ax.plot(x, f, linestyle=l, color=c, marker=m, label=label, alpha=a, markersize=s)
 
     # plot residuals, etc
     if subax:
@@ -159,17 +163,17 @@ def overlay(
             x_ref, f_ref = reference_curve
 
         # plot the observed data
-        for (x, f, _), c, l, a, m in zip(curves, colors, linestyles, alphas, markers):
+        for (x, f, _), c, l, a, m, s in zip(curves, colors, linestyles, alphas, markers, markersizes):
             f = np.interp(x_ref, x, f)
 
             if fractions:
-                rs.plot(x_ref, (f-f_ref)/f_ref, linestyle=l, color=c, alpha=a, marker=m)
+                rs.plot(x_ref, (f-f_ref)/f_ref, linestyle=l, color=c, alpha=a, marker=m, markersize=s)
 
             elif residuals:
-                rs.plot(x_ref, f-f_ref, linestyle=l, color=c, alpha=a, marker=m)
+                rs.plot(x_ref, f-f_ref, linestyle=l, color=c, alpha=a, marker=m, markersize=s)
 
             elif ratios:
-                rs.plot(x_ref, f/f_ref, linestyle=l, color=c, alpha=a, marker=m)
+                rs.plot(x_ref, f/f_ref, linestyle=l, color=c, alpha=a, marker=m, markersize=s)
 
     # decorate
     ax.grid(grid, which='both')
