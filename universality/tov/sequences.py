@@ -330,8 +330,9 @@ def stellar_sequence(
         M = [_[ind_M] for _ in macro] # used to compute stopping criteria
         R = [_[ind_R] for _ in macro]
 
-        while (central_pc2[-1] < max_eos_pc2) and (not final_collapse(M, R)):
-            max_pc2 = max(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_FACTOR) # increment the maximum value
+
+        while (central_pc2[-1] < max_eos_pc2) and (final_collapse(M, R) is None):
+            max_pc2 = min(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_FACTOR) # increment the maximum pc2 geometrically
 
             if verbose:
                 sys.stdout.write('\nextending search to higher central pressures because final stopping criteria were not met\n')
@@ -356,7 +357,12 @@ def stellar_sequence(
             M += [_[ind_M] for _ in new_macro[1:]]
             R += [_[ind_R] for _ in new_macro[1:]]
 
-        if not final_collapse(M, R):
+        ind = final_collapse(M, R)
+        if ind is not None:
+            sys.stdout.write('\nfinal stopping criteria reached at pressurec2=%.6e (M=%.6f R=%.6f)' % \
+                (central_pc2[ind], M[ind], R[ind]))
+
+        else:
             sys.stdout.write('\nWARNING! final stopping criteria *not* reached before the maximum pressure within the EoS (%.6e)' % \
                 central_pc2[-1])
 
