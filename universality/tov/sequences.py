@@ -324,18 +324,21 @@ def stellar_sequence(
         macro += new_macro[1:]
 
     if extend:
+        if verbose:
+            sys.stdout.write('\nextending search to higher central pressures if stopping criteria are not met')
+
         ind_R = macro_cols.index('R') # look these up once
         ind_M = macro_cols.index('M')
 
         M = [_[ind_M] for _ in macro] # used to compute stopping criteria
         R = [_[ind_R] for _ in macro]
 
+        collapsed = final_collapse(M,R)
+        if verbose and (collapsed is None): # get printing to look pretty both when we do and do not integrate more models
+            sys.stdout.write('\n')
 
-        while (central_pc2[-1] < max_eos_pc2) and (final_collapse(M, R) is None):
+        while (collapsed is None) and (central_pc2[-1] < max_eos_pc2):
             max_pc2 = min(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_FACTOR) # increment the maximum pc2 geometrically
-
-            if verbose:
-                sys.stdout.write('\nextending search to higher central pressures because final stopping criteria were not met\n')
 
             new_central_pc2, new_macro = bisection_stellar_sequence(
                 central_pc2[-1],
@@ -357,10 +360,11 @@ def stellar_sequence(
             M += [_[ind_M] for _ in new_macro[1:]]
             R += [_[ind_R] for _ in new_macro[1:]]
 
-        ind = final_collapse(M, R)
-        if ind is not None:
+            collapsed = final_collapse(M, R)
+
+        if collapsed is not None:
             sys.stdout.write('\nfinal stopping criteria reached at pressurec2=%.6e (M=%.6f R=%.6f)' % \
-                (central_pc2[ind], M[ind], R[ind]))
+                (central_pc2[collapsed], M[collapsed], R[collapsed]))
 
         else:
             sys.stdout.write('\nWARNING! final stopping criteria *not* reached before the maximum pressure within the EoS (%.6e)' % \

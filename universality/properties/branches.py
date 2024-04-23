@@ -27,7 +27,7 @@ def final_collapse(M, R):
     for ind in range(N-2): # NOTE: we search from the end to the start of the lists
         if (M[N1-ind] > M[N1-(ind+1)]) and (M[N1-(ind+1)] < M[N1-(ind+2)]): # local minimum at M[ind+1]
             if (R[N1-(ind)] > R[N1-(ind+1)]) and (R[N1-(ind+1)] > R[N1-(ind+2)]): # consistently the case that dR/dpc > 0
-                return ind+1 # this corresponds to the n=1 radial mode becoming unstable
+                return N1-(ind+1) # this corresponds to the n=1 radial mode becoming unstable
 
     return None # this criterion has not been found yet
 
