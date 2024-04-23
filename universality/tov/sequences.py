@@ -22,14 +22,21 @@ DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space
 DEFAULT_INTEGRATION_RTOL = 1e-4
 
 KNOWN_FORMALISMS = [
-    'standard',
-    'standard_MR',
-    'standard_MRLambda',
     'logenthalpy',
     'logenthalpy_MR',
     'logenthalpy_MRLambda',
+    'standard',
+    'standard_MR',
+    'standard_MRLambda',
 ]
 DEFAULT_FORMALISM = KNOWN_FORMALISMS[0]
+
+KNOWN_GRIDDINGS = [
+    'bisection',
+    'linear',
+    'logarithmic',
+]
+DEFAULT_GRIDDING = KNOWN_GRIDDINGS[0]
 
 DEFAULT_CENTRAL_COLUMN_TEMPLATE = 'central_%s'
 
@@ -59,6 +66,7 @@ def process2sequences(
         central_eos_column=[],
         central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
         formalism=DEFAULT_FORMALISM,
+        gridding=DEFAULT_GRIDDING,
         extend_up=False,
         extend_down=False,
         verbose=False,
@@ -165,6 +173,7 @@ def process2sequences(
             central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
+            gridding=gridding,
             extend_up=extend_up,
             extend_down=extend_down,
             **kwargs
@@ -233,6 +242,7 @@ def stellar_sequence(
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         formalism=DEFAULT_FORMALISM,
+        gridding=DEFAULT_GRIDDING,
         extend_up=False,
         extend_down=False,
         verbose=False,
@@ -298,6 +308,10 @@ def stellar_sequence(
             'requested central_pressurec2=%.6e < min central_pressurec2=%.6e'%(pc2, min_central_pressurec2)
         assert (pc2 <= max_central_pressurec2), \
             'requested central_pressurec2=%.6e > max central_pressurec2=%.6e'%(pc2, max_central_pressurec2)
+
+
+    raise NotImplementedError('implement gridding options')
+
 
     central_pressurec2 = sorted(central_pressurec2 + \
         list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models)))
