@@ -10,7 +10,7 @@ import numpy as np
 
 from .ode import (standard, logenthalpy)
 from universality.utils import (io, utils)
-from universality.properties.branches import (final_collapse)
+from universality.properties.branches import (initial_stability, final_collapse)
 
 #-------------------------------------------------
 
@@ -58,7 +58,8 @@ def process2sequences(
         central_eos_column=[],
         central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
         formalism=DEFAULT_FORMALISM,
-        extend=False,
+        extend_up=False,
+        extend_down=False,
         verbose=False,
         Verbose=False,
         **kwargs
@@ -163,7 +164,8 @@ def process2sequences(
             central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
-            extend=extend,
+            extend_up=extend_up,
+            extend_down=extend_down,
             **kwargs
         )
 
@@ -230,7 +232,8 @@ def stellar_sequence(
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         formalism=DEFAULT_FORMALISM,
-        extend=False,
+        extend_up=False,
+        extend_down=False,
         verbose=False,
         **kwargs
     ):
@@ -260,6 +263,7 @@ def stellar_sequence(
         logh = logenthalpy.eos2logh(pc2, ec2)
         eos = (logh, pc2, ec2, rho, cs2c2)
 
+        min_eos_pc2 = np.min(pc2)
         max_eos_pc2 = np.max(pc2)
 
     elif 'standard' in formalism: ### radius is the integration coordinate
@@ -280,6 +284,7 @@ def stellar_sequence(
 
         R_ind = macro_cols.index('R')
 
+        min_eos_pc2 = np.min(eos[0])
         max_eos_pc2 = np.max(eos[0])
 
     else: ### formalism not understood
@@ -323,7 +328,54 @@ def stellar_sequence(
         central_pc2 += new_central_pc2[1:]
         macro += new_macro[1:]
 
-    if extend:
+    #---
+
+    if extend_down: # extend the set of central_pc2 to lower values if needed
+        if verbose:
+            sys.stdout.write('\nextending search to lower central pressures if stopping criteria are not met')
+
+        ind_M = macro.cols.index('M')
+        M = [_[ind_M] for _ in macro]
+
+        stable = initial_stability(M)
+        if verbose and (stable is None): # get printing to look pretty both when we do and do not integrate more models
+            sys.stdout.write('\n')
+
+        while (stable is None) and (central_pc2[0] > min_eos_pc2):
+            min_pc2 = max(min_eos_pc2, central_pc2[0] / DEFAULT_EXTEND_FACTOR) # increment the minimum value
+
+            new_central_pc2, new_macro = bisection_stellar_sequence(
+                min_pc2,
+                central_pc2[0],
+                eos,
+                integrate,
+                max_pc2_macro=macro[0],
+                interpolator_rtol=interpolator_rtol,
+                min_dpressurec2_rtol=min_dpressurec2_rtol,
+                integration_rtol=integration_rtol,
+                R_ind=R_ind,
+                verbose=verbose,
+            )
+
+            ### add the stellar models to the cumulative list
+            central_pc2 = new_central_pc2[:-1] + central_pc2
+            macro = new_macro[:-1] + macro
+
+            M = [_[ind_M] for _ in new_macro[:-1]] + M
+
+            stable = initial_stability(M)
+
+        if stable is not None:
+            sys.stdout.write('\ninitial stopping criteria reached at pressurec2=%.6e (M=%.6f)' % \
+                (central_pc2[collapsed], M[collapsed]))
+
+        else:
+            sys.stdout.write('\nWARNING! stopping criteria *not* reached before the minimum pressure within the EoS (%.6e)' % \
+                central_pc2[0])
+
+    #---
+
+    if extend_up: # extend the set of central_pc2 to higher values if needed
         if verbose:
             sys.stdout.write('\nextending search to higher central pressures if stopping criteria are not met')
 
@@ -369,6 +421,8 @@ def stellar_sequence(
         else:
             sys.stdout.write('\nWARNING! final stopping criteria *not* reached before the maximum pressure within the EoS (%.6e)' % \
                 central_pc2[-1])
+
+    #---
 
     if verbose:
         sys.stdout.write('\n')

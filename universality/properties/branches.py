@@ -17,6 +17,19 @@ DEFAULT_MACRO_COLUMNS = ['M', 'R', 'I', 'Lambda']
 
 #-------------------------------------------------
 
+def initial_stability(M):
+    """assumes mass is ordered by increasing central pressure and looks for an initial "regaining" of stability
+    """
+    # look for an initial local minimum in M
+    N = len(M)
+    for ind in range(len(M)-2):
+        if (M[ind] > M[ind+1]) and (M[ind+1] < M[ind+2]): # a local minimum in M, implying we have regained stability from WD branch
+            return ind+1
+
+    return None # criterion has not been found yet
+
+#------------------------
+
 def final_collapse(M, R):
     """stopping criteria for stellar sequence search. This looks for a local minimum of M for which dR/dpc > 0
     If such a point is found, we return True. Otherwise, we return False
