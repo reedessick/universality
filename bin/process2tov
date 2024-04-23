@@ -41,6 +41,9 @@ parser.add_argument('--central-column-template', default=sequences.DEFAULT_CENTR
 parser.add_argument('--formalism', default=sequences.DEFAULT_FORMALISM, type=str,
     help='must be one of: %s. DEFAULT=%s'%(', '.join(sequences.KNOWN_FORMALISMS), sequences.DEFAULT_FORMALISM))
 
+parser.add_argument('--extend', default=False, action='store_true',
+    help='extend the stellar sequence to higher central-pressurec2 until stopping criteria that guarantee no further stable branches are met')
+
 parser.add_argument('--min-num-models', default=sequences.DEFAULT_MIN_NUM_MODELS, type=int)
 parser.add_argument('--interpolator-rtol', default=sequences.DEFAULT_INTERPOLATOR_RTOL, type=float)
 parser.add_argument('--integration-rtol', default=sequences.DEFAULT_INTEGRATION_RTOL, type=float)
@@ -93,6 +96,7 @@ sequences.process2sequences(
     central_eos_column=args.central_eos_column,
     central_column_template=args.central_column_template,
     formalism=args.formalism,
+    extend=args.extend,
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,

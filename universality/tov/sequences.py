@@ -10,6 +10,7 @@ import numpy as np
 
 from .ode import (standard, logenthalpy)
 from universality.utils import (io, utils)
+from universality.properties.branches import (final_collapse)
 
 #-------------------------------------------------
 
@@ -36,6 +37,8 @@ DEFAULT_PRESSUREC2_COLUMN = 'pressurec2'
 DEFAULT_ENERGY_DENSITYC2_COLUMN = 'energy_densityc2'
 DEFAULT_BARYON_DENSITY_COLUMN = 'baryon_density'
 
+DEFAULT_EXTEND_FACTOR = 2.0 # the factor by which we multiply central_pc2 when extending range within stellar sequences
+
 #-------------------------------------------------
 
 def process2sequences(
@@ -55,6 +58,7 @@ def process2sequences(
         central_eos_column=[],
         central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
         formalism=DEFAULT_FORMALISM,
+        extend=False,
         verbose=False,
         Verbose=False,
         **kwargs
@@ -159,6 +163,7 @@ def process2sequences(
             central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
+            extend=extend,
             **kwargs
         )
 
@@ -225,6 +230,7 @@ def stellar_sequence(
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         formalism=DEFAULT_FORMALISM,
+        extend=False,
         verbose=False,
         **kwargs
     ):
@@ -254,6 +260,8 @@ def stellar_sequence(
         logh = logenthalpy.eos2logh(pc2, ec2)
         eos = (logh, pc2, ec2, rho, cs2c2)
 
+        max_eos_pc2 = np.max(pc2)
+
     elif 'standard' in formalism: ### radius is the integration coordinate
         if formalism == 'standard':
             integrate = standard.integrate
@@ -271,6 +279,8 @@ def stellar_sequence(
             raise ValueError('standard formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
 
         R_ind = macro_cols.index('R')
+
+        max_eos_pc2 = np.max(eos[0])
 
     else: ### formalism not understood
         raise ValueError('formalism=%s not understood! Must be one of: %s'%(formalism, ', '.join(KNOWN_FORMALISMS)))
@@ -312,6 +322,43 @@ def stellar_sequence(
         ### add the stellar models to the cumulative list
         central_pc2 += new_central_pc2[1:]
         macro += new_macro[1:]
+
+    if extend:
+        ind_R = macro_cols.index('R') # look these up once
+        ind_M = macro_cols.index('M')
+
+        M = [_[ind_M] for _ in macro] # used to compute stopping criteria
+        R = [_[ind_R] for _ in macro]
+
+        while (central_pc2[-1] < max_eos_pc2) and (not final_collapse(M, R)):
+            max_pc2 = max(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_FACTOR) # increment the maximum value
+
+            if verbose:
+                sys.stdout.write('\nextending search to higher central pressures because final stopping criteria were not met\n')
+
+            new_central_pc2, new_macro = bisection_stellar_sequence(
+                central_pc2[-1],
+                max_pc2,
+                eos,
+                integrate,
+                min_pc2_macro=macro[-1],
+                interpolator_rtol=interpolator_rtol,
+                min_dpressurec2_rtol=min_dpressurec2_rtol,
+                integration_rtol=integration_rtol,
+                R_ind=R_ind,
+                verbose=verbose,
+            )
+
+            ### add the stellar models to the cumulative list
+            central_pc2 += new_central_pc2[1:]
+            macro += new_macro[1:]
+
+            M += [_[ind_M] for _ in new_macro[1:]]
+            R += [_[ind_R] for _ in new_macro[1:]]
+
+        if not final_collapse(M, R):
+            sys.stdout.write('\nWARNING! final stopping criteria *not* reached before the maximum pressure within the EoS (%.6e)' % \
+                central_pc2[-1])
 
     if verbose:
         sys.stdout.write('\n')
