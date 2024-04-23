@@ -17,18 +17,32 @@ DEFAULT_MACRO_COLUMNS = ['M', 'R', 'I', 'Lambda']
 
 #-------------------------------------------------
 
+def initial_stability(M):
+    """assumes mass is ordered by increasing central pressure and looks for an initial "regaining" of stability
+    """
+    # look for an initial local minimum in M
+    N = len(M)
+    for ind in range(len(M)-2):
+        if (M[ind] > M[ind+1]) and (M[ind+1] < M[ind+2]): # a local minimum in M, implying we have regained stability from WD branch
+            return ind+1
+
+    return None # criterion has not been found yet
+
+#------------------------
+
 def final_collapse(M, R):
     """stopping criteria for stellar sequence search. This looks for a local minimum of M for which dR/dpc > 0
     If such a point is found, we return True. Otherwise, we return False
     assumes M, R are ordered in terms of increasing central pressure
     """
     N = len(M)
-    for ind in range(N-2):
-        if (M[ind] > M[ind+1]) and (M[ind+1] < M[ind+1]): # local minimum at M[ind+1]
-            if (R[ind] < R[ind+1]) and (R[ind+1] < R[ind+2]): # consistently the case that dR/dpc > 0
-                return True # this corresponds to the n=1 radial mode becoming unstable
+    N1 = N-1
+    for ind in range(N-2): # NOTE: we search from the end to the start of the lists
+        if (M[N1-ind] > M[N1-(ind+1)]) and (M[N1-(ind+1)] < M[N1-(ind+2)]): # local minimum at M[ind+1]
+            if (R[N1-(ind)] > R[N1-(ind+1)]) and (R[N1-(ind+1)] > R[N1-(ind+2)]): # consistently the case that dR/dpc > 0
+                return N1-(ind+1) # this corresponds to the n=1 radial mode becoming unstable
 
-    return False # this criterion has not been found yet
+    return None # this criterion has not been found yet
 
 #------------------------
 
