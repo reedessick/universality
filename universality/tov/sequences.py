@@ -37,7 +37,8 @@ DEFAULT_PRESSUREC2_COLUMN = 'pressurec2'
 DEFAULT_ENERGY_DENSITYC2_COLUMN = 'energy_densityc2'
 DEFAULT_BARYON_DENSITY_COLUMN = 'baryon_density'
 
-DEFAULT_EXTEND_FACTOR = 2.0 # the factor by which we multiply central_pc2 when extending range within stellar sequences
+DEFAULT_EXTEND_DOWN_FACTOR = 1.1 # the factor by which we divide central_pc2 when extending range to lower pressures within stellar sequences
+DEFAULT_EXTEND_UP_FACTOR = 2.0 # the factor by which we multiply central_pc2 when extending range to higher pressures within stellar sequences
 
 #-------------------------------------------------
 
@@ -334,15 +335,16 @@ def stellar_sequence(
         if verbose:
             sys.stdout.write('\nextending search to lower central pressures if stopping criteria are not met')
 
-        ind_M = macro.cols.index('M')
-        M = [_[ind_M] for _ in macro]
+        ind_M = macro_cols.index('M')
+        M = [] # only look for the "new_macro"
+               # NOTE: this could create annoying behavior if one is not careful with the initial guess for the minimum central pressurec2
 
         stable = initial_stability(M)
         if verbose and (stable is None): # get printing to look pretty both when we do and do not integrate more models
             sys.stdout.write('\n')
 
         while (stable is None) and (central_pc2[0] > min_eos_pc2):
-            min_pc2 = max(min_eos_pc2, central_pc2[0] / DEFAULT_EXTEND_FACTOR) # increment the minimum value
+            min_pc2 = max(min_eos_pc2, central_pc2[0] / DEFAULT_EXTEND_DOWN_FACTOR) # increment the minimum value
 
             new_central_pc2, new_macro = bisection_stellar_sequence(
                 min_pc2,
@@ -367,7 +369,7 @@ def stellar_sequence(
 
         if stable is not None:
             sys.stdout.write('\ninitial stopping criteria reached at pressurec2=%.6e (M=%.6f)' % \
-                (central_pc2[collapsed], M[collapsed]))
+                (central_pc2[stable], M[stable]))
 
         else:
             sys.stdout.write('\nWARNING! stopping criteria *not* reached before the minimum pressure within the EoS (%.6e)' % \
@@ -390,7 +392,7 @@ def stellar_sequence(
             sys.stdout.write('\n')
 
         while (collapsed is None) and (central_pc2[-1] < max_eos_pc2):
-            max_pc2 = min(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_FACTOR) # increment the maximum pc2 geometrically
+            max_pc2 = min(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_UP_FACTOR) # increment the maximum pc2 geometrically
 
             new_central_pc2, new_macro = bisection_stellar_sequence(
                 central_pc2[-1],
