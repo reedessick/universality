@@ -17,6 +17,21 @@ DEFAULT_MACRO_COLUMNS = ['M', 'R', 'I', 'Lambda']
 
 #-------------------------------------------------
 
+def final_collapse(M, R):
+    """stopping criteria for stellar sequence search. This looks for a local minimum of M for which dR/dpc > 0
+    If such a point is found, we return True. Otherwise, we return False
+    assumes M, R are ordered in terms of increasing central pressure
+    """
+    N = len(M)
+    for ind in range(N-2):
+        if (M[ind] > M[ind+1]) and (M[ind+1] < M[ind+1]): # local minimum at M[ind+1]
+            if (R[ind] < R[ind+1]) and (R[ind+1] < R[ind+2]): # consistently the case that dR/dpc > 0
+                return True # this corresponds to the n=1 radial mode becoming unstable
+
+    return False # this criterion has not been found yet
+
+#------------------------
+
 def Mrhoc2branches(M, rhoc):
     """take the M-rhoc curve and separate it into separate stable branches.
     Note! assumes models are ordered by increasing rhoc
