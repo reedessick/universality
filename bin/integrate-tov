@@ -167,7 +167,7 @@ if args.verbose:
 
 ### now compute the stellar sequence
 if args.verbose:
-    print('solving for sequence of stellar models with formalism=%s'%args.formalism)
+    print('solving for sequence of stellar models with formalism=%s and gridding=%s'%(args.formalism, args.gridding))
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
