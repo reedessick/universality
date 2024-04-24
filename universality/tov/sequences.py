@@ -636,6 +636,31 @@ def _bisection_stellar_sequence(
 
 #------------------------
 
+def _regular_stellar_sequence(central_pc2, foo, eos, integration_rtol, verbose=False, **kwargs):
+    macro = []
+    for pc2 in central_pc2:
+        if verbose:
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
+            sys.stdout.flush()
+        macro.append( np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs)) )
+    return np.array(macro)
+
+def _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol, verbose=False):
+    mid_pc2 = central_pc2[::2]
+    mid_macro = macro[::2]
+
+    ref_pc2 = central_pc2[1::2]
+    ref_macro = macro[1::2]
+
+    for ind in range(len(macro_cols)):
+        errors = mid_macro[:,ind] - np.interp(mid_pc2, ref_pc2, ref_macro[:,ind])
+        if np.any(np.abs(errors) > interpolator_rtol*mid_macro[:,ind]):
+            if verbose:
+                print('interpolator not accurate enough for: '+macro_cols[ind])
+            return False # at least one macro fails the requirement somewhere
+
+    return True # all macros pass this requirement everywhere
+
 def regular_stellar_grid(
         min_central_pressurec2,
         max_central_pressurec2,
@@ -669,47 +694,64 @@ def regular_stellar_grid(
     else:
         raise ValueError('regular gridding=%s not understood; must be one of: %s'%(gridding, ', '.join(KNOWN_REGULAR_GRIDDINGS)))
 
-    central_pc2 = sorted(central_pressurec2 + list(central_pc2))
+    # FIXME we would do something like the following, but this breaks my algorithm for adding more grid points (which assumes they are regularly spaced)...
+    # central_pc2 = sorted(central_pressurec2 + list(central_pc2))
+
+    assert len(central_pressurec2) == 0, \
+        'we do not yet know how to incorporate user-specified central_pressurec2 values within regular_stellar_grid'
 
     #--------------------
 
     ### iterate and compute models for each central_pressurec2
-    macro = []
-    for pc2 in central_pc2:
+    macro = _regular_stellar_sequence(central_pc2, foo, eos, integration_rtol, verbose=verbose, **kwargs)
+
+    #--- now check that we have an accurate enough interpolator. If we don't increase the grid size by a factor of 2 and repeat
+
+    check = _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol)
+    if verbose and (not check):
         if verbose:
-            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
+            sys.stdout.write('\nincreasing number of grid points to meet interpolator_rtol requirement')
             sys.stdout.flush()
-        macro.append( np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs)) )
 
-    #--- now check that we have an accurate enough interpolator
-
-
-
-
+    while not check:
+        if verbose:
+            sys.stdout.write('\n  doubling the number of grid points\n')
+            sys.stdout.flush()
 
 
+        # identify the new grid points
+        if gridding == 'linear':
+            dpc2 /= 2 # reduce step size
+            new_pc2 = central_pc2[:-1] + dpc2/2
 
+        elif gridding == 'logarithmic':
+            rpc2 = rpc2**0.5
+            new_pc2 = central_pc2[:-1] * rpc2
 
+        else:
+            raise ValueError('regular gridding=%s not understood' % gridding)
 
-    raise NotImplementedError('''
-    mid_pc2_macro = np.array(foo(mid_pc2, eos, rtol=integration_rtol, **kwargs))
+        # set up updated arrays and solve for the new stellar sequences
+        pc2 = np.empty(2*len(central_pc2)-1, dtype=float)
+        pc2[::2] = central_pc2
+        pc2[1::2] = new_pc2
 
-    ### condition on whether we are accurate enough to determine recursive termination condition
-    # compute errors based on a linear interpolation
-    errors = mid_pc2_macro - (min_pc2_macro + (max_pc2_macro - min_pc2_macro) * (mid_pc2 - min_pc2) / (max_pc2 - min_pc2))
+        mac = np.empty((len(pc2), len(macro[0])), dtype=float)
+        mac[::2] = macro
+        mac[1::2] = _regular_stellar_sequence(new_pc2, foo, eos, integration_rtol, verbose=verbose, **kwargs)
 
-    if np.all(np.abs(errors) <= interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
-        return [min_pc2, mid_pc2, max_pc2], [min_pc2_macro, mid_pc2_macro, max_pc2_macro]
-''')
+        # update the arrays
+        central_pc2 = pc2
+        macro = mac
 
-
-
-
-
-
-
+        # update check
+        check = _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol)
 
     #---
+
+    if extend_down or extend_up:
+        central_pc2 = list(central_pc2) # make this a list so we can insert/append things easily
+        macro = list(macro)
 
     if extend_down: # extend the set of central_pc2 to lower values if needed
         if verbose:
