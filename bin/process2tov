@@ -41,6 +41,9 @@ parser.add_argument('--central-column-template', default=sequences.DEFAULT_CENTR
 parser.add_argument('--formalism', default=sequences.DEFAULT_FORMALISM, type=str,
     help='must be one of: %s. DEFAULT=%s'%(', '.join(sequences.KNOWN_FORMALISMS), sequences.DEFAULT_FORMALISM))
 
+parser.add_argument('--gridding', default=sequences.DEFAULT_GRIDDING, type=str,
+    help='must be one of: %s. DEFAULT=%s'%(', '.join(sequences.KNOWN_GRIDDINGS), sequences.DEFAULT_GRIDDING))
+
 parser.add_argument('--extend-up', default=False, action='store_true',
     help='extend the stellar sequence to higher central-pressurec2 until stopping criteria that guarantee no further stable branches are met')
 parser.add_argument('--extend-down', default=False, action='store_true',
@@ -61,7 +64,11 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 args = parser.parse_args()
 
-assert args.formalism in sequences.KNOWN_FORMALISMS, '--formalism=%s not understood; must be one of %s'%(args.formalism, ', '.join(sequences.KNOWN_FORMALISMS))
+assert args.formalism in sequences.KNOWN_FORMALISMS, \
+    '--formalism=%s not understood; must be one of %s'%(args.formalism, ', '.join(sequences.KNOWN_FORMALISMS))
+
+assert args.gridding in sequences.KNOWN_GRIDDINGS, \
+    '--gridding=%s not understood; must be one of %s'%(args.gridding, ', '.join(sequences.KNOWN_GRIDDINGS))
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
 
@@ -98,6 +105,7 @@ sequences.process2sequences(
     central_eos_column=args.central_eos_column,
     central_column_template=args.central_column_template,
     formalism=args.formalism,
+    gridding=args.gridding,
     extend_up=args.extend_up,
     extend_down=args.extend_down,
     min_num_models=args.min_num_models,

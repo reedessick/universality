@@ -22,14 +22,23 @@ DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space
 DEFAULT_INTEGRATION_RTOL = 1e-4
 
 KNOWN_FORMALISMS = [
-    'standard',
-    'standard_MR',
-    'standard_MRLambda',
     'logenthalpy',
     'logenthalpy_MR',
     'logenthalpy_MRLambda',
+    'standard',
+    'standard_MR',
+    'standard_MRLambda',
 ]
 DEFAULT_FORMALISM = KNOWN_FORMALISMS[0]
+
+KNOWN_REGULAR_GRIDDINGS = [
+    'logarithmic',
+    'linear',
+]
+DEFAULT_REGULAR_GRIDDING = KNOWN_REGULAR_GRIDDINGS[0]
+
+KNOWN_GRIDDINGS = ['bisection'] + KNOWN_REGULAR_GRIDDINGS
+DEFAULT_GRIDDING = KNOWN_GRIDDINGS[0]
 
 DEFAULT_CENTRAL_COLUMN_TEMPLATE = 'central_%s'
 
@@ -59,6 +68,7 @@ def process2sequences(
         central_eos_column=[],
         central_column_template=DEFAULT_CENTRAL_COLUMN_TEMPLATE,
         formalism=DEFAULT_FORMALISM,
+        gridding=DEFAULT_GRIDDING,
         extend_up=False,
         extend_down=False,
         verbose=False,
@@ -157,7 +167,8 @@ def process2sequences(
 
         ### now compute the stellar sequence
         if verbose:
-            print('solving for sequence of stellar models with formalism=%s'%formalism)
+            print('solving for sequence of stellar models with formalism=%s and gridding=%s'%(formalism, gridding))
+
         central_pc2, macro, macro_cols = stellar_sequence(
             min_central_pc2,
             max_central_pc2,
@@ -165,6 +176,7 @@ def process2sequences(
             central_pressurec2=central_pressurec2,
             verbose=Verbose,
             formalism=formalism,
+            gridding=gridding,
             extend_up=extend_up,
             extend_down=extend_down,
             **kwargs
@@ -190,6 +202,8 @@ def process2sequences(
         if verbose:
             print('writing stellar sequence to: '+macpath)
         io.write(macpath, sequence, columns)
+
+#-------------------------------------------------
 
 def append_central_values(
         central_pressurec2,
@@ -223,6 +237,8 @@ def append_central_values(
 
     return sequence, columns
 
+#-------------------------------------------------
+
 def stellar_sequence(
         min_central_pressurec2,
         max_central_pressurec2,
@@ -233,6 +249,7 @@ def stellar_sequence(
         min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         formalism=DEFAULT_FORMALISM,
+        gridding=DEFAULT_GRIDDING,
         extend_up=False,
         extend_down=False,
         verbose=False,
@@ -299,8 +316,96 @@ def stellar_sequence(
         assert (pc2 <= max_central_pressurec2), \
             'requested central_pressurec2=%.6e > max central_pressurec2=%.6e'%(pc2, max_central_pressurec2)
 
+    #--------------------
+
+    # figure out search algorithms based on gridding
+
+    if gridding == 'bisection':
+        central_pc2, macro = bisection_stellar_grid(
+            min_central_pressurec2,
+            max_central_pressurec2,
+            integrate,
+            eos,
+            min_eos_pc2,
+            max_eos_pc2,
+            macro_cols,
+            R_ind,
+            min_num_models=min_num_models,
+            interpolator_rtol=interpolator_rtol,
+            min_dpressurec2_rtol=min_dpressurec2_rtol,
+            integration_rtol=integration_rtol,
+            central_pressurec2=central_pressurec2,
+            extend_up=extend_up,
+            extend_down=extend_down,
+            verbose=verbose,
+            **kwargs
+        )
+
+    elif gridding in ['linear', 'logarithmic']:
+        central_pc2, macro = regular_stellar_grid(
+            min_central_pressurec2,
+            max_central_pressurec2,
+            integrate,
+            eos,
+            min_eos_pc2,
+            max_eos_pc2,
+            macro_cols,
+            R_ind,
+            gridding=gridding,
+            min_num_models=min_num_models,
+            interpolator_rtol=interpolator_rtol,
+            integration_rtol=integration_rtol,
+            central_pressurec2=central_pressurec2,
+            extend_up=extend_up,
+            extend_down=extend_down,
+            verbose=verbose,
+            **kwargs
+        )
+
+    else:
+        raise ValueError('gridding=%s not understood; must be one of: %s'%(gridding, ', '.join(KNOWN_GRIDDINGS)))
+
+    central_pc2 = np.array(central_pc2)
+    macro = np.array(macro)
+
+    #--------------------
+
+    ### exponentiate logLambda -> Lambda
+    if 'logLambda' in macro_cols:
+        ind = macro_cols.index('logLambda')
+        macro[:,ind] = np.exp(macro[:,ind])
+        macro_cols = [col for col in macro_cols] # make a copy so we don't overwrite the default list
+        macro_cols[ind] = 'Lambda'
+
+    ### return the results
+    return central_pc2, macro, macro_cols
+
+#-------------------------------------------------
+
+def bisection_stellar_grid(
+        min_central_pressurec2,
+        max_central_pressurec2,
+        integrate,
+        eos,
+        min_eos_pc2,
+        max_eos_pc2,
+        macro_cols,
+        R_ind,
+        central_pressurec2=[],
+        min_num_models=DEFAULT_MIN_NUM_MODELS,
+        interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
+        min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
+        integration_rtol=DEFAULT_INTEGRATION_RTOL,
+        extend_up=False,
+        extend_down=False,
+        verbose=False,
+        **kwargs
+    ):
+
     central_pressurec2 = sorted(central_pressurec2 + \
         list(np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models)))
+
+    #--------------------
 
     ### recursively call integrator until interpolation is accurate enough
     central_pc2 = [central_pressurec2[0]]
@@ -312,11 +417,11 @@ def stellar_sequence(
 
     ### perform recursive search to get a good interpolator
     for max_pc2 in central_pressurec2[1:]:
-        new_central_pc2, new_macro = bisection_stellar_sequence(
+        new_central_pc2, new_macro = _bisection_stellar_sequence(
             central_pc2[-1],
             max_pc2,
-            eos,
             integrate,
+            eos,
             min_pc2_macro=macro[-1],
             interpolator_rtol=interpolator_rtol,
             min_dpressurec2_rtol=min_dpressurec2_rtol,
@@ -337,7 +442,8 @@ def stellar_sequence(
 
         ind_M = macro_cols.index('M')
         M = [] # only look for the "new_macro"
-               # NOTE: this could create annoying behavior if one is not careful with the initial guess for the minimum central pressurec2
+               # NOTE: this could create annoying behavior if one is not careful with the initial guess
+               #       for the minimum central pressurec2
 
         stable = initial_stability(M)
         if verbose and (stable is None): # get printing to look pretty both when we do and do not integrate more models
@@ -346,11 +452,11 @@ def stellar_sequence(
         while (stable is None) and (central_pc2[0] > min_eos_pc2):
             min_pc2 = max(min_eos_pc2, central_pc2[0] / DEFAULT_EXTEND_DOWN_FACTOR) # increment the minimum value
 
-            new_central_pc2, new_macro = bisection_stellar_sequence(
+            new_central_pc2, new_macro = _bisection_stellar_sequence(
                 min_pc2,
                 central_pc2[0],
-                eos,
                 integrate,
+                eos,
                 max_pc2_macro=macro[0],
                 interpolator_rtol=interpolator_rtol,
                 min_dpressurec2_rtol=min_dpressurec2_rtol,
@@ -394,11 +500,11 @@ def stellar_sequence(
         while (collapsed is None) and (central_pc2[-1] < max_eos_pc2):
             max_pc2 = min(max_eos_pc2, central_pc2[-1] * DEFAULT_EXTEND_UP_FACTOR) # increment the maximum pc2 geometrically
 
-            new_central_pc2, new_macro = bisection_stellar_sequence(
+            new_central_pc2, new_macro = _bisection_stellar_sequence(
                 central_pc2[-1],
                 max_pc2,
-                eos,
                 integrate,
+                eos,
                 min_pc2_macro=macro[-1],
                 interpolator_rtol=interpolator_rtol,
                 min_dpressurec2_rtol=min_dpressurec2_rtol,
@@ -430,23 +536,15 @@ def stellar_sequence(
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-    macro = np.array(macro)
+    return central_pc2, macro
 
-    ### exponentiate logLambda -> Lambda
-    if 'logLambda' in macro_cols:
-        ind = macro_cols.index('logLambda')
-        macro[:,ind] = np.exp(macro[:,ind])
-        macro_cols = [col for col in macro_cols] # make a copy so we don't overwrite the default list
-        macro_cols[ind] = 'Lambda'
+#------------------------
 
-    ### return the results
-    return central_pc2, macro, macro_cols
-
-def bisection_stellar_sequence(
+def _bisection_stellar_sequence(
         min_pc2,
         max_pc2,
-        eos,
         foo,
+        eos,
         min_pc2_macro=None,
         max_pc2_macro=None,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
@@ -504,11 +602,11 @@ def bisection_stellar_sequence(
         return [min_pc2, mid_pc2, max_pc2], [min_pc2_macro, mid_pc2_macro, max_pc2_macro]
 
     else: # interpolation is not good enough, so we recurse to compute mid-points of sub-intervals
-        left_pc2, left_macro = bisection_stellar_sequence(
+        left_pc2, left_macro = _bisection_stellar_sequence(
             min_pc2,
             mid_pc2,
-            eos,
             foo,
+            eos,
             min_pc2_macro=min_pc2_macro,
             max_pc2_macro=mid_pc2_macro,
             interpolator_rtol=interpolator_rtol,
@@ -519,11 +617,11 @@ def bisection_stellar_sequence(
             **kwargs
         )
 
-        right_pc2, right_macro = bisection_stellar_sequence(
+        right_pc2, right_macro = _bisection_stellar_sequence(
             mid_pc2,
             max_pc2,
-            eos,
             foo,
+            eos,
             min_pc2_macro=mid_pc2_macro,
             max_pc2_macro=max_pc2_macro,
             interpolator_rtol=interpolator_rtol,
@@ -535,3 +633,225 @@ def bisection_stellar_sequence(
         )
 
         return left_pc2 + right_pc2[1:], left_macro + right_macro[1:] ### avoid returning repeated models
+
+#------------------------
+
+def _regular_stellar_sequence(central_pc2, foo, eos, integration_rtol, verbose=False, **kwargs):
+    macro = []
+    for pc2 in central_pc2:
+        if verbose:
+            sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
+            sys.stdout.flush()
+        macro.append( np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs)) )
+    return np.array(macro)
+
+def _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol, verbose=False):
+    mid_pc2 = central_pc2[::2]
+    mid_macro = macro[::2]
+
+    ref_pc2 = central_pc2[1::2]
+    ref_macro = macro[1::2]
+
+    for ind in range(len(macro_cols)):
+        errors = mid_macro[:,ind] - np.interp(mid_pc2, ref_pc2, ref_macro[:,ind])
+        if np.any(np.abs(errors) > interpolator_rtol*mid_macro[:,ind]):
+            if verbose:
+                print('interpolator not accurate enough for: '+macro_cols[ind])
+            return False # at least one macro fails the requirement somewhere
+
+    return True # all macros pass this requirement everywhere
+
+def regular_stellar_grid(
+        min_central_pressurec2,
+        max_central_pressurec2,
+        foo,
+        eos,
+        min_eos_pc2,
+        max_eos_pc2,
+        macro_cols,
+        R_ind,
+        gridding=DEFAULT_REGULAR_GRIDDING,
+        central_pressurec2=[],
+        min_num_models=DEFAULT_MIN_NUM_MODELS,
+        interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
+        integration_rtol=DEFAULT_INTEGRATION_RTOL,
+        extend_up=False,
+        extend_down=False,
+        verbose=False,
+        **kwargs
+    ):
+
+    assert min_num_models >= 2, 'min_num_models (%d) must be >= 2' % min_num_models
+
+    if gridding == 'linear':
+        central_pc2 = np.linspace(min_central_pressurec2, max_central_pressurec2, min_num_models)
+        dpc2 = central_pc2[1] - central_pc2[0]
+
+    elif gridding == 'logarithmic':
+        central_pc2 = np.logspace(np.log10(min_central_pressurec2), np.log10(max_central_pressurec2), min_num_models)
+        rpc2 = central_pc2[1] / central_pc2[0]
+
+    else:
+        raise ValueError('regular gridding=%s not understood; must be one of: %s'%(gridding, ', '.join(KNOWN_REGULAR_GRIDDINGS)))
+
+    # FIXME we would do something like the following, but this breaks my algorithm for adding more grid points (which assumes they are regularly spaced)...
+    # central_pc2 = sorted(central_pressurec2 + list(central_pc2))
+
+    assert len(central_pressurec2) == 0, \
+        'we do not yet know how to incorporate user-specified central_pressurec2 values within regular_stellar_grid'
+
+    #--------------------
+
+    ### iterate and compute models for each central_pressurec2
+    macro = _regular_stellar_sequence(central_pc2, foo, eos, integration_rtol, verbose=verbose, **kwargs)
+
+    #--- now check that we have an accurate enough interpolator. If we don't increase the grid size by a factor of 2 and repeat
+
+    check = _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol)
+    if verbose and (not check):
+        if verbose:
+            sys.stdout.write('\nincreasing number of grid points to meet interpolator_rtol requirement')
+            sys.stdout.flush()
+
+    while not check:
+        if verbose:
+            sys.stdout.write('\n  doubling the number of grid points\n')
+            sys.stdout.flush()
+
+
+        # identify the new grid points
+        if gridding == 'linear':
+            dpc2 /= 2 # reduce step size
+            new_pc2 = central_pc2[:-1] + dpc2/2
+
+        elif gridding == 'logarithmic':
+            rpc2 = rpc2**0.5
+            new_pc2 = central_pc2[:-1] * rpc2
+
+        else:
+            raise ValueError('regular gridding=%s not understood' % gridding)
+
+        # set up updated arrays and solve for the new stellar sequences
+        pc2 = np.empty(2*len(central_pc2)-1, dtype=float)
+        pc2[::2] = central_pc2
+        pc2[1::2] = new_pc2
+
+        mac = np.empty((len(pc2), len(macro[0])), dtype=float)
+        mac[::2] = macro
+        mac[1::2] = _regular_stellar_sequence(new_pc2, foo, eos, integration_rtol, verbose=verbose, **kwargs)
+
+        # update the arrays
+        central_pc2 = pc2
+        macro = mac
+
+        # update check
+        check = _check_regular_stellar_sequence(central_pc2, macro, macro_cols, interpolator_rtol)
+
+    #---
+
+    if extend_down or extend_up:
+        central_pc2 = list(central_pc2) # make this a list so we can insert/append things easily
+        macro = list(macro)
+
+    if extend_down: # extend the set of central_pc2 to lower values if needed
+        if verbose:
+            sys.stdout.write('\nextending search to lower central pressures if stopping criteria are not met')
+
+        ind_M = macro_cols.index('M')
+        M = [] # only look for the "new_macro"
+               # NOTE: this could create annoying behavior if one is not careful with the initial guess
+               #       for the minimum central pressurec2
+
+        stable = initial_stability(M)
+        if verbose and (stable is None): # get printing to look pretty both when we do and do not integrate more models
+            sys.stdout.write('\n')
+
+        while (stable is None) and (central_pc2[0] > min_eos_pc2):
+            if gridding == 'linear':
+                pc2 = central_pc2[0] - dpc2
+            elif gridding == 'logarithmic':
+                pc2 = central_pc2[0] / rpc2
+            else:
+                raise ValueError('regular gridding=%s not understood'%gridding)
+
+            # compute new stellar sequence
+            pc2 = max(min_eos_pc2, pc2) # increment the minimum value
+
+            if verbose:
+                sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
+                sys.stdout.flush()
+
+            new_macro = np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs))
+
+            ### add the stellar models to the cumulative list
+            central_pc2.insert(0, pc2)
+            macro.insert(0, new_macro)
+
+            M.insert(0, new_macro[ind_M])
+
+            stable = initial_stability(M)
+
+        if stable is not None:
+            sys.stdout.write('\ninitial stopping criteria reached at pressurec2=%.6e (M=%.6f)' % \
+                (central_pc2[stable], M[stable]))
+
+        else:
+            sys.stdout.write('\nWARNING! stopping criteria *not* reached before the minimum pressure within the EoS (%.6e)' % \
+                central_pc2[0])
+
+    #---
+
+    if extend_up: # extend the set of central_pc2 to higher values if needed
+        if verbose:
+            sys.stdout.write('\nextending search to higher central pressures if stopping criteria are not met')
+
+        ind_R = macro_cols.index('R') # look these up once
+        ind_M = macro_cols.index('M')
+
+        M = [_[ind_M] for _ in macro] # used to compute stopping criteria
+        R = [_[ind_R] for _ in macro]
+
+        collapsed = final_collapse(M,R)
+        if verbose and (collapsed is None): # get printing to look pretty both when we do and do not integrate more models
+            sys.stdout.write('\n')
+
+        while (collapsed is None) and (central_pc2[-1] < max_eos_pc2):
+            if gridding == 'linear':
+                pc2 = central_pc2[-1] + dpc2
+            elif gridding == 'logarithmic':
+                pc2 = central_pc2[-1] * rpc2
+            else:
+                raise ValueError('regular gridding=%s not understood'%gridding)
+
+            pc2 = min(max_eos_pc2, pc2) # increment the maximum pc2 geometrically
+
+            if verbose:
+                sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
+                sys.stdout.flush()
+
+            new_macro = np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs))
+
+            ### add the stellar models to the cumulative list
+            central_pc2.append(pc2)
+            macro.append(new_macro)
+
+            M.append(new_macro[ind_M])
+            R.append(new_macro[ind_R])
+
+            collapsed = final_collapse(M, R)
+
+        if collapsed is not None:
+            sys.stdout.write('\nfinal stopping criteria reached at pressurec2=%.6e (M=%.6f R=%.6f)' % \
+                (central_pc2[collapsed], M[collapsed], R[collapsed]))
+
+        else:
+            sys.stdout.write('\nWARNING! final stopping criteria *not* reached before the maximum pressure within the EoS (%.6e)' % \
+                central_pc2[-1])
+
+    #---
+
+    if verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    return central_pc2, macro
