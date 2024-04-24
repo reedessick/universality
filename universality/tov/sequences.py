@@ -353,6 +353,7 @@ def stellar_sequence(
             R_ind,
             gridding=gridding,
             min_num_models=min_num_models,
+            interpolator_rtol=interpolator_rtol,
             integration_rtol=integration_rtol,
             central_pressurec2=central_pressurec2,
             extend_up=extend_up,
@@ -647,12 +648,15 @@ def regular_stellar_grid(
         gridding=DEFAULT_REGULAR_GRIDDING,
         central_pressurec2=[],
         min_num_models=DEFAULT_MIN_NUM_MODELS,
+        interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         extend_up=False,
         extend_down=False,
         verbose=False,
         **kwargs
     ):
+
+    assert min_num_models >= 2, 'min_num_models (%d) must be >= 2' % min_num_models
 
     if gridding == 'linear':
         central_pc2 = np.linspace(min_central_pressurec2, max_central_pressurec2, min_num_models)
@@ -676,6 +680,34 @@ def regular_stellar_grid(
             sys.stdout.write('\r    computing stellar model with central pressure/c2 = %.6e'%pc2)
             sys.stdout.flush()
         macro.append( np.array(foo(pc2, eos, rtol=integration_rtol, **kwargs)) )
+
+    #--- now check that we have an accurate enough interpolator
+
+
+
+
+
+
+
+
+
+    raise NotImplementedError('''
+    mid_pc2_macro = np.array(foo(mid_pc2, eos, rtol=integration_rtol, **kwargs))
+
+    ### condition on whether we are accurate enough to determine recursive termination condition
+    # compute errors based on a linear interpolation
+    errors = mid_pc2_macro - (min_pc2_macro + (max_pc2_macro - min_pc2_macro) * (mid_pc2 - min_pc2) / (max_pc2 - min_pc2))
+
+    if np.all(np.abs(errors) <= interpolator_rtol*mid_pc2_macro): ### interpolation is "good enough"
+        return [min_pc2, mid_pc2, max_pc2], [min_pc2_macro, mid_pc2_macro, max_pc2_macro]
+''')
+
+
+
+
+
+
+
 
     #---
 
