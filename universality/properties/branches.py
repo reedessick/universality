@@ -46,7 +46,7 @@ def final_collapse(M, R):
 
 #------------------------
 
-def Mrhoc2branches(M, rhoc):
+def Mrhoc2branches(M, rhoc, R=None):
     """take the M-rhoc curve and separate it into separate stable branches.
     Note! assumes models are ordered by increasing rhoc
     returns a list of boolean arrays denoting where each branch starts and ends
@@ -73,6 +73,9 @@ def Mrhoc2branches(M, rhoc):
 
     if start!=end:
         branches.append(_bounds2bool(start, end, N))
+
+    if R is not None:
+        branches = [branch for branch in branches if (R[branch][1] < R[branch][0])]
 
     return branches
 
