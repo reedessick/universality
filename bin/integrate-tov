@@ -8,6 +8,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 import numpy as np
 
+import time
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -59,6 +61,8 @@ parser.add_argument('--outpath', default=None, type=str)
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
+parser.add_argument('--time-integration', default=False, action='store_true')
+
 args = parser.parse_args()
 
 assert args.formalism in sequences.KNOWN_FORMALISMS, \
@@ -72,7 +76,8 @@ if args.outpath is None:
 
 min_central_pressurec2, max_central_pressurec2 = args.central_pressurec2_range
 
-args.verbose |= args.Verbose
+args.time_integration |= args.Verbose
+args.verbose |= args.time_integration
 
 #-------------------------------------------------
 
@@ -168,6 +173,9 @@ if args.verbose:
 ### now compute the stellar sequence
 if args.verbose:
     print('solving for sequence of stellar models with formalism=%s and gridding=%s'%(args.formalism, args.gridding))
+    if args.time_integration:
+        t0 = time.time()
+
 central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_central_pressurec2,
     max_central_pressurec2,
@@ -183,8 +191,13 @@ central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     verbose=args.Verbose,
 )
 
-if args.verbose:
-    print('    evaluated %d stellar models'%len(central_pressurec2))
+if args.time_integration:
+    t0 = time.time() - t0
+    print('    evaluated %d stellar models (%.6f sec --> %.6f ms/model)' % \
+        (len(central_pressurec2), t0, 1e3*t0/len(central_pressurec2)))
+
+elif args.verbose:
+    print('    evaluated %d stellar models' % len(central_pressurec2))
 
 sequence, columns = sequences.append_central_values(
     central_pressurec2,
