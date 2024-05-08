@@ -10,8 +10,8 @@ c2 = c**2
 
 Msun = 1.989e33     # mass of the sun in (g)
 
-Mproton = 1.67262192370e-24 ### mass of the proton (g)
-Mneutron = 1.67492749804e-14 ### mass of the neutron (g)
+Mproton =  1.67262192370e-24 ### mass of the proton (g)
+Mneutron = 1.67492749804e-24 ### mass of the neutron (g)
 
 Mnuc = Mproton ### an arbitrary choice for reference.
 
