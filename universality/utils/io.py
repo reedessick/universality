@@ -112,7 +112,7 @@ def write(path, data, cols, footer='', tmpdir='.', tmpdigits=6, verbose=False):
     tmppath = os.path.join(tmpdir, "."+os.path.basename(path)+'-'+''.join(np.random.choice(ALPHANUMERIC, size=tmpdigits))) ### save to a temporary file
     if verbose:
         print('writing to temporary file location: '+tmppath)
-    np.savetxt(tmppath, data, header=','.join(cols), comments='', delimiter=',')
+    np.savetxt(tmppath, data, header=','.join(cols), footer=footer, comments='', delimiter=',')
 
     if verbose:
         print('moving to final location: '+path)
