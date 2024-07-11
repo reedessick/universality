@@ -272,12 +272,44 @@ if args.plot:
 
     figtup = None
 
+    #---
+
     # plot the external process
     if args.Verbose:
         print('    plotting external process')
+
     for m in external_model:
         m['x'] = np.exp(m['x'])
 
+    # plot external_model separately
+    fig = plot.overlay_model(
+        external_model,
+        color=plot.DEFAULT_COLOR3,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.75,
+    )[0]
+
+    plot.save(
+        'gpr-fix-marginal-external_model%s'%args.tag,
+        fig,
+        figtypes=args.figtype,
+        directory=args.output_dir,
+        verbose=args.verbose,
+        dpi=args.dpi,
+    )
+    plot.close(fig)
+
+    # add to cumulative plot
     figtup = plot.overlay_model(
         external_model,
         color=plot.DEFAULT_COLOR3,
@@ -296,12 +328,44 @@ if args.plot:
         figtup=figtup,
     )
 
+    #---
+
     # plot the original processes
     if args.Verbose:
         print('    plotting original process')
+
     for m in original_model: ### exponentiate the x-variable for plotting purposes
         m['x'] = np.exp(m['x'])
 
+    # plot original process separately
+    fig = plot.overlay_model(
+        original_model,
+        color=plot.DEFAULT_COLOR2,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+    )[0]
+
+    plot.save(
+        'gpr-fix-marginal-original_model%s'%args.tag,
+        fig,
+        figtypes=args.figtype,
+        directory=args.output_dir,
+        verbose=args.verbose,
+        dpi=args.dpi,
+    )
+    plot.close(fig)
+
+    # add to cumulative plot
     figtup = plot.overlay_model(
         original_model,
         color=plot.DEFAULT_COLOR2,
@@ -320,6 +384,8 @@ if args.plot:
         figtup=figtup,
     )
 
+    #---
+
     # plot the new process
     if args.Verbose:
         print('    loading updated process from: '+hdf5path)
@@ -330,6 +396,35 @@ if args.plot:
     for m in updated_model:
         m['x'] = np.exp(m['x'])
 
+    # plot updated process separately
+    fig = plot.overlay_model(
+        updated_model,
+        color=plot.DEFAULT_COLOR1,
+        logx=True,
+        logy=False,
+        xlabel='$p/c^2$',
+        ylabel=args.ylabel,
+        fractions=args.fractions,
+        residuals=args.residuals,
+        ratios=args.ratios,
+        figwidth=args.figwidth,
+        figheight=args.figheight,
+        grid=args.grid,
+        levels=args.level,
+        alpha=0.25,
+    )[0]
+
+    plot.save(
+        'gpr-fix-marginal-updated_model%s'%args.tag,
+        fig,
+        figtypes=args.figtype,
+        directory=args.output_dir,
+        verbose=args.verbose,
+        dpi=args.dpi,
+    )
+    plot.close(fig)
+
+    # add to cumulative plot
     figtup = plot.overlay_model(
         updated_model,
         color=plot.DEFAULT_COLOR1,
@@ -348,8 +443,9 @@ if args.plot:
         figtup=figtup,
     )
 
-    # save
+    #---
 
+    # save cumulative plot
     fig = figtup[0]
 
     plot.save(

@@ -215,7 +215,7 @@ def overlay_model(
         model,
         color=plt.DEFAULT_COLOR1,
         alpha=plt.DEFAULT_ALPHA,
-        color_minimum=0.01,
+        color_minimum=0.1,
         linestyle=plt.DEFAULT_LINESTYLE,
         marker=plt.DEFAULT_MARKER,
         levels=plt.DEFAULT_LEVELS, ### the confidence levels to include in shading
