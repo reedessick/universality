@@ -21,7 +21,7 @@ def neff(weights):
 
 def entropy(weights, base=2.):
     """compute the entropy of the distribution"""
-    weights = np.array(weights)
+    weights = np.array(weights, dtype=float)
     truth = weights > 0
     weights /= np.sum(weights)
     return -np.sum(weights[truth]*np.log(weights[truth])) / np.log(base)
