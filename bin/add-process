@@ -37,7 +37,7 @@ args.weight_and_inpath = [(float(w), p) for w, p in args.weight_and_inpath]
 if args.verbose:
     print('writing summed process to: '+args.outpath)
 i = 0
-with open(args.outpath, 'w') as out_obj:
+with h5py.File(args.outpath, 'w') as out_obj:
     for weight, inpath in args.weight_and_inpath:
         if args.verbose:
             print('reading process from %s and multiplying weights by %f'%(inpath, weight))
