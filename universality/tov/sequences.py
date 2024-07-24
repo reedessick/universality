@@ -17,7 +17,7 @@ from universality.properties.branches import (initial_stability, final_collapse)
 DEFAULT_MIN_NUM_MODELS = 2
 
 DEFAULT_INTERPOLATOR_RTOL = 1e-2 ### used to determine accuracy of interpolator for macroscopic properties
-DEFAULT_MIN_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space central pressures
+DEFAULT_DPRESSUREC2_RTOL = 1e-2 ### used put a limit on how closely we space central pressures
 
 DEFAULT_INTEGRATION_RTOL = 1e-4
 
@@ -246,7 +246,7 @@ def stellar_sequence(
         central_pressurec2=[],
         min_num_models=DEFAULT_MIN_NUM_MODELS,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
-        min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
+        dpressurec2_rtol=DEFAULT_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         formalism=DEFAULT_FORMALISM,
         gridding=DEFAULT_GRIDDING,
@@ -332,7 +332,7 @@ def stellar_sequence(
             R_ind,
             min_num_models=min_num_models,
             interpolator_rtol=interpolator_rtol,
-            min_dpressurec2_rtol=min_dpressurec2_rtol,
+            dpressurec2_rtol=dpressurec2_rtol,
             integration_rtol=integration_rtol,
             central_pressurec2=central_pressurec2,
             extend_up=extend_up,
@@ -394,7 +394,7 @@ def bisection_stellar_grid(
         central_pressurec2=[],
         min_num_models=DEFAULT_MIN_NUM_MODELS,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
-        min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
+        dpressurec2_rtol=DEFAULT_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         extend_up=False,
         extend_down=False,
@@ -424,7 +424,7 @@ def bisection_stellar_grid(
             eos,
             min_pc2_macro=macro[-1],
             interpolator_rtol=interpolator_rtol,
-            min_dpressurec2_rtol=min_dpressurec2_rtol,
+            dpressurec2_rtol=dpressurec2_rtol,
             integration_rtol=integration_rtol,
             R_ind=R_ind,
             verbose=verbose,
@@ -459,7 +459,7 @@ def bisection_stellar_grid(
                 eos,
                 max_pc2_macro=macro[0],
                 interpolator_rtol=interpolator_rtol,
-                min_dpressurec2_rtol=min_dpressurec2_rtol,
+                dpressurec2_rtol=dpressurec2_rtol,
                 integration_rtol=integration_rtol,
                 R_ind=R_ind,
                 verbose=verbose,
@@ -507,7 +507,7 @@ def bisection_stellar_grid(
                 eos,
                 min_pc2_macro=macro[-1],
                 interpolator_rtol=interpolator_rtol,
-                min_dpressurec2_rtol=min_dpressurec2_rtol,
+                dpressurec2_rtol=dpressurec2_rtol,
                 integration_rtol=integration_rtol,
                 R_ind=R_ind,
                 verbose=verbose,
@@ -548,7 +548,7 @@ def _bisection_stellar_sequence(
         min_pc2_macro=None,
         max_pc2_macro=None,
         interpolator_rtol=DEFAULT_INTERPOLATOR_RTOL,
-        min_dpressurec2_rtol=DEFAULT_MIN_DPRESSUREC2_RTOL,
+        dpressurec2_rtol=DEFAULT_DPRESSUREC2_RTOL,
         integration_rtol=DEFAULT_INTEGRATION_RTOL,
         R_ind=None,
         verbose=False,
@@ -579,7 +579,7 @@ def _bisection_stellar_sequence(
     max_pc2_macro = np.array(max_pc2_macro)
 
     ### check to see whether central pressures are close enough
-    if 2*(max_pc2 - min_pc2) < min_dpressurec2_rtol * (max_pc2 + min_pc2):
+    if 2*(max_pc2 - min_pc2) < dpressurec2_rtol * (max_pc2 + min_pc2):
         return [min_pc2, max_pc2], [min_pc2_macro, max_pc2_macro]
 
     ### integrate at the mid point
@@ -610,7 +610,7 @@ def _bisection_stellar_sequence(
             min_pc2_macro=min_pc2_macro,
             max_pc2_macro=mid_pc2_macro,
             interpolator_rtol=interpolator_rtol,
-            min_dpressurec2_rtol=min_dpressurec2_rtol,
+            dpressurec2_rtol=dpressurec2_rtol,
             R_ind=R_ind,
             integration_rtol=integration_rtol,
             verbose=verbose,
@@ -625,7 +625,7 @@ def _bisection_stellar_sequence(
             min_pc2_macro=mid_pc2_macro,
             max_pc2_macro=max_pc2_macro,
             interpolator_rtol=interpolator_rtol,
-            min_dpressurec2_rtol=min_dpressurec2_rtol,
+            dpressurec2_rtol=dpressurec2_rtol,
             R_ind=R_ind,
             integration_rtol=integration_rtol,
             verbose=verbose,

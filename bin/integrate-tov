@@ -55,6 +55,7 @@ parser.add_argument('--extend-down', default=False, action='store_true',
 parser.add_argument('--min-num-models', default=sequences.DEFAULT_MIN_NUM_MODELS, type=int)
 parser.add_argument('--interpolator-rtol', default=sequences.DEFAULT_INTERPOLATOR_RTOL, type=float)
 parser.add_argument('--integration-rtol', default=sequences.DEFAULT_INTEGRATION_RTOL, type=float)
+parser.add_argument('--dpressurec2-rtol', default=sequences.DEFAULT_DPRESSUREC2_RTOL, type=float)
 
 parser.add_argument('--outpath', default=None, type=str)
 
@@ -184,6 +185,7 @@ central_pressurec2, macro, macro_cols = sequences.stellar_sequence(
     min_num_models=args.min_num_models,
     interpolator_rtol=args.interpolator_rtol,
     integration_rtol=args.integration_rtol,
+    dpressurec2_rtol=args.dpressurec2_rtol,
     formalism=args.formalism,
     gridding=args.gridding,
     extend_up=args.extend_up,
